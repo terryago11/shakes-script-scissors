@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

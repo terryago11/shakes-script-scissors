@@ -1,0 +1,44 @@
+import type { Play } from "@/types/play";
+import type { Actor } from "@/types/project";
+
+interface Props {
+  actor: Actor;
+  counts: { characters: string[]; original: number; afterCut: number };
+  play: Play;
+}
+
+export default function ActorRow({ actor, counts, play }: Props) {
+  const { original, afterCut, characters } = counts;
+  const pct = original > 0 ? afterCut / original : 1;
+
+  const charNames = characters
+    .map((cId) => play.castList.find((c) => c.id === cId)?.name || cId)
+    .join(", ");
+
+  return (
+    <div className="py-1">
+      <div className="flex items-center gap-2 mb-0.5">
+        <div
+          className="w-2 h-2 rounded-full shrink-0"
+          style={{ backgroundColor: actor.color }}
+        />
+        <div className="text-xs font-medium text-stone-700 truncate">{actor.name}</div>
+        <div className="ml-auto text-xs text-stone-500 tabular-nums">
+          <span className="font-medium">{afterCut}</span>
+          <span className="text-stone-300"> / {original}</span>
+        </div>
+      </div>
+      <div className="ml-4">
+        <div className="h-1 bg-stone-100 rounded-full overflow-hidden mb-0.5">
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${pct * 100}%`, backgroundColor: actor.color }}
+          />
+        </div>
+        {charNames && (
+          <div className="text-xs text-stone-400 truncate">{charNames}</div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,3 @@
+[submodule "shakedracor"]
+	path = shakedracor
+	url = https://github.com/dracor-org/shakedracor.git
