@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useProject } from "@/lib/project/ProjectStore";
+import { useProject, listProjectsFromApi, type ProjectSummary } from "@/lib/project/ProjectStore";
 import { importProjectFromFile } from "@/lib/project/projectIO";
 import type { PlayMeta } from "@/lib/folger/FolgerClient";
 
@@ -13,6 +13,7 @@ export default function HomePage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [importError, setImportError] = useState<string | null>(null);
+  const [storedProjects, setStoredProjects] = useState<ProjectSummary[]>([]);
 
   useEffect(() => {
     fetch("/api/plays")
@@ -22,14 +23,16 @@ export default function HomePage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+
+    listProjectsFromApi().then(setStoredProjects);
   }, []);
 
   const filtered = plays.filter((p) =>
     p.title.toLowerCase().includes(search.toLowerCase())
   );
 
-  function handleSelectPlay(play: PlayMeta) {
-    const project = createProject(play.id, play.title);
+  async function handleSelectPlay(play: PlayMeta) {
+    const project = await createProject(play.id, play.title);
     router.push(`/projects/${project.id}`);
   }
 
@@ -37,6 +40,11 @@ export default function HomePage() {
     setImportError(null);
     try {
       const project = await importProjectFromFile();
+      await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(project),
+      });
       loadProject(project);
       router.push(`/projects/${project.id}`);
     } catch (e) {
@@ -68,6 +76,29 @@ export default function HomePage() {
           <span className="text-red-600 text-sm self-center">{importError}</span>
         )}
       </div>
+
+      {storedProjects.length > 0 && (
+        <section className="mb-10">
+          <h2 className="text-xl font-semibold text-stone-700 mb-4">
+            Recent projects
+          </h2>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {storedProjects.map((p) => (
+              <li key={p.id}>
+                <button
+                  onClick={() => router.push(`/projects/${p.id}`)}
+                  className="w-full text-left px-4 py-3 rounded-lg border border-stone-200 bg-white hover:bg-amber-50 hover:border-amber-300 transition-colors"
+                >
+                  <div className="text-stone-800 text-sm font-medium">{p.playTitle}</div>
+                  <div className="text-stone-400 text-xs mt-0.5">
+                    Last saved {new Date(p.updatedAt).toLocaleDateString()}
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <h2 className="text-xl font-semibold text-stone-700 mb-4">
         Start a new project — choose a play

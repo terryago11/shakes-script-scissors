@@ -1,10 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef, useState } from "react";
 import type { Project, Actor, ActorAssignment, Cut } from "@/types/project";
 import { generateId, defaultColors } from "./projectUtils";
 
-const STORAGE_PREFIX = "sss-project-";
 const CURRENT_VERSION = 1;
 
 // --- State and actions ---
@@ -218,7 +217,8 @@ interface ProjectContextValue {
   activeCutId: string | null;
   activeCut: Cut | null;
   dispatch: React.Dispatch<ProjectAction>;
-  createProject: (playId: string, playTitle: string) => Project;
+  saveError: string | null;
+  createProject: (playId: string, playTitle: string) => Promise<Project>;
   loadProject: (project: Project) => void;
   unloadProject: () => void;
 }
@@ -227,21 +227,41 @@ const ProjectContext = createContext<ProjectContextValue | null>(null);
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, { project: null, activeCutId: null });
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Persist to localStorage whenever project changes
+  // Debounced save — 800ms after last mutation
   useEffect(() => {
     if (!state.project) return;
-    try {
-      localStorage.setItem(
-        `${STORAGE_PREFIX}${state.project.id}`,
-        JSON.stringify(state.project)
-      );
-    } catch (e) {
-      console.warn("[ProjectStore] Failed to persist to localStorage:", e);
-    }
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    const snapshot = state.project;
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/projects/${snapshot.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Expected-Updated-At": snapshot.updatedAt,
+          },
+          body: JSON.stringify(snapshot),
+        });
+        if (res.status === 409) {
+          setSaveError("conflict");
+        } else if (!res.ok) {
+          setSaveError(`Save failed (${res.status})`);
+        } else {
+          setSaveError(null);
+        }
+      } catch {
+        setSaveError("Network error — changes not saved");
+      }
+    }, 800);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
   }, [state.project]);
 
-  const createProject = useCallback((playId: string, playTitle: string): Project => {
+  const createProject = useCallback(async (playId: string, playTitle: string): Promise<Project> => {
     const id = generateId();
     const firstCutId = generateId();
     const project: Project = {
@@ -264,6 +284,17 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       updatedAt: now(),
     };
     dispatch({ type: "LOAD", project });
+    // Immediate POST — new record must exist in DB before navigation
+    try {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(project),
+      });
+      if (!res.ok) setSaveError("Failed to create project on server");
+    } catch {
+      setSaveError("Network error — project not saved to server");
+    }
     return project;
   }, []);
 
@@ -286,6 +317,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         activeCutId: state.activeCutId,
         activeCut,
         dispatch,
+        saveError,
         createProject,
         loadProject,
         unloadProject,
@@ -302,27 +334,31 @@ export function useProject() {
   return ctx;
 }
 
-/** Load a project from localStorage by ID */
-export function loadProjectFromStorage(projectId: string): Project | null {
-  if (typeof window === "undefined") return null;
+export interface ProjectSummary {
+  id: string;
+  playId: string;
+  playTitle: string;
+  updatedAt: string;
+}
+
+/** Load a full project from the API by ID */
+export async function loadProjectFromApi(projectId: string): Promise<Project | null> {
   try {
-    const raw = localStorage.getItem(`${STORAGE_PREFIX}${projectId}`);
-    if (!raw) return null;
-    return JSON.parse(raw) as Project;
+    const res = await fetch(`/api/projects/${projectId}`);
+    if (!res.ok) return null;
+    return (await res.json()) as Project;
   } catch {
     return null;
   }
 }
 
-/** List all project IDs stored in localStorage */
-export function listStoredProjectIds(): string[] {
-  if (typeof window === "undefined") return [];
-  const ids: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key?.startsWith(STORAGE_PREFIX)) {
-      ids.push(key.slice(STORAGE_PREFIX.length));
-    }
+/** List all project summaries from the API */
+export async function listProjectsFromApi(): Promise<ProjectSummary[]> {
+  try {
+    const res = await fetch("/api/projects");
+    if (!res.ok) return [];
+    return (await res.json()) as ProjectSummary[];
+  } catch {
+    return [];
   }
-  return ids;
 }

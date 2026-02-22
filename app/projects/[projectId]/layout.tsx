@@ -2,8 +2,8 @@
 
 import { useEffect, use } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useProject, loadProjectFromStorage } from "@/lib/project/ProjectStore";
+import { useRouter, usePathname } from "next/navigation";
+import { useProject, loadProjectFromApi } from "@/lib/project/ProjectStore";
 import { exportProject } from "@/lib/project/projectIO";
 import CutSelector from "@/components/CutSelector/CutSelector";
 
@@ -15,14 +15,16 @@ export default function ProjectLayout({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = use(params);
-  const { project, loadProject } = useProject();
+  const router = useRouter();
+  const { project, loadProject, saveError } = useProject();
   const pathname = usePathname();
 
-  // Hydrate from localStorage if not already loaded (e.g. on page refresh)
+  // Hydrate from API if not already loaded (e.g. on page refresh)
   useEffect(() => {
     if (!project || project.id !== projectId) {
-      const stored = loadProjectFromStorage(projectId);
-      if (stored) loadProject(stored);
+      loadProjectFromApi(projectId).then((p) => {
+        if (p) loadProject(p);
+      });
     }
   }, [projectId, project, loadProject]);
 
@@ -42,6 +44,20 @@ export default function ProjectLayout({
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Conflict banner */}
+      {saveError === "conflict" && (
+        <div className="fixed inset-x-0 top-14 z-50 bg-red-600 text-white text-sm text-center py-2 px-4 font-medium">
+          ⚠ This project was modified by someone else.{" "}
+          <button
+            onClick={() => window.location.reload()}
+            className="underline ml-1"
+          >
+            Refresh to see latest version
+          </button>{" "}
+          — your unsaved changes will be lost.
+        </div>
+      )}
+
       {/* Top nav */}
       <header className="no-print border-b border-stone-200 bg-white sticky top-0 z-50">
         <div className="max-w-screen-xl mx-auto px-4 h-14 flex items-center gap-6">
@@ -73,11 +89,25 @@ export default function ProjectLayout({
 
           <div className="ml-auto flex items-center gap-3">
             <CutSelector />
+            {saveError && saveError !== "conflict" && (
+              <span className="text-xs text-red-500" title={saveError}>
+                ⚠ Unsaved
+              </span>
+            )}
             <button
               onClick={() => exportProject(project)}
               className="text-xs px-3 py-1.5 rounded border border-stone-300 text-stone-600 hover:bg-stone-50"
             >
               Export JSON
+            </button>
+            <button
+              onClick={async () => {
+                await fetch("/api/auth/logout", { method: "POST" });
+                router.push("/login");
+              }}
+              className="text-xs text-stone-400 hover:text-stone-600"
+            >
+              Sign out
             </button>
           </div>
         </div>
