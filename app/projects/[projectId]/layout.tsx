@@ -31,8 +31,15 @@ export default function ProjectLayout({
         setTimeout(() => setShareLabel("Share"), 2500);
         return;
       }
-      await navigator.clipboard.writeText(url);
-      setShareLabel("Copied!");
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareLabel("Copied!");
+      } catch {
+        // Clipboard write failed (e.g. no focus) — show URL in prompt as fallback
+        window.prompt("Copy this share link:", url);
+        setShareLabel("Share");
+        return;
+      }
       setTimeout(() => setShareLabel("Share"), 2500);
     } catch {
       setShareLabel("Share");
