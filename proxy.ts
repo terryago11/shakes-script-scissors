@@ -17,16 +17,17 @@ function isPublic(pathname: string): boolean {
   return false;
 }
 
-export const runtime = "nodejs";
-
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (isPublic(pathname)) return NextResponse.next();
 
   // iron-session v8 in middleware: pass request + a mutable response
   const res = NextResponse.next();
-  const session = await getIronSession<SessionData>(request, res, sessionOptions());
+  const session = await getIronSession<SessionData>(request, res, {
+    password: process.env.SESSION_SECRET!,
+    cookieName: "sss_session",
+  });
 
   if (!session.isLoggedIn) {
     if (pathname.startsWith("/api/")) {
