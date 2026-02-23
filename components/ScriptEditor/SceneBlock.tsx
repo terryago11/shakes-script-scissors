@@ -12,7 +12,7 @@ interface Props {
   units: ScriptUnitWithStatus[];
   assignments: ActorAssignment[];
   actors: Actor[];
-  onToggle: (unitId: string) => void;
+  onToggle: ((unitId: string) => void) | null;
 }
 
 export default function SceneBlock({ scene, units, assignments, actors, onToggle }: Props) {
@@ -62,14 +62,14 @@ export default function SceneBlock({ scene, units, assignments, actors, onToggle
                 speech={unit}
                 status={status}
                 actorColor={charColor[unit.characterId]}
-                onToggle={() => onToggle(unit.id)}
+                onToggle={onToggle ? () => onToggle(unit.id) : null}
               />
             ) : (
               <StageDirectionBlock
                 key={unit.id}
                 stage={unit}
                 status={status}
-                onToggle={() => onToggle(unit.id)}
+                onToggle={onToggle ? () => onToggle(unit.id) : null}
               />
             )
           )}

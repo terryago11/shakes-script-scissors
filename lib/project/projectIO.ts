@@ -63,6 +63,38 @@ export function importProjectFromJson(json: string): Project {
   return result.data as Project;
 }
 
+// --- URL-based sharing (compress → base64url) ---
+
+/** Encode a project to a compact base64url string for use in a share URL */
+export async function encodeProjectForUrl(project: Project): Promise<string> {
+  const json = JSON.stringify(project);
+  const bytes = new TextEncoder().encode(json);
+  const cs = new CompressionStream("gzip");
+  const writer = cs.writable.getWriter();
+  writer.write(bytes);
+  writer.close();
+  const compressed = await new Response(cs.readable).arrayBuffer();
+  // Convert to base64url (URL-safe, no padding issues)
+  const b64 = btoa(String.fromCharCode(...new Uint8Array(compressed)));
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+/** Decode a share URL payload back into a Project (throws on bad data) */
+export async function decodeProjectFromUrl(encoded: string): Promise<Project> {
+  // Restore base64 from base64url
+  const b64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  const ds = new DecompressionStream("gzip");
+  const writer = ds.writable.getWriter();
+  writer.write(bytes);
+  writer.close();
+  const decompressed = await new Response(ds.readable).arrayBuffer();
+  const json = new TextDecoder().decode(decompressed);
+  return importProjectFromJson(json);
+}
+
 /** Open a file picker and return the imported Project */
 export function importProjectFromFile(): Promise<Project> {
   return new Promise((resolve, reject) => {

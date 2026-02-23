@@ -6,21 +6,24 @@ interface Props {
   speech: Speech;
   status: "kept" | "cut";
   actorColor?: string;
-  onToggle: () => void;
+  onToggle: (() => void) | null;
 }
 
 export default function SpeechBlock({ speech, status, actorColor, onToggle }: Props) {
   const isCut = status === "cut";
+  const readonly = onToggle === null;
 
   return (
     <div
-      className={`group flex gap-3 py-2 px-2 rounded cursor-pointer transition-colors ${
-        isCut
-          ? "opacity-40 hover:opacity-70 bg-stone-50"
-          : "hover:bg-stone-50"
+      className={`group flex gap-3 py-2 px-2 rounded transition-colors ${
+        readonly
+          ? isCut ? "opacity-40 bg-stone-50" : ""
+          : isCut
+          ? "opacity-40 hover:opacity-70 bg-stone-50 cursor-pointer"
+          : "hover:bg-stone-50 cursor-pointer"
       }`}
-      onClick={onToggle}
-      title={isCut ? "Click to restore" : "Click to cut"}
+      onClick={readonly ? undefined : onToggle ?? undefined}
+      title={readonly ? undefined : isCut ? "Click to restore" : "Click to cut"}
     >
       {/* Actor color indicator */}
       <div
@@ -57,10 +60,12 @@ export default function SpeechBlock({ speech, status, actorColor, onToggle }: Pr
         </div>
       </div>
 
-      {/* Cut indicator */}
-      <div className="shrink-0 opacity-0 group-hover:opacity-100 text-stone-400 text-xs self-start mt-1">
-        {isCut ? "↩" : "✕"}
-      </div>
+      {/* Cut indicator — hidden in read-only mode */}
+      {!readonly && (
+        <div className="shrink-0 opacity-0 group-hover:opacity-100 text-stone-400 text-xs self-start mt-1">
+          {isCut ? "↩" : "✕"}
+        </div>
+      )}
     </div>
   );
 }

@@ -11,7 +11,7 @@ interface Props {
   unitsByScene: Map<string, ScriptUnitWithStatus[]>;
   assignments: ActorAssignment[];
   actors: Actor[];
-  onToggle: (unitId: string) => void;
+  onToggle: ((unitId: string) => void) | null;
 }
 
 export default function ActBlock({ act, unitsByScene, assignments, actors, onToggle }: Props) {

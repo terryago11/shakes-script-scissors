@@ -4,7 +4,8 @@ import { useEffect, use } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useProject, loadProjectFromStorage } from "@/lib/project/ProjectStore";
-import { exportProject } from "@/lib/project/projectIO";
+import { exportProject, encodeProjectForUrl } from "@/lib/project/projectIO";
+import { useState } from "react";
 import CutSelector from "@/components/CutSelector/CutSelector";
 
 export default function ProjectLayout({
@@ -18,6 +19,25 @@ export default function ProjectLayout({
   const router = useRouter();
   const { project, loadProject } = useProject();
   const pathname = usePathname();
+  const [shareLabel, setShareLabel] = useState<"Share" | "Copied!" | "Too large!">("Share");
+
+  async function handleShare() {
+    if (!project) return;
+    try {
+      const encoded = await encodeProjectForUrl(project);
+      const url = `${window.location.origin}/view?share=${encoded}`;
+      if (url.length > 30_000) {
+        setShareLabel("Too large!");
+        setTimeout(() => setShareLabel("Share"), 2500);
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setShareLabel("Copied!");
+      setTimeout(() => setShareLabel("Share"), 2500);
+    } catch {
+      setShareLabel("Share");
+    }
+  }
 
   // Hydrate from localStorage if not already loaded (e.g. on page refresh)
   useEffect(() => {
@@ -74,6 +94,13 @@ export default function ProjectLayout({
 
           <div className="ml-auto flex items-center gap-3">
             <CutSelector />
+            <button
+              onClick={handleShare}
+              className="text-xs px-3 py-1.5 rounded border border-stone-300 text-stone-600 hover:bg-stone-50 transition-colors"
+              title="Copy a read-only share link to clipboard"
+            >
+              {shareLabel === "Copied!" ? "✓ Copied!" : shareLabel === "Too large!" ? "⚠ Too large!" : "🔗 Share"}
+            </button>
             <button
               onClick={() => exportProject(project)}
               className="text-xs px-3 py-1.5 rounded border border-stone-300 text-stone-600 hover:bg-stone-50"
