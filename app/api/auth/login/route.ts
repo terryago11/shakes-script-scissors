@@ -10,11 +10,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing password" }, { status: 400 });
   }
 
-  const hash = process.env.AUTH_PASSWORD_HASH;
-  if (!hash) {
+  const rawHash = process.env.AUTH_PASSWORD_HASH;
+  if (!rawHash) {
     console.error("[login] AUTH_PASSWORD_HASH env var is not set");
     return NextResponse.json({ error: "Auth not configured" }, { status: 500 });
   }
+  // Support base64-encoded hashes (avoids $ sign escaping issues in hosting env vars)
+  const hash = rawHash.startsWith("$")
+    ? rawHash
+    : Buffer.from(rawHash, "base64").toString("utf-8");
 
   const valid = await bcrypt.compare(body.password, hash);
   if (!valid) {
