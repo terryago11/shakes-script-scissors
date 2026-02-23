@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useProject, listProjectsFromApi, type ProjectSummary } from "@/lib/project/ProjectStore";
+import { useProject, listStoredProjectIds, loadProjectFromStorage, type ProjectSummary } from "@/lib/project/ProjectStore";
 import { importProjectFromFile } from "@/lib/project/projectIO";
 import type { PlayMeta } from "@/lib/folger/FolgerClient";
 
@@ -24,15 +24,22 @@ export default function HomePage() {
       })
       .catch(() => setLoading(false));
 
-    listProjectsFromApi().then(setStoredProjects);
+    // Load project summaries from localStorage
+    const ids = listStoredProjectIds();
+    const summaries: ProjectSummary[] = ids
+      .map((id) => loadProjectFromStorage(id))
+      .filter((p): p is NonNullable<typeof p> => p !== null)
+      .map((p) => ({ id: p.id, playId: p.playId, playTitle: p.playTitle, updatedAt: p.updatedAt }))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    setStoredProjects(summaries);
   }, []);
 
   const filtered = plays.filter((p) =>
     p.title.toLowerCase().includes(search.toLowerCase())
   );
 
-  async function handleSelectPlay(play: PlayMeta) {
-    const project = await createProject(play.id, play.title);
+  function handleSelectPlay(play: PlayMeta) {
+    const project = createProject(play.id, play.title);
     router.push(`/projects/${project.id}`);
   }
 
@@ -40,11 +47,6 @@ export default function HomePage() {
     setImportError(null);
     try {
       const project = await importProjectFromFile();
-      await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(project),
-      });
       loadProject(project);
       router.push(`/projects/${project.id}`);
     } catch (e) {
