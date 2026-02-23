@@ -17,6 +17,8 @@ function isPublic(pathname: string): boolean {
   return false;
 }
 
+export const runtime = "nodejs";
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -24,7 +26,7 @@ export async function middleware(request: NextRequest) {
 
   // iron-session v8 in middleware: pass request + a mutable response
   const res = NextResponse.next();
-  const session = await getIronSession<SessionData>(request, res, sessionOptions);
+  const session = await getIronSession<SessionData>(request, res, sessionOptions());
 
   if (!session.isLoggedIn) {
     if (pathname.startsWith("/api/")) {

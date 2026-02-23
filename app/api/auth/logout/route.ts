@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 export async function POST() {
   const session = await getIronSession<SessionData>(
     await cookies(),
-    sessionOptions
+    sessionOptions()
   );
   session.destroy();
   return NextResponse.json({ ok: true });
