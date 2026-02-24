@@ -91,11 +91,11 @@ export default function SceneBlock({ scene, units, assignments, actors, onToggle
         )}
         <span className="ml-auto text-xs text-stone-400 tabular-nums">
           {keptLines === totalLines ? (
-            <span>{totalLines} lines</span>
+            <span>{totalLines.toLocaleString()} lines</span>
           ) : (
             <span>
-              <span className="text-amber-600 font-medium">{keptLines}</span>
-              <span className="text-stone-300"> / {totalLines}</span>
+              <span className="text-amber-600 font-medium">{keptLines.toLocaleString()}</span>
+              <span className="text-stone-300"> / {totalLines.toLocaleString()}</span>
             </span>
           )}
         </span>

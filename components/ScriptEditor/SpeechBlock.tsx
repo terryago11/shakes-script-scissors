@@ -273,7 +273,7 @@ export default function SpeechBlock({
                     key={line.id}
                     data-line-id={line.id}
                     onClick={() => onToggleLine?.(line.id)}
-                    className="cursor-pointer px-1 -mx-1 rounded hover:bg-stone-100 line-through text-stone-300 transition-colors"
+                    className="cursor-pointer px-1 -mx-1 rounded hover:bg-stone-100 line-through text-red-400 hover:text-red-600 transition-colors"
                     title="Click to restore line"
                   >
                     {line.text}
@@ -296,7 +296,7 @@ export default function SpeechBlock({
                       return (
                         <del
                           key={i}
-                          className="text-red-400 no-underline cursor-pointer hover:text-red-600"
+                          className="text-red-400 cursor-pointer hover:text-red-600"
                           title="Click to restore this cut"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -348,14 +348,14 @@ export default function SpeechBlock({
               return (
                 <div
                   key={line.id}
-                  className={isLineCut ? "line-through text-stone-300" : undefined}
+                  className={isLineCut ? "line-through text-red-400 opacity-60" : undefined}
                   onClick={!readonly && isCut ? (onToggle ?? undefined) : undefined}
                   style={{ cursor: !readonly && isCut ? "pointer" : undefined }}
                 >
                   {segments ? (
                     segments.map((seg, i) => {
                       if (seg.type === "kept") return <span key={i}>{seg.text}</span>;
-                      if (seg.type === "cut") return <del key={i} className="text-red-300 opacity-60">{seg.text}</del>;
+                      if (seg.type === "cut") return <del key={i} className="text-red-400 opacity-60">{seg.text}</del>;
                       if (seg.type === "insert") return <ins key={i} className="text-green-600 no-underline underline decoration-green-400">{seg.text}</ins>;
                     })
                   ) : (

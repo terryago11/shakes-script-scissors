@@ -77,8 +77,8 @@ export default function LineCountPanel({ play, lineCounts, actors, filter, onFil
           Total {metric === "lines" ? "Lines" : "Words"}
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold text-stone-800">{activeCounts.total.afterCut}</span>
-          <span className="text-sm text-stone-400">/ {activeCounts.total.original}</span>
+          <span className="text-2xl font-bold text-stone-800">{activeCounts.total.afterCut.toLocaleString()}</span>
+          <span className="text-sm text-stone-400">/ {activeCounts.total.original.toLocaleString()}</span>
         </div>
         {pct > 0 && (
           <div className="mt-1 text-xs text-amber-600 font-medium">{pct}% cut</div>

@@ -33,8 +33,8 @@ export default function ActorRow({ actor, counts, play, isFiltered, onClick }: P
           {actor.name}
         </div>
         <div className="ml-auto text-xs text-stone-500 tabular-nums">
-          <span className="font-medium">{afterCut}</span>
-          <span className="text-stone-300"> / {original}</span>
+          <span className="font-medium">{afterCut.toLocaleString()}</span>
+          <span className="text-stone-300"> / {original.toLocaleString()}</span>
         </div>
       </div>
       <div className="ml-4">

@@ -29,8 +29,8 @@ export default function CharacterRow({ character, counts, isFiltered, onClick }:
         />
       </div>
       <div className="text-xs text-stone-500 tabular-nums w-14 text-right">
-        {afterCut}
-        {cut > 0 && <span className="text-stone-300"> -{cut}</span>}
+        {afterCut.toLocaleString()}
+        {cut > 0 && <span className="text-stone-300"> -{cut.toLocaleString()}</span>}
       </div>
     </div>
   );
