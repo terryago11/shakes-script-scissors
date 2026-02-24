@@ -12,16 +12,21 @@ export interface ScriptUnitWithStatus {
   lineStatuses?: LineWithStatus[];
 }
 
+export interface CountPair {
+  original: number;
+  afterCut: number;
+}
+
 export interface LineCounts {
-  total: {
-    original: number;
-    afterCut: number;
+  total: CountPair;
+  byCharacter: Record<string, CountPair>;
+  byActor: Record<string, { characters: string[] } & CountPair>;
+  /** Word-level counts (parallel structure to line counts) */
+  words: {
+    total: CountPair;
+    byCharacter: Record<string, CountPair>;
+    byActor: Record<string, { characters: string[] } & CountPair>;
   };
-  byCharacter: Record<string, { original: number; afterCut: number }>;
-  byActor: Record<
-    string,
-    { characters: string[]; original: number; afterCut: number }
-  >;
 }
 
 export interface CueEntry {

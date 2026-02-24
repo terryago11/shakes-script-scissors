@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import type { Speech } from "@/types/play";
 import type { LineWithStatus } from "@/types/cut";
 import type { SpeechEdit, EditOp } from "@/types/edit";
@@ -129,6 +129,19 @@ export default function SpeechBlock({
     window.getSelection()?.removeAllRanges();
   }, []);
 
+  // Dismiss toolbar when clicking outside the toolbar element itself
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!toolbar) return;
+    function handleDocMouseDown(e: MouseEvent) {
+      if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
+        setToolbar(null);
+      }
+    }
+    document.addEventListener("mousedown", handleDocMouseDown);
+    return () => document.removeEventListener("mousedown", handleDocMouseDown);
+  }, [toolbar]);
+
   const showEditControls = !readonly && !isCut && (onToggleLine !== null || onAddEditOp !== null);
 
   return (
@@ -136,11 +149,11 @@ export default function SpeechBlock({
       ref={containerRef}
       className={`group flex gap-3 py-2 px-2 rounded transition-colors ${isCut ? "opacity-40 bg-stone-50" : ""}`}
       style={{ position: "relative" }}
-      onMouseDown={() => setToolbar(null)}
     >
       {/* Floating cut toolbar — appears on text selection */}
       {toolbar && !readonly && (
         <div
+          ref={toolbarRef}
           className="absolute z-20 flex items-center gap-1 bg-stone-800 text-white text-xs rounded shadow-lg px-2 py-1 -translate-x-1/2 -translate-y-full"
           style={{ left: toolbar.x, top: toolbar.y }}
           onMouseDown={(e) => e.preventDefault()} // don't collapse selection
