@@ -31,7 +31,7 @@ function formatMinutes(minutes: number): string {
 }
 
 export default function LineCountPanel({
-  play, lineCounts, actors, filter, onFilterCharacter, onFilterActor,
+  play, lineCounts, actors, assignments, filter, onFilterCharacter, onFilterActor,
   stageTime, settings,
 }: Props) {
   const { metric, setMetric } = useMetric();
@@ -100,13 +100,43 @@ export default function LineCountPanel({
   if (panelTab === "time" && stageTime) {
     const byCharList = Object.values(stageTime.byCharacter)
       .sort((a, b) => b.minutes - a.minutes);
-    const maxOrigMinutes = byCharList[0]?.originalMinutes ?? 1;
+    // Use the max of cut or original for bar scaling (cut can exceed original if chars were added)
+    const maxMinutesForBar = Math.max(
+      byCharList[0]?.minutes ?? 0,
+      byCharList[0]?.originalMinutes ?? 0,
+      1
+    );
     const hasCuts = stageTime.totalMinutes < stageTime.originalTotalMinutes - 0.01;
+
+    // ── Build by-actor time totals ──────────────────────────────────────────
+    type ActorTime = { actorId: string; minutes: number; originalMinutes: number; charIds: string[] };
+    const actorTimeMap = new Map<string, ActorTime>();
+    for (const actor of actors) {
+      actorTimeMap.set(actor.id, { actorId: actor.id, minutes: 0, originalMinutes: 0, charIds: [] });
+    }
+    for (const asgn of assignments) {
+      const actorEntry = actorTimeMap.get(asgn.actorId);
+      const charTime = stageTime.byCharacter[asgn.characterId];
+      if (actorEntry && charTime) {
+        actorEntry.minutes += charTime.minutes;
+        actorEntry.originalMinutes += charTime.originalMinutes;
+        actorEntry.charIds.push(asgn.characterId);
+      }
+    }
+    const byActorTimeList = Array.from(actorTimeMap.values())
+      .filter((a) => a.minutes > 0 || a.originalMinutes > 0)
+      .sort((a, b) => b.minutes - a.minutes);
+    const maxActorMinutes = Math.max(
+      byActorTimeList[0]?.minutes ?? 0,
+      byActorTimeList[0]?.originalMinutes ?? 0,
+      1
+    );
 
     return (
       <div className="p-4">
         {tabRow}
 
+        {/* Running time total */}
         <div className="mb-5">
           <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">
             Running Time
@@ -133,6 +163,68 @@ export default function LineCountPanel({
           )}
         </div>
 
+        {/* By Actor */}
+        {byActorTimeList.length > 0 && (
+          <div className="mb-5">
+            <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">
+              On Stage By Actor
+            </div>
+            <div className="space-y-2">
+              {byActorTimeList.map(({ actorId, minutes, originalMinutes, charIds }) => {
+                const actor = actors.find((a) => a.id === actorId);
+                const pctBar = (minutes / maxActorMinutes) * 100;
+                const origPctBar = (originalMinutes / maxActorMinutes) * 100;
+                const actorHasCuts = minutes < originalMinutes - 0.01;
+                const actorHasAdded = minutes > originalMinutes + 0.01;
+                const charNames = charIds
+                  .map((id) => play.castList.find((c) => c.id === id)?.name ?? id)
+                  .join(", ");
+                const cutPct = originalMinutes > 0.01
+                  ? Math.round((1 - minutes / originalMinutes) * 100)
+                  : null;
+                return (
+                  <div key={actorId}>
+                    <div className="flex items-baseline justify-between text-xs mb-0.5">
+                      <div className="flex items-center gap-1.5 min-w-0 mr-2">
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: actor?.color ?? "#d1d5db" }}
+                        />
+                        <span className="text-stone-600 truncate">{actor?.name ?? actorId}</span>
+                      </div>
+                      <span className="text-stone-400 shrink-0 tabular-nums">
+                        {formatMinutes(minutes)}
+                        {(actorHasCuts || actorHasAdded) && (
+                          <span className="text-stone-300"> / {formatMinutes(originalMinutes)}</span>
+                        )}
+                        {actorHasCuts && cutPct !== null && cutPct > 0 && (
+                          <span className="text-amber-500 ml-1">−{cutPct}%</span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="h-1 bg-stone-100 rounded-full overflow-hidden relative">
+                      {(actorHasCuts || actorHasAdded) && (
+                        <div
+                          className="absolute h-full bg-stone-200 rounded-full"
+                          style={{ width: `${origPctBar}%` }}
+                        />
+                      )}
+                      <div
+                        className={`absolute h-full rounded-full transition-all ${actorHasAdded ? "bg-blue-400" : "bg-amber-400"}`}
+                        style={{ width: `${pctBar}%` }}
+                      />
+                    </div>
+                    {charNames && (
+                      <div className="text-xs text-stone-300 mt-0.5 truncate">{charNames}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* By Character */}
         <div>
           <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">
             On Stage By Character
@@ -140,29 +232,36 @@ export default function LineCountPanel({
           <div className="space-y-2">
             {byCharList.map(({ characterId, minutes, originalMinutes }) => {
               const char = play.castList.find((c) => c.id === characterId);
-              const pctBar = maxOrigMinutes > 0 ? (minutes / maxOrigMinutes) * 100 : 0;
-              const origPctBar = maxOrigMinutes > 0 ? (originalMinutes / maxOrigMinutes) * 100 : 0;
+              const pctBar = (minutes / maxMinutesForBar) * 100;
+              const origPctBar = (originalMinutes / maxMinutesForBar) * 100;
               const charHasCuts = minutes < originalMinutes - 0.01;
+              const charHasAdded = minutes > originalMinutes + 0.01;
+              const cutPct = originalMinutes > 0.01
+                ? Math.round((1 - minutes / originalMinutes) * 100)
+                : null;
               return (
                 <div key={characterId}>
                   <div className="flex items-baseline justify-between text-xs mb-0.5">
                     <span className="text-stone-600 truncate mr-2">{char?.name ?? characterId}</span>
                     <span className="text-stone-400 shrink-0 tabular-nums">
                       {formatMinutes(minutes)}
-                      {charHasCuts && (
+                      {(charHasCuts || charHasAdded) && (
                         <span className="text-stone-300"> / {formatMinutes(originalMinutes)}</span>
+                      )}
+                      {charHasCuts && cutPct !== null && cutPct > 0 && (
+                        <span className="text-amber-500 ml-1">−{cutPct}%</span>
                       )}
                     </span>
                   </div>
                   <div className="h-1 bg-stone-100 rounded-full overflow-hidden relative">
-                    {charHasCuts && (
+                    {(charHasCuts || charHasAdded) && (
                       <div
                         className="absolute h-full bg-stone-200 rounded-full"
                         style={{ width: `${origPctBar}%` }}
                       />
                     )}
                     <div
-                      className="absolute h-full bg-amber-400 rounded-full transition-all"
+                      className={`absolute h-full rounded-full transition-all ${charHasAdded ? "bg-blue-400" : "bg-amber-400"}`}
                       style={{ width: `${pctBar}%` }}
                     />
                   </div>

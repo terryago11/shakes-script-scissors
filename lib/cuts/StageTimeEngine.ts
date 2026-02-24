@@ -62,43 +62,32 @@ export function computeStageTime(
 
     const units = scene.units;
 
-    // ── Pre-scan: collect explicitly entered characters ──────────────────────
-    const explicitlyEntered = new Set<string>();
-    for (const unit of units) {
-      if (unit.type === "stage" && unit.stageType === "entrance") {
-        for (const charId of getEffectiveCharacters(unit, edits)) {
-          explicitlyEntered.add(charId);
-        }
-      }
-    }
-
-    // ── Initialize on-stage sets ─────────────────────────────────────────────
-    // cut version: fallback chars have KEPT speeches + no entrance SD
+    // ── On-stage sets — populated ONLY by entrance/exit SDs, no fallback ────
+    // onStageOrig: driven by original SD characters (sd.characters), unaffected by edits
+    // onStage:     driven by effective characters (edits override sd.characters for cut version)
     const onStage = new Set<string>();
-    // original version: fallback chars have ANY speeches + no entrance SD
     const onStageOrig = new Set<string>();
-
-    for (const unit of units) {
-      if (unit.type === "speech" && !explicitlyEntered.has(unit.characterId)) {
-        onStageOrig.add(unit.characterId);
-        if ((cut.cutMap[unit.id] ?? "kept") === "kept") {
-          onStage.add(unit.characterId);
-        }
-      }
-    }
 
     // ── Walk units in document order ─────────────────────────────────────────
     for (const unit of units) {
       if (unit.type === "stage") {
         if (unit.stageType === "entrance") {
-          for (const charId of getEffectiveCharacters(unit, edits)) {
-            onStage.add(charId);
+          // Original: always use the raw SD characters
+          for (const charId of unit.characters) {
             onStageOrig.add(charId);
           }
+          // Cut: use effective characters (may have additions/removals via stageDirectionEdits)
+          for (const charId of getEffectiveCharacters(unit, edits)) {
+            onStage.add(charId);
+          }
         } else if (unit.stageType === "exit") {
+          // Original: always use the raw SD characters
+          for (const charId of unit.characters) {
+            onStageOrig.delete(charId);
+          }
+          // Cut: use effective characters
           for (const charId of getEffectiveCharacters(unit, edits)) {
             onStage.delete(charId);
-            onStageOrig.delete(charId);
           }
         }
       } else if (unit.type === "speech") {
@@ -124,7 +113,7 @@ export function computeStageTime(
         const cutMinutes = (keptLines * AVG_WORDS_PER_LINE) / wpm;
         totalMinutes += cutMinutes;
 
-        // Accumulate for ALL characters currently on stage (not just the speaker)
+        // Accumulate for ALL characters currently on stage (cut version)
         for (const charId of onStage) {
           const entry = ensureChar(byCharacter, charId);
           entry.minutes += cutMinutes;
@@ -132,7 +121,7 @@ export function computeStageTime(
         }
       }
     }
-    // Characters remaining at scene end stay until end (fallback — no action needed)
+    // Characters remaining in onStage at scene end are assumed to exit at scene end
   }
 
   return { byCharacter, totalMinutes, originalTotalMinutes };

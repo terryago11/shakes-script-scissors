@@ -42,30 +42,8 @@ function computeSimultaneousMap(
 
   for (const act of play.acts) {
     for (const scene of act.scenes) {
-      // Pre-scan: collect explicitly entered characters
-      const explicitlyEntered = new Set<string>();
-      for (const unit of scene.units) {
-        if (unit.type === "stage" && unit.stageType === "entrance") {
-          for (const charId of getEffectiveChars(unit, edits)) {
-            explicitlyEntered.add(charId);
-          }
-        }
-      }
-
-      // Initialize onStage with fallback characters (have kept lines but no entrance SD)
+      // On-stage set — populated ONLY by entrance/exit SDs (no speech fallback)
       const onStage = new Set<string>();
-      for (const unit of scene.units) {
-        if (
-          unit.type === "speech" &&
-          (cutMap[unit.id] ?? "kept") === "kept" &&
-          !explicitlyEntered.has(unit.characterId)
-        ) {
-          onStage.add(unit.characterId);
-        }
-      }
-
-      // Record initial simultaneous pairs
-      recordPairs(onStage);
 
       // Walk units — after each entrance, snapshot simultaneous pairs
       for (const unit of scene.units) {
