@@ -1,14 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import type { Play } from "@/types/play";
 import type { Actor, ActorAssignment } from "@/types/project";
-import type { LineCounts, CountPair } from "@/types/cut";
+import type { LineCounts } from "@/types/cut";
+import { useMetric } from "@/lib/ui/MetricContext";
 import CharacterRow from "./CharacterRow";
 import ActorRow from "./ActorRow";
 
 type FilterState = { type: "character"; id: string } | { type: "actor"; id: string } | null;
-type Metric = "lines" | "words";
 
 interface Props {
   play: Play;
@@ -21,14 +20,13 @@ interface Props {
 }
 
 export default function LineCountPanel({ play, lineCounts, actors, filter, onFilterCharacter, onFilterActor }: Props) {
-  const [metric, setMetric] = useState<Metric>("lines");
+  const { metric, setMetric } = useMetric();
 
   const { total, byCharacter, byActor } = lineCounts;
   const wordTotal = lineCounts.words.total;
   const wordByCharacter = lineCounts.words.byCharacter;
   const wordByActor = lineCounts.words.byActor;
 
-  // Pick the right counts based on the metric toggle
   const activeCounts = metric === "lines"
     ? { total, byCharacter, byActor }
     : { total: wordTotal, byCharacter: wordByCharacter, byActor: wordByActor };
@@ -52,9 +50,7 @@ export default function LineCountPanel({ play, lineCounts, actors, filter, onFil
         <button
           onClick={() => setMetric("lines")}
           className={`flex-1 text-xs py-1 px-2 rounded transition-colors font-medium ${
-            metric === "lines"
-              ? "bg-white text-stone-700 shadow-sm"
-              : "text-stone-400 hover:text-stone-600"
+            metric === "lines" ? "bg-white text-stone-700 shadow-sm" : "text-stone-400 hover:text-stone-600"
           }`}
         >
           Lines
@@ -62,9 +58,7 @@ export default function LineCountPanel({ play, lineCounts, actors, filter, onFil
         <button
           onClick={() => setMetric("words")}
           className={`flex-1 text-xs py-1 px-2 rounded transition-colors font-medium ${
-            metric === "words"
-              ? "bg-white text-stone-700 shadow-sm"
-              : "text-stone-400 hover:text-stone-600"
+            metric === "words" ? "bg-white text-stone-700 shadow-sm" : "text-stone-400 hover:text-stone-600"
           }`}
         >
           Words
@@ -83,7 +77,6 @@ export default function LineCountPanel({ play, lineCounts, actors, filter, onFil
         {pct > 0 && (
           <div className="mt-1 text-xs text-amber-600 font-medium">{pct}% cut</div>
         )}
-        {/* Progress bar */}
         <div className="mt-2 h-1.5 bg-stone-100 rounded-full overflow-hidden">
           <div
             className="h-full bg-amber-400 rounded-full transition-all"
@@ -98,10 +91,7 @@ export default function LineCountPanel({ play, lineCounts, actors, filter, onFil
           <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">
             By Actor
             {filter?.type === "actor" && (
-              <button
-                onClick={() => onFilterActor?.(null)}
-                className="ml-2 normal-case font-normal text-amber-500 hover:text-amber-700"
-              >
+              <button onClick={() => onFilterActor?.(null)} className="ml-2 normal-case font-normal text-amber-500 hover:text-amber-700">
                 Clear filter
               </button>
             )}
@@ -129,10 +119,7 @@ export default function LineCountPanel({ play, lineCounts, actors, filter, onFil
         <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">
           By Character
           {filter?.type === "character" && (
-            <button
-              onClick={() => onFilterCharacter?.(null)}
-              className="ml-2 normal-case font-normal text-amber-500 hover:text-amber-700"
-            >
+            <button onClick={() => onFilterCharacter?.(null)} className="ml-2 normal-case font-normal text-amber-500 hover:text-amber-700">
               Clear filter
             </button>
           )}
@@ -140,10 +127,7 @@ export default function LineCountPanel({ play, lineCounts, actors, filter, onFil
         <div className="space-y-1">
           {play.castList
             .filter((c) => (activeCounts.byCharacter[c.id]?.original ?? 0) > 0)
-            .sort(
-              (a, b) =>
-                (activeCounts.byCharacter[b.id]?.original ?? 0) - (activeCounts.byCharacter[a.id]?.original ?? 0)
-            )
+            .sort((a, b) => (activeCounts.byCharacter[b.id]?.original ?? 0) - (activeCounts.byCharacter[a.id]?.original ?? 0))
             .map((char) => (
               <CharacterRow
                 key={char.id}

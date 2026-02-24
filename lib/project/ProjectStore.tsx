@@ -21,10 +21,7 @@ type ProjectAction =
   | { type: "SET_ACTIVE_CUT"; cutId: string }
   | { type: "TOGGLE_UNIT"; unitId: string }
   | { type: "SET_UNIT_STATUS"; unitId: string; status: "cut" | "kept" }
-  | { type: "TOGGLE_LINE"; lineId: string }
-  | { type: "ADD_SPEECH_EDIT_OP"; unitId: string; op: EditOp }
   | { type: "BULK_ADD_EDIT_OPS"; ops: Array<{ unitId: string; op: EditOp }> }
-  | { type: "REMOVE_SPEECH_EDIT_OP"; unitId: string; lineId: string; start: number; end: number }
   | { type: "CLEAR_SPEECH_EDITS"; unitId: string }
   | { type: "ADD_CUT"; name: string; cloneFromId?: string }
   | { type: "RENAME_CUT"; cutId: string; name: string }
@@ -78,28 +75,6 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         cutMap: { ...c.cutMap, [action.unitId]: action.status },
       }));
 
-    case "TOGGLE_LINE": {
-      const lineCutMap = state.project!.cuts.find((c) => c.id === state.activeCutId)?.lineCutMap ?? {};
-      const current = lineCutMap[action.lineId];
-      const newStatus = current === "cut" ? "kept" : "cut";
-      return updateActiveCut(state, (c) => ({
-        ...c,
-        lineCutMap: { ...(c.lineCutMap ?? {}), [action.lineId]: newStatus },
-      }));
-    }
-
-    case "ADD_SPEECH_EDIT_OP": {
-      const existing = state.project!.cuts.find((c) => c.id === state.activeCutId)?.speechEdits?.[action.unitId];
-      const updatedEdit: SpeechEdit = {
-        unitId: action.unitId,
-        ops: [...(existing?.ops ?? []), action.op],
-      };
-      return updateActiveCut(state, (c) => ({
-        ...c,
-        speechEdits: { ...(c.speechEdits ?? {}), [action.unitId]: updatedEdit },
-      }));
-    }
-
     case "BULK_ADD_EDIT_OPS": {
       // Apply all ops in one state update (avoids N re-renders in cut mode)
       return updateActiveCut(state, (c) => {
@@ -113,20 +88,6 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         }
         return { ...c, speechEdits: edits };
       });
-    }
-
-    case "REMOVE_SPEECH_EDIT_OP": {
-      const existing = state.project!.cuts.find((c) => c.id === state.activeCutId)?.speechEdits?.[action.unitId];
-      if (!existing) return state;
-      const filtered = existing.ops.filter(
-        (op) =>
-          !(op.type === "cut" && op.lineId === action.lineId && op.start === action.start && op.end === action.end)
-      );
-      const updatedEdit: SpeechEdit = { unitId: action.unitId, ops: filtered };
-      return updateActiveCut(state, (c) => ({
-        ...c,
-        speechEdits: { ...(c.speechEdits ?? {}), [action.unitId]: updatedEdit },
-      }));
     }
 
     case "CLEAR_SPEECH_EDITS": {

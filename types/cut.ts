@@ -17,10 +17,17 @@ export interface CountPair {
   afterCut: number;
 }
 
+export interface SceneCounts {
+  lines: CountPair;
+  words: CountPair;
+}
+
 export interface LineCounts {
   total: CountPair;
   byCharacter: Record<string, CountPair>;
   byActor: Record<string, { characters: string[] } & CountPair>;
+  byScene: Record<string, SceneCounts>;
+  byAct: Record<string, SceneCounts>;
   /** Word-level counts (parallel structure to line counts) */
   words: {
     total: CountPair;

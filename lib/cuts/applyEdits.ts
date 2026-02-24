@@ -120,16 +120,3 @@ export function segmentsToText(segments: Segment[]): string {
     .map((s) => s.text)
     .join("");
 }
-
-/**
- * Estimate the effective line count contribution of a line after edits.
- * Uses character ratio: kept_chars / original_chars.
- * Returns a fractional line count (e.g. 0.4 for a half-cut line).
- */
-export function effectiveLineCount(segments: Segment[], originalLength: number): number {
-  if (originalLength === 0) return 0;
-  const keptChars = segments
-    .filter((s) => s.type === "kept" || s.type === "insert")
-    .reduce((n, s) => n + s.text.length, 0);
-  return keptChars / originalLength;
-}

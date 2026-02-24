@@ -1,6 +1,6 @@
 import type { Play, Scene, ScriptUnit } from "@/types/play";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
-import type { LineCounts, LineWithStatus, ScriptUnitWithStatus, CountPair } from "@/types/cut";
+import type { LineCounts, LineWithStatus, ScriptUnitWithStatus, CountPair, SceneCounts } from "@/types/cut";
 import { applyEditsToLine, segmentsToText } from "./applyEdits";
 
 /** Count words in a string */
@@ -53,9 +53,15 @@ export function computeCuts(
 
   const speechEdits = cut.speechEdits ?? {};
 
+  // Per-scene and per-act aggregates
+  const byScene: Record<string, SceneCounts> = {};
+  const byAct: Record<string, SceneCounts> = {};
+
   // Walk all scenes and units
   for (const act of play.acts) {
+    byAct[act.id] = { lines: { original: 0, afterCut: 0 }, words: { original: 0, afterCut: 0 } };
     for (const scene of act.scenes) {
+      byScene[scene.id] = { lines: { original: 0, afterCut: 0 }, words: { original: 0, afterCut: 0 } };
       const unitsWithStatus: ScriptUnitWithStatus[] = [];
 
       for (const unit of scene.units) {
@@ -98,26 +104,41 @@ export function computeCuts(
           totalOriginal += unit.lineCount;
           wordsByCharacter[unit.characterId].original += speechOriginalWords;
           totalWordsOriginal += speechOriginalWords;
+          byScene[scene.id].lines.original += unit.lineCount;
+          byAct[act.id].lines.original += unit.lineCount;
+          byScene[scene.id].words.original += speechOriginalWords;
+          byAct[act.id].words.original += speechOriginalWords;
 
           if (effectiveStatus === "kept") {
-            byCharacter[unit.characterId].afterCut += keptLineCount;
-            totalAfterCut += keptLineCount;
-
-            // Compute kept word count: apply line cuts + word-level edits
+            // Single pass: compute both word count and effective line count.
+            // A line counts as "kept" only if it still has content after word-level ops.
             const edit = speechEdits[unit.id];
             const ops = edit?.ops ?? [];
             let keptWords = 0;
+            let effectiveKeptLines = 0;
+
             for (const line of unit.lines) {
               if (lineCutMap[line.id] === "cut") continue;
               if (ops.length > 0) {
                 const segments = applyEditsToLine(line.id, line.text, ops);
-                keptWords += countWords(segmentsToText(segments));
+                const keptText = segmentsToText(segments);
+                keptWords += countWords(keptText);
+                if (keptText.trim().length > 0) effectiveKeptLines++;
               } else {
                 keptWords += countWords(line.text);
+                effectiveKeptLines++;
               }
             }
+
+            byCharacter[unit.characterId].afterCut += effectiveKeptLines;
+            totalAfterCut += effectiveKeptLines;
+            byScene[scene.id].lines.afterCut += effectiveKeptLines;
+            byAct[act.id].lines.afterCut += effectiveKeptLines;
+
             wordsByCharacter[unit.characterId].afterCut += keptWords;
             totalWordsAfterCut += keptWords;
+            byScene[scene.id].words.afterCut += keptWords;
+            byAct[act.id].words.afterCut += keptWords;
           }
 
           unitsWithStatus.push({ unit, status: effectiveStatus, lineStatuses });
@@ -168,6 +189,8 @@ export function computeCuts(
       total: { original: totalOriginal, afterCut: totalAfterCut },
       byCharacter,
       byActor,
+      byScene,
+      byAct,
       words: {
         total: { original: totalWordsOriginal, afterCut: totalWordsAfterCut },
         byCharacter: wordsByCharacter,

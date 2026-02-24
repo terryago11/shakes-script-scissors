@@ -35,6 +35,9 @@ export default function ActorRow({ actor, counts, play, isFiltered, onClick }: P
         <div className="ml-auto text-xs text-stone-500 tabular-nums">
           <span className="font-medium">{afterCut.toLocaleString()}</span>
           <span className="text-stone-300"> / {original.toLocaleString()}</span>
+          {original > 0 && afterCut < original && (
+            <span className="text-amber-600 ml-1">−{Math.round((1 - afterCut / original) * 100)}%</span>
+          )}
         </div>
       </div>
       <div className="ml-4">
