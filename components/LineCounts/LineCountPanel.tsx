@@ -152,8 +152,8 @@ export default function LineCountPanel({
             )}
           </div>
           {hasCuts && (
-            <div className="mt-1 text-xs text-amber-600 font-medium">
-              {Math.round((1 - stageTime.totalMinutes / stageTime.originalTotalMinutes) * 100)}% cut
+            <div className="mt-1 text-xs text-red-500 font-medium">
+              −{Math.round((1 - stageTime.totalMinutes / stageTime.originalTotalMinutes) * 100)}% cut
             </div>
           )}
           {settings?.wordsPerMinute && (
@@ -182,6 +182,9 @@ export default function LineCountPanel({
                 const cutPct = originalMinutes > 0.01
                   ? Math.round((1 - minutes / originalMinutes) * 100)
                   : null;
+                const addPct = originalMinutes > 0.01
+                  ? Math.round((minutes / originalMinutes - 1) * 100)
+                  : null;
                 return (
                   <div key={actorId}>
                     <div className="flex items-baseline justify-between text-xs mb-0.5">
@@ -198,7 +201,10 @@ export default function LineCountPanel({
                           <span className="text-stone-300"> / {formatMinutes(originalMinutes)}</span>
                         )}
                         {actorHasCuts && cutPct !== null && cutPct > 0 && (
-                          <span className="text-amber-500 ml-1">−{cutPct}%</span>
+                          <span className="text-red-500 ml-1">−{cutPct}%</span>
+                        )}
+                        {actorHasAdded && addPct !== null && addPct > 0 && (
+                          <span className="text-green-500 ml-1">+{addPct}%</span>
                         )}
                       </span>
                     </div>
@@ -239,6 +245,10 @@ export default function LineCountPanel({
               const cutPct = originalMinutes > 0.01
                 ? Math.round((1 - minutes / originalMinutes) * 100)
                 : null;
+              const addPct = originalMinutes > 0.01
+                ? Math.round((minutes / originalMinutes - 1) * 100)
+                : null;
+              const barColor = charHasAdded ? "bg-green-500" : charHasCuts ? "bg-red-400" : "bg-amber-400";
               return (
                 <div key={characterId}>
                   <div className="flex items-baseline justify-between text-xs mb-0.5">
@@ -249,7 +259,10 @@ export default function LineCountPanel({
                         <span className="text-stone-300"> / {formatMinutes(originalMinutes)}</span>
                       )}
                       {charHasCuts && cutPct !== null && cutPct > 0 && (
-                        <span className="text-amber-500 ml-1">−{cutPct}%</span>
+                        <span className="text-red-500 ml-1">−{cutPct}%</span>
+                      )}
+                      {charHasAdded && addPct !== null && addPct > 0 && (
+                        <span className="text-green-500 ml-1">+{addPct}%</span>
                       )}
                     </span>
                   </div>
@@ -261,7 +274,7 @@ export default function LineCountPanel({
                       />
                     )}
                     <div
-                      className={`absolute h-full rounded-full transition-all ${charHasAdded ? "bg-green-500" : "bg-amber-400"}`}
+                      className={`absolute h-full rounded-full transition-all ${barColor}`}
                       style={{ width: `${pctBar}%` }}
                     />
                   </div>
