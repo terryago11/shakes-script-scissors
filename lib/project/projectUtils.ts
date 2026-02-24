@@ -4,14 +4,15 @@ export function generateId(): string {
     Math.random().toString(36).slice(2, 10);
 }
 
-/** Default actor colors — cycles when more than this many actors */
+/** Default actor colors — cycles when more than this many actors.
+ *  Reds/corals are intentionally excluded: the UI uses red for cut text. */
 export const defaultColors = [
-  "#e74c3c", // red
-  "#3498db", // blue
-  "#27ae60", // green
-  "#f39c12", // orange
-  "#9b59b6", // purple
-  "#1abc9c", // teal
-  "#e91e63", // pink
-  "#607d8b", // blue-grey
+  "#3b82f6", // blue
+  "#16a34a", // green
+  "#f59e0b", // amber
+  "#8b5cf6", // violet
+  "#0d9488", // teal
+  "#db2777", // fuchsia-pink (distinct from cut-red)
+  "#64748b", // slate
+  "#ea580c", // orange
 ];
