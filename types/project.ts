@@ -4,6 +4,8 @@ export interface Project {
   id: string;
   playId: string;
   playTitle: string;
+  /** User-given project name (e.g. "2024 Production"). Falls back to playTitle if absent. */
+  name?: string;
   actors: Actor[];
   /** Maps characterId → actorId (one actor per character) */
   assignments: ActorAssignment[];

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useProject, listStoredProjectIds, loadProjectFromStorage, type ProjectSummary } from "@/lib/project/ProjectStore";
 import { importProjectFromFile } from "@/lib/project/projectIO";
@@ -15,6 +15,14 @@ export default function HomePage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [storedProjects, setStoredProjects] = useState<ProjectSummary[]>([]);
 
+  // Pending-play modal state
+  const [pendingPlay, setPendingPlay] = useState<PlayMeta | null>(null);
+  const [projectName, setProjectName] = useState("");
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Clear-all confirmation state
+  const [clearConfirm, setClearConfirm] = useState(false);
+
   useEffect(() => {
     fetch("/api/plays")
       .then((r) => r.json())
@@ -24,23 +32,41 @@ export default function HomePage() {
       })
       .catch(() => setLoading(false));
 
-    // Load project summaries from localStorage
+    refreshProjects();
+  }, []);
+
+  function refreshProjects() {
     const ids = listStoredProjectIds();
     const summaries: ProjectSummary[] = ids
       .map((id) => loadProjectFromStorage(id))
       .filter((p): p is NonNullable<typeof p> => p !== null)
-      .map((p) => ({ id: p.id, playId: p.playId, playTitle: p.playTitle, updatedAt: p.updatedAt }))
+      .map((p) => ({ id: p.id, playId: p.playId, playTitle: p.playTitle, name: p.name, updatedAt: p.updatedAt }))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     setStoredProjects(summaries);
-  }, []);
+  }
 
   const filtered = plays.filter((p) =>
     p.title.toLowerCase().includes(search.toLowerCase())
   );
 
   function handleSelectPlay(play: PlayMeta) {
-    const project = createProject(play.id, play.title);
+    setPendingPlay(play);
+    setProjectName(play.title);
+    // Focus the name input on next tick
+    setTimeout(() => nameInputRef.current?.select(), 50);
+  }
+
+  function handleConfirmCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!pendingPlay) return;
+    const name = projectName.trim() || pendingPlay.title;
+    const project = createProject(pendingPlay.id, pendingPlay.title, name);
     router.push(`/projects/${project.id}`);
+  }
+
+  function handleCancelCreate() {
+    setPendingPlay(null);
+    setProjectName("");
   }
 
   async function handleImport() {
@@ -54,6 +80,13 @@ export default function HomePage() {
         setImportError(e.message);
       }
     }
+  }
+
+  function handleClearAll() {
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith("sss_"));
+    keys.forEach((k) => localStorage.removeItem(k));
+    setStoredProjects([]);
+    setClearConfirm(false);
   }
 
   return (
@@ -81,9 +114,36 @@ export default function HomePage() {
 
       {storedProjects.length > 0 && (
         <section className="mb-10">
-          <h2 className="text-xl font-semibold text-stone-700 mb-4">
-            Recent projects
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-stone-700">
+              Recent projects
+            </h2>
+            {/* Clear all data — two-step confirm */}
+            {clearConfirm ? (
+              <span className="flex items-center gap-2 text-sm">
+                <span className="text-stone-500">Clear all projects?</span>
+                <button
+                  onClick={handleClearAll}
+                  className="px-2 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200 font-medium"
+                >
+                  Yes, clear
+                </button>
+                <button
+                  onClick={() => setClearConfirm(false)}
+                  className="px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200"
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => setClearConfirm(true)}
+                className="text-xs text-stone-400 hover:text-red-500 transition-colors"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {storedProjects.map((p) => (
               <li key={p.id}>
@@ -91,7 +151,12 @@ export default function HomePage() {
                   onClick={() => router.push(`/projects/${p.id}`)}
                   className="w-full text-left px-4 py-3 rounded-lg border border-stone-200 bg-white hover:bg-amber-50 hover:border-amber-300 transition-colors"
                 >
-                  <div className="text-stone-800 text-sm font-medium">{p.playTitle}</div>
+                  <div className="text-stone-800 text-sm font-medium">
+                    {p.name || p.playTitle}
+                  </div>
+                  {p.name && p.name !== p.playTitle && (
+                    <div className="text-stone-400 text-xs">{p.playTitle}</div>
+                  )}
                   <div className="text-stone-400 text-xs mt-0.5">
                     Last saved {new Date(p.updatedAt).toLocaleDateString()}
                   </div>
@@ -122,13 +187,58 @@ export default function HomePage() {
             <li key={play.id}>
               <button
                 onClick={() => handleSelectPlay(play)}
-                className="w-full text-left px-4 py-3 rounded-lg border border-stone-200 bg-white hover:bg-amber-50 hover:border-amber-300 transition-colors text-stone-800 text-sm font-medium"
+                className={`w-full text-left px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
+                  pendingPlay?.id === play.id
+                    ? "border-amber-400 bg-amber-50 text-amber-900"
+                    : "border-stone-200 bg-white hover:bg-amber-50 hover:border-amber-300 text-stone-800"
+                }`}
               >
                 {play.title}
               </button>
             </li>
           ))}
         </ul>
+      )}
+
+      {/* New project name modal */}
+      {pendingPlay && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={handleCancelCreate}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-stone-800 mb-1">New project</h3>
+            <p className="text-sm text-stone-500 mb-4">
+              {pendingPlay.title}
+            </p>
+            <form onSubmit={handleConfirmCreate}>
+              <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1.5">
+                Project name
+              </label>
+              <input
+                ref={nameInputRef}
+                type="text"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                placeholder={pendingPlay.title}
+                className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 mb-4"
+                autoFocus
+              />
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={handleCancelCreate}
+                  className="px-4 py-2 text-sm text-stone-500 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 rounded-lg transition-colors"
+                >
+                  Create project
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </main>
   );

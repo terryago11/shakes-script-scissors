@@ -30,6 +30,7 @@ type ProjectAction =
   | { type: "UPDATE_ACTOR"; actorId: string; name: string; color: string }
   | { type: "DELETE_ACTOR"; actorId: string }
   | { type: "ASSIGN_CHARACTER"; characterId: string; actorId: string | null }
+  | { type: "RENAME_PROJECT"; name: string }
   | { type: "REPLACE_PROJECT"; project: Project };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
@@ -47,6 +48,14 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
 
     case "UNLOAD":
       return { project: null, activeCutId: null };
+
+    case "RENAME_PROJECT":
+      return {
+        ...state,
+        project: state.project
+          ? { ...state.project, name: action.name, updatedAt: now() }
+          : null,
+      };
 
     case "SET_ACTIVE_CUT":
       return {
@@ -248,7 +257,7 @@ interface ProjectContextValue {
   activeCutId: string | null;
   activeCut: Cut | null;
   dispatch: React.Dispatch<ProjectAction>;
-  createProject: (playId: string, playTitle: string) => Project;
+  createProject: (playId: string, playTitle: string, name?: string) => Project;
   loadProject: (project: Project) => void;
   unloadProject: () => void;
 }
@@ -271,7 +280,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.project]);
 
-  const createProject = useCallback((playId: string, playTitle: string): Project => {
+  const createProject = useCallback((playId: string, playTitle: string, name?: string): Project => {
     const id = generateId();
     const firstCutId = generateId();
     const project: Project = {
@@ -279,6 +288,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       id,
       playId,
       playTitle,
+      ...(name && name !== playTitle ? { name } : {}),
       actors: [],
       assignments: [],
       cuts: [
@@ -336,6 +346,7 @@ export interface ProjectSummary {
   id: string;
   playId: string;
   playTitle: string;
+  name?: string;
   updatedAt: string;
 }
 

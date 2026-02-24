@@ -70,6 +70,7 @@ function ProjectNav({
   const { cutModeActive } = useCutMode();
   const [toolsOpen, setToolsOpen] = useState(false);
   const [shareLabel, setShareLabel] = useState<"Share" | "Copied!" | "Too large!">("Share");
+  const [clearConfirm, setClearConfirm] = useState(false);
   const toolsRef = useRef<HTMLDivElement>(null);
 
   // Close tools dropdown when clicking outside
@@ -78,6 +79,7 @@ function ProjectNav({
     function handleClickOutside(e: MouseEvent) {
       if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) {
         setToolsOpen(false);
+        setClearConfirm(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -123,8 +125,8 @@ function ProjectNav({
         <Link href="/" className="text-stone-400 hover:text-stone-700 text-sm shrink-0">
           ✂ ShakesScriptScissors
         </Link>
-        <span className="text-stone-700 font-semibold text-sm truncate max-w-xs shrink-0">
-          {project.playTitle}
+        <span className="text-stone-700 font-semibold text-sm truncate max-w-xs shrink-0" title={project.name ? project.playTitle : undefined}>
+          {project.name || project.playTitle}
         </span>
 
         <nav className="flex gap-1 shrink-0">
@@ -188,6 +190,38 @@ function ProjectNav({
               >
                 Sign out
               </button>
+              <div className="my-1 border-t border-stone-100" />
+              {clearConfirm ? (
+                <div className="px-4 py-2">
+                  <p className="text-xs text-stone-500 mb-2">Clear all local projects?</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        Object.keys(localStorage)
+                          .filter((k) => k.startsWith("sss_"))
+                          .forEach((k) => localStorage.removeItem(k));
+                        router.push("/");
+                      }}
+                      className="flex-1 px-2 py-1 text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 rounded transition-colors"
+                    >
+                      Yes, clear
+                    </button>
+                    <button
+                      onClick={() => setClearConfirm(false)}
+                      className="flex-1 px-2 py-1 text-xs bg-stone-100 text-stone-500 hover:bg-stone-200 rounded transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setClearConfirm(true)}
+                  className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-stone-50 hover:text-red-600 transition-colors"
+                >
+                  Clear all projects…
+                </button>
+              )}
             </div>
           )}
         </div>
