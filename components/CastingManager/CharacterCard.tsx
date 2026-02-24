@@ -6,9 +6,10 @@ interface Props {
   assignedActorId: string | null;
   actors: Actor[];
   onAssign: (actorId: string | null) => void;
+  conflictCount?: number;
 }
 
-export default function CharacterCard({ character, assignedActorId, actors, onAssign }: Props) {
+export default function CharacterCard({ character, assignedActorId, actors, onAssign, conflictCount }: Props) {
   const assignedActor = actors.find((a) => a.id === assignedActorId) || null;
 
   return (
@@ -20,8 +21,18 @@ export default function CharacterCard({ character, assignedActorId, actors, onAs
       />
 
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-stone-700 truncate">
-          {character.name}
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-semibold text-stone-700 truncate">
+            {character.name}
+          </span>
+          {(conflictCount ?? 0) > 0 && (
+            <span
+              className="text-xs text-amber-600 font-medium shrink-0"
+              title={`${conflictCount} scene conflict${conflictCount! > 1 ? "s" : ""} — this actor is on stage as two characters simultaneously`}
+            >
+              ⚠ {conflictCount}
+            </span>
+          )}
         </div>
         {assignedActor && (
           <div className="text-xs text-stone-400">{assignedActor.name}</div>

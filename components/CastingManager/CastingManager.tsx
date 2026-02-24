@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Play } from "@/types/play";
+import type { Play, StageDirection } from "@/types/play";
 import { useProject } from "@/lib/project/ProjectStore";
 import CharacterCard from "./CharacterCard";
 
@@ -9,8 +9,95 @@ interface Props {
   playId: string;
 }
 
+/** Returns the effective character list for an SD, applying any overrides. */
+function getEffectiveChars(sd: StageDirection, edits?: Record<string, string[]>): string[] {
+  return edits?.[sd.id] ?? sd.characters;
+}
+
+/**
+ * Per-scene on-stage walk using entrance/exit SDs (mirrors StageTimeEngine logic).
+ * Returns a Map<characterId, number of conflict events for this character>.
+ * A conflict = this character and another character of the same actor are both on stage at the same time.
+ */
+function computeConflicts(
+  play: Play,
+  charToActor: Record<string, string>,
+  cutMap: Record<string, "cut" | "kept">,
+  edits?: Record<string, string[]>
+): Map<string, number> {
+  const conflictsPerChar = new Map<string, number>();
+
+  for (const act of play.acts) {
+    for (const scene of act.scenes) {
+      // Pre-scan for explicitly entered characters
+      const explicitlyEntered = new Set<string>();
+      for (const unit of scene.units) {
+        if (unit.type === "stage" && unit.stageType === "entrance") {
+          for (const charId of getEffectiveChars(unit, edits)) {
+            explicitlyEntered.add(charId);
+          }
+        }
+      }
+
+      // Initialize onStage with fallback characters (have kept lines but no entrance SD)
+      const onStage = new Set<string>();
+      for (const unit of scene.units) {
+        if (
+          unit.type === "speech" &&
+          (cutMap[unit.id] ?? "kept") === "kept" &&
+          !explicitlyEntered.has(unit.characterId)
+        ) {
+          onStage.add(unit.characterId);
+        }
+      }
+
+      // Check for conflicts in initial onStage group
+      checkConflicts(onStage, charToActor, conflictsPerChar);
+
+      // Walk units
+      for (const unit of scene.units) {
+        if (unit.type === "stage") {
+          if (unit.stageType === "entrance") {
+            for (const charId of getEffectiveChars(unit, edits)) {
+              onStage.add(charId);
+            }
+            // After each entrance, check if any actor now has two characters on stage
+            checkConflicts(onStage, charToActor, conflictsPerChar);
+          } else if (unit.stageType === "exit") {
+            for (const charId of getEffectiveChars(unit, edits)) {
+              onStage.delete(charId);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return conflictsPerChar;
+}
+
+function checkConflicts(
+  onStage: Set<string>,
+  charToActor: Record<string, string>,
+  conflictsPerChar: Map<string, number>
+) {
+  const onStageList = Array.from(onStage);
+  for (let i = 0; i < onStageList.length; i++) {
+    for (let j = i + 1; j < onStageList.length; j++) {
+      const a = onStageList[i];
+      const b = onStageList[j];
+      const actorA = charToActor[a];
+      const actorB = charToActor[b];
+      if (actorA && actorB && actorA === actorB) {
+        conflictsPerChar.set(a, (conflictsPerChar.get(a) ?? 0) + 1);
+        conflictsPerChar.set(b, (conflictsPerChar.get(b) ?? 0) + 1);
+      }
+    }
+  }
+}
+
 export default function CastingManager({ playId }: Props) {
-  const { project, dispatch } = useProject();
+  const { project, activeCut, dispatch } = useProject();
   const [play, setPlay] = useState<Play | null>(null);
   const [newActorName, setNewActorName] = useState("");
 
@@ -47,6 +134,14 @@ export default function CastingManager({ playId }: Props) {
     }
   }
   const speakingChars = play.castList.filter((c) => speakingCharIds.has(c.id));
+
+  // Conflict detection using active cut's on-stage state
+  const conflictsPerChar = computeConflicts(
+    play,
+    charToActor,
+    activeCut?.cutMap ?? {},
+    activeCut?.stageDirectionEdits
+  );
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
@@ -127,6 +222,7 @@ export default function CastingManager({ playId }: Props) {
             onAssign={(actorId) =>
               dispatch({ type: "ASSIGN_CHARACTER", characterId: char.id, actorId })
             }
+            conflictCount={conflictsPerChar.get(char.id) ?? 0}
           />
         ))}
       </div>

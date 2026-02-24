@@ -1,3 +1,7 @@
+export interface ProjectSettings {
+  wordsPerMinute: number;
+}
+
 export interface Project {
   /** Schema version for future migrations */
   version: number;
@@ -6,6 +10,7 @@ export interface Project {
   playTitle: string;
   /** User-given project name (e.g. "2024 Production"). Falls back to playTitle if absent. */
   name?: string;
+  settings?: ProjectSettings;
   actors: Actor[];
   /** Maps characterId → actorId (one actor per character) */
   assignments: ActorAssignment[];
@@ -39,4 +44,6 @@ export interface Cut {
   speechEdits?: Record<string, import("./edit").SpeechEdit>;
   /** Flat list of scene IDs in display order; absent = TEI order */
   sceneOrder?: string[];
+  /** stageId → effective character list (full override of StageDirection.characters) */
+  stageDirectionEdits?: Record<string, string[]>;
 }

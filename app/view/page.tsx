@@ -126,20 +126,26 @@ function ViewPageInner() {
       )}
 
       <div className="max-w-screen-xl mx-auto w-full flex gap-0">
-        {/* Script column — read-only (no onToggle handler) */}
+        {/* Script column — read-only (no onToggle handler, no drag) */}
         <div className="flex-1 min-w-0 px-4 py-6">
           {play.acts.map((act) => (
             <ActBlock
               key={act.id}
               act={act}
+              scenes={act.scenes}
               unitsByScene={unitsByScene}
               assignments={project.assignments}
               actors={project.actors}
+              castList={play.castList}
               onToggle={null}
-              sceneOrder={play.acts.flatMap((a) => a.scenes.map((s) => s.id))}
               focusedSceneId={null}
               onFocusScene={() => {}}
-              onSceneReorder={() => {}}
+              dragOverSceneId={null}
+              onDragStartScene={() => {}}
+              onDragOverScene={() => {}}
+              onDragLeaveScene={() => {}}
+              onDropScene={() => {}}
+              onDragEndScene={() => {}}
             />
           ))}
         </div>

@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import type { Play } from "@/types/play";
-import type { Actor, ActorAssignment } from "@/types/project";
+import type { Actor, ActorAssignment, ProjectSettings } from "@/types/project";
 import type { LineCounts } from "@/types/cut";
+import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import { useMetric } from "@/lib/ui/MetricContext";
 import CharacterRow from "./CharacterRow";
 import ActorRow from "./ActorRow";
@@ -17,10 +19,29 @@ interface Props {
   filter?: FilterState;
   onFilterCharacter?: (characterId: string | null) => void;
   onFilterActor?: (actorId: string | null) => void;
+  stageTime?: StageTimeResult;
+  settings?: ProjectSettings;
 }
 
-export default function LineCountPanel({ play, lineCounts, actors, filter, onFilterCharacter, onFilterActor }: Props) {
+function formatMinutes(minutes: number): string {
+  if (minutes < 60) return `${Math.round(minutes)} min`;
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+export default function LineCountPanel({
+  play, lineCounts, actors, filter, onFilterCharacter, onFilterActor,
+  stageTime, settings,
+}: Props) {
   const { metric, setMetric } = useMetric();
+  // Local tab state — "time" only available when stageTime is provided
+  const [panelTab, setPanelTab] = useState<"lines" | "words" | "time">("lines");
+
+  function handleTabClick(tab: "lines" | "words" | "time") {
+    setPanelTab(tab);
+    if (tab === "lines" || tab === "words") setMetric(tab);
+  }
 
   const { total, byCharacter, byActor } = lineCounts;
   const wordTotal = lineCounts.words.total;
@@ -43,27 +64,98 @@ export default function LineCountPanel({ play, lineCounts, actors, filter, onFil
     onFilterActor?.(filter?.type === "actor" && filter.id === actorId ? null : actorId);
   }
 
+  // Tab row (shared across both view states)
+  const tabRow = (
+    <div className="flex gap-1 mb-5 p-0.5 bg-stone-100 rounded-md">
+      <button
+        onClick={() => handleTabClick("lines")}
+        className={`flex-1 text-xs py-1 px-2 rounded transition-colors font-medium ${
+          panelTab === "lines" ? "bg-white text-stone-700 shadow-sm" : "text-stone-400 hover:text-stone-600"
+        }`}
+      >
+        Lines
+      </button>
+      <button
+        onClick={() => handleTabClick("words")}
+        className={`flex-1 text-xs py-1 px-2 rounded transition-colors font-medium ${
+          panelTab === "words" ? "bg-white text-stone-700 shadow-sm" : "text-stone-400 hover:text-stone-600"
+        }`}
+      >
+        Words
+      </button>
+      {stageTime && (
+        <button
+          onClick={() => handleTabClick("time")}
+          className={`flex-1 text-xs py-1 px-2 rounded transition-colors font-medium ${
+            panelTab === "time" ? "bg-white text-stone-700 shadow-sm" : "text-stone-400 hover:text-stone-600"
+          }`}
+        >
+          Time
+        </button>
+      )}
+    </div>
+  );
+
+  // ── Time tab ────────────────────────────────────────────────────────────────
+  if (panelTab === "time" && stageTime) {
+    const byCharList = Object.values(stageTime.byCharacter)
+      .sort((a, b) => b.minutes - a.minutes);
+    const maxMinutes = byCharList[0]?.minutes ?? 1;
+
+    return (
+      <div className="p-4">
+        {tabRow}
+
+        <div className="mb-5">
+          <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">
+            Running Time
+          </div>
+          <div className="text-2xl font-bold text-stone-800">
+            {formatMinutes(stageTime.totalMinutes)}
+          </div>
+          {settings?.wordsPerMinute && (
+            <div className="text-xs text-stone-400 mt-1">
+              at {settings.wordsPerMinute} wpm
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">
+            On Stage By Character
+          </div>
+          <div className="space-y-2">
+            {byCharList.map(({ characterId, minutes }) => {
+              const char = play.castList.find((c) => c.id === characterId);
+              const pctBar = maxMinutes > 0 ? (minutes / maxMinutes) * 100 : 0;
+              return (
+                <div key={characterId}>
+                  <div className="flex items-baseline justify-between text-xs mb-0.5">
+                    <span className="text-stone-600 truncate mr-2">{char?.name ?? characterId}</span>
+                    <span className="text-stone-400 shrink-0 tabular-nums">{formatMinutes(minutes)}</span>
+                  </div>
+                  <div className="h-1 bg-stone-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-amber-400 rounded-full transition-all"
+                      style={{ width: `${pctBar}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+            {byCharList.length === 0 && (
+              <p className="text-xs text-stone-400">No stage time data yet.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Lines / Words tabs ──────────────────────────────────────────────────────
   return (
     <div className="p-4">
-      {/* Metric toggle */}
-      <div className="flex gap-1 mb-5 p-0.5 bg-stone-100 rounded-md">
-        <button
-          onClick={() => setMetric("lines")}
-          className={`flex-1 text-xs py-1 px-2 rounded transition-colors font-medium ${
-            metric === "lines" ? "bg-white text-stone-700 shadow-sm" : "text-stone-400 hover:text-stone-600"
-          }`}
-        >
-          Lines
-        </button>
-        <button
-          onClick={() => setMetric("words")}
-          className={`flex-1 text-xs py-1 px-2 rounded transition-colors font-medium ${
-            metric === "words" ? "bg-white text-stone-700 shadow-sm" : "text-stone-400 hover:text-stone-600"
-          }`}
-        >
-          Words
-        </button>
-      </div>
+      {tabRow}
 
       {/* Total */}
       <div className="mb-5">

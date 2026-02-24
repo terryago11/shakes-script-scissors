@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Act } from "@/types/play";
+import type { Act, Character, Scene } from "@/types/play";
 import type { Actor, ActorAssignment } from "@/types/project";
 import type { ScriptUnitWithStatus, LineCounts } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
@@ -10,34 +10,42 @@ import SceneBlock from "./SceneBlock";
 
 interface Props {
   act: Act;
+  /** Pre-ordered scenes to render (may be a subset for cross-act reordering) */
+  scenes: Scene[];
   unitsByScene: Map<string, ScriptUnitWithStatus[]>;
   assignments: ActorAssignment[];
   actors: Actor[];
+  castList: Character[];
   onToggle: ((unitId: string) => void) | null;
   speechEdits?: Record<string, SpeechEdit>;
   onClearEdits?: (unitId: string) => void;
   filteredCharacterIds?: Set<string>;
   cutModeActive?: boolean;
   lineCounts?: LineCounts;
-  sceneOrder: string[];
   focusedSceneId: string | null;
   onFocusScene: (sceneId: string) => void;
-  onSceneReorder: (newOrder: string[]) => void;
+  // Drag state/handlers lifted to ScriptEditor
+  dragOverSceneId: string | null;
+  onDragStartScene: (e: React.DragEvent, sceneId: string) => void;
+  onDragOverScene: (e: React.DragEvent, sceneId: string) => void;
+  onDragLeaveScene: () => void;
+  onDropScene: (e: React.DragEvent, sceneId: string) => void;
+  onDragEndScene: () => void;
 }
 
 export default function ActBlock({
-  act, unitsByScene, assignments, actors, onToggle, speechEdits, onClearEdits,
+  act, scenes, unitsByScene, assignments, actors, castList, onToggle, speechEdits, onClearEdits,
   filteredCharacterIds, cutModeActive, lineCounts,
-  sceneOrder, focusedSceneId, onFocusScene, onSceneReorder,
+  focusedSceneId, onFocusScene,
+  dragOverSceneId, onDragStartScene, onDragOverScene, onDragLeaveScene, onDropScene, onDragEndScene,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   // Generation increments each time act collapses → SceneBlocks remount in collapsed state
   const [generation, setGeneration] = useState(0);
-  const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null);
   const { metric } = useMetric();
 
-  // If a scene is focused and it's not in this act, hide the entire act
-  if (focusedSceneId && !act.scenes.some((s) => s.id === focusedSceneId)) {
+  // If a scene is focused and it's not in this group, hide the entire act block
+  if (focusedSceneId && !scenes.some((s) => s.id === focusedSceneId)) {
     return null;
   }
 
@@ -55,49 +63,6 @@ export default function ActBlock({
   const pctCut = counts && counts.original > 0
     ? Math.round((1 - counts.afterCut / counts.original) * 100)
     : 0;
-
-  // Sort act's scenes by sceneOrder; scenes absent from sceneOrder go at end
-  const sortedScenes = [...act.scenes].sort((a, b) => {
-    const ai = sceneOrder.indexOf(a.id);
-    const bi = sceneOrder.indexOf(b.id);
-    const aPos = ai === -1 ? Infinity : ai;
-    const bPos = bi === -1 ? Infinity : bi;
-    return aPos - bPos;
-  });
-
-  function handleDragStart(e: React.DragEvent, sceneId: string) {
-    e.dataTransfer.setData("text/plain", sceneId);
-    e.dataTransfer.effectAllowed = "move";
-  }
-
-  function handleDragOver(e: React.DragEvent, sceneId: string) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOverSceneId(sceneId);
-  }
-
-  function handleDragLeave() {
-    setDragOverSceneId(null);
-  }
-
-  function handleDrop(e: React.DragEvent, targetSceneId: string) {
-    e.preventDefault();
-    setDragOverSceneId(null);
-    const draggedId = e.dataTransfer.getData("text/plain");
-    if (!draggedId || draggedId === targetSceneId) return;
-
-    // Build new order: move draggedId to just before targetSceneId
-    // Start from current full sceneOrder (all scenes across all acts)
-    const newOrder = sceneOrder.filter((id) => id !== draggedId);
-    const targetIndex = newOrder.indexOf(targetSceneId);
-    if (targetIndex === -1) return;
-    newOrder.splice(targetIndex, 0, draggedId);
-    onSceneReorder(newOrder);
-  }
-
-  function handleDragEnd() {
-    setDragOverSceneId(null);
-  }
 
   return (
     <div className="mb-8">
@@ -131,13 +96,14 @@ export default function ActBlock({
 
       {!collapsed && (
         <div className="space-y-6">
-          {sortedScenes.map((scene) => (
+          {scenes.map((scene) => (
             <SceneBlock
               key={`${scene.id}-${generation}`}
               scene={scene}
               units={unitsByScene.get(scene.id) || []}
               assignments={assignments}
               actors={actors}
+              castList={castList}
               onToggle={onToggle}
               speechEdits={speechEdits}
               onClearEdits={onClearEdits}
@@ -147,11 +113,11 @@ export default function ActBlock({
               focusedSceneId={focusedSceneId}
               onFocusScene={onFocusScene}
               isDragOver={dragOverSceneId === scene.id}
-              onDragStart={(e) => handleDragStart(e, scene.id)}
-              onDragOver={(e) => handleDragOver(e, scene.id)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, scene.id)}
-              onDragEnd={handleDragEnd}
+              onDragStart={(e) => onDragStartScene(e, scene.id)}
+              onDragOver={(e) => onDragOverScene(e, scene.id)}
+              onDragLeave={onDragLeaveScene}
+              onDrop={(e) => onDropScene(e, scene.id)}
+              onDragEnd={onDragEndScene}
             />
           ))}
         </div>

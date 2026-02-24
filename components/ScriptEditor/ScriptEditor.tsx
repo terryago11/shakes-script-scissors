@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Play } from "@/types/play";
+import type { Play, Act, Scene } from "@/types/play";
 import { useProject } from "@/lib/project/ProjectStore";
 import { computeCuts } from "@/lib/cuts/CutEngine";
+import { computeStageTime } from "@/lib/cuts/StageTimeEngine";
 import ActBlock from "./ActBlock";
 import LineCountPanel from "@/components/LineCounts/LineCountPanel";
 import { useSceneJump } from "@/lib/ui/SceneJumpContext";
@@ -23,6 +24,7 @@ export default function ScriptEditor({ playId }: Props) {
   type FilterState = { type: "character"; id: string } | { type: "actor"; id: string } | null;
   const [filter, setFilter] = useState<FilterState>(null);
   const [focusedSceneId, setFocusedSceneId] = useState<string | null>(null);
+  const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null);
   const { setScenes, setActiveSceneId } = useSceneJump();
   const { cutModeActive, setCutModeActive } = useCutMode();
   const scriptColRef = useRef<HTMLDivElement>(null);
@@ -102,6 +104,8 @@ export default function ScriptEditor({ playId }: Props) {
     project.assignments,
     project.actors
   );
+
+  const stageTime = computeStageTime(play, activeCut, project.settings);
 
   function handleToggle(unitId: string) {
     dispatch({ type: "TOGGLE_UNIT", unitId });
@@ -200,6 +204,63 @@ export default function ScriptEditor({ playId }: Props) {
     dispatch({ type: "SET_SCENE_ORDER", sceneOrder: newOrder });
   }
 
+  // Drag handlers (lifted here so cross-act drops work)
+  function handleDragStartScene(e: React.DragEvent, sceneId: string) {
+    e.dataTransfer.setData("text/plain", sceneId);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOverScene(e: React.DragEvent, sceneId: string) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverSceneId(sceneId);
+  }
+
+  function handleDragLeaveScene() {
+    setDragOverSceneId(null);
+  }
+
+  function handleDropScene(e: React.DragEvent, targetSceneId: string) {
+    e.preventDefault();
+    setDragOverSceneId(null);
+    const draggedId = e.dataTransfer.getData("text/plain");
+    if (!draggedId || draggedId === targetSceneId) return;
+    const newOrder = effectiveSceneOrder.filter((id) => id !== draggedId);
+    const targetIndex = newOrder.indexOf(targetSceneId);
+    if (targetIndex === -1) return;
+    newOrder.splice(targetIndex, 0, draggedId);
+    handleSceneReorder(newOrder);
+  }
+
+  function handleDragEndScene() {
+    setDragOverSceneId(null);
+  }
+
+  // Build scene lookup maps for cross-act reordering
+  const sceneMap = new Map<string, Scene>();
+  const sceneActMap = new Map<string, Act>();
+  for (const act of play.acts) {
+    for (const scene of act.scenes) {
+      sceneMap.set(scene.id, scene);
+      sceneActMap.set(scene.id, act);
+    }
+  }
+
+  // Group consecutive same-act scenes in global display order
+  type OrderedGroup = { act: Act; scenes: Scene[] };
+  const orderedGroups: OrderedGroup[] = [];
+  for (const sceneId of effectiveSceneOrder) {
+    const scene = sceneMap.get(sceneId);
+    const act = sceneActMap.get(sceneId);
+    if (!scene || !act) continue;
+    const last = orderedGroups[orderedGroups.length - 1];
+    if (last && last.act.id === act.id) {
+      last.scenes.push(scene);
+    } else {
+      orderedGroups.push({ act, scenes: [scene] });
+    }
+  }
+
   // Find the focused scene's title for the banner
   const focusedSceneTitle = (() => {
     if (!focusedSceneId) return null;
@@ -246,23 +307,29 @@ export default function ScriptEditor({ playId }: Props) {
         )}
 
         <div className="px-4 py-6">
-          {play.acts.map((act) => (
+          {orderedGroups.map((group) => (
             <ActBlock
-              key={act.id}
-              act={act}
+              key={`${group.act.id}-${group.scenes[0].id}`}
+              act={group.act}
+              scenes={group.scenes}
               unitsByScene={unitsByScene}
               assignments={project.assignments}
               actors={project.actors}
+              castList={play.castList}
               onToggle={handleToggle}
               speechEdits={activeCut.speechEdits}
               onClearEdits={handleClearEdits}
               filteredCharacterIds={filteredCharacterIds}
               cutModeActive={cutModeActive}
               lineCounts={lineCounts}
-              sceneOrder={effectiveSceneOrder}
               focusedSceneId={focusedSceneId}
               onFocusScene={setFocusedSceneId}
-              onSceneReorder={handleSceneReorder}
+              dragOverSceneId={dragOverSceneId}
+              onDragStartScene={handleDragStartScene}
+              onDragOverScene={handleDragOverScene}
+              onDragLeaveScene={handleDragLeaveScene}
+              onDropScene={handleDropScene}
+              onDragEndScene={handleDragEndScene}
             />
           ))}
         </div>
@@ -278,6 +345,8 @@ export default function ScriptEditor({ playId }: Props) {
           filter={filter}
           onFilterCharacter={handleFilterCharacter}
           onFilterActor={handleFilterActor}
+          stageTime={stageTime}
+          settings={project.settings}
         />
       </div>
     </div>

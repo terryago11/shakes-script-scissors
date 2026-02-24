@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Scene } from "@/types/play";
+import type { Character, Scene } from "@/types/play";
 import type { Actor, ActorAssignment } from "@/types/project";
 import type { ScriptUnitWithStatus, SceneCounts } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
@@ -14,6 +14,7 @@ interface Props {
   units: ScriptUnitWithStatus[];
   assignments: ActorAssignment[];
   actors: Actor[];
+  castList: Character[];
   onToggle: ((unitId: string) => void) | null;
   speechEdits?: Record<string, SpeechEdit>;
   onClearEdits?: (unitId: string) => void;
@@ -33,7 +34,7 @@ interface Props {
 }
 
 export default function SceneBlock({
-  scene, units, assignments, actors, onToggle, speechEdits, onClearEdits,
+  scene, units, assignments, actors, castList, onToggle, speechEdits, onClearEdits,
   filteredCharacterIds, cutModeActive, sceneCounts,
   focusedSceneId, onFocusScene,
   isDragOver, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
@@ -112,18 +113,22 @@ export default function SceneBlock({
   }
 
   return (
-    <div
-      id={`scene-${scene.id}`}
-      draggable={!cutModeActive}
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-      onDragEnd={onDragEnd}
-      className={`border rounded-lg transition-colors ${
-        isDragOver ? "border-amber-400 border-t-2" : isFullyCut ? "border-stone-200 bg-stone-50" : "border-stone-100 bg-white"
-      }`}
-    >
+    <div className="relative">
+      {isDragOver && (
+        <div className="pointer-events-none absolute -top-3 left-0 right-0 h-0.5 bg-amber-400 z-10 rounded-full" />
+      )}
+      <div
+        id={`scene-${scene.id}`}
+        draggable={!cutModeActive}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        onDragEnd={onDragEnd}
+        className={`border rounded-lg transition-colors ${
+          isFullyCut ? "border-stone-200 bg-stone-50" : "border-stone-100 bg-white"
+        }`}
+      >
       {/* Header row: drag handle + collapse button + restore-all + focus (separate so buttons don't nest) */}
       <div className={`group flex items-center rounded-lg ${isFullyCut ? "opacity-50" : ""}`}>
         {/* Drag handle */}
@@ -215,12 +220,14 @@ export default function SceneBlock({
                   stage={unit}
                   status={status}
                   onToggle={onToggle ? () => onToggle(unit.id) : null}
+                  castList={castList}
                 />
               );
             }
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }
