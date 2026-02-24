@@ -147,7 +147,7 @@ export default function SpeechBlock({
   return (
     <div
       ref={containerRef}
-      className={`group flex gap-3 py-2 px-2 rounded transition-colors ${isCut ? "opacity-40 bg-stone-50" : ""}`}
+      className={`group flex gap-3 py-2 px-2 rounded transition-colors`}
       style={{ position: "relative" }}
     >
       {/* Floating cut toolbar — appears on text selection */}
@@ -178,7 +178,7 @@ export default function SpeechBlock({
 
       {/* Actor color indicator */}
       <div
-        className="w-1 rounded-full shrink-0 mt-1"
+        className={`w-1 rounded-full shrink-0 mt-1 ${isCut ? "opacity-30" : ""}`}
         style={{ backgroundColor: actorColor || "#d1d5db", minHeight: "1.25rem" }}
       />
 
@@ -187,7 +187,7 @@ export default function SpeechBlock({
         <div className="flex items-center gap-1 mb-1">
           <div
             className={`text-xs font-bold uppercase tracking-wider flex-1 min-w-0 ${
-              isCut ? "text-stone-400 line-through" : isContinuation ? "text-stone-300" : "text-stone-600"
+              isCut ? "text-red-400 opacity-60 line-through" : isContinuation ? "text-stone-300" : "text-stone-600"
             }`}
             style={{ color: isCut || isContinuation ? undefined : actorColor || undefined }}
           >
@@ -336,7 +336,7 @@ export default function SpeechBlock({
           </div>
         ) : (
           // Compact mode: show inline diff annotations even outside edit mode (read-only view of edits)
-          <div className={`font-serif text-sm leading-relaxed ${isCut ? "text-stone-400" : "text-stone-800"}`}>
+          <div className={`font-serif text-sm leading-relaxed ${isCut ? "text-red-400 opacity-60 line-through" : "text-stone-800"}`}>
             {speech.lines.map((line) => {
               const lineStatus = lineStatusMap.get(line.id) ?? "kept";
               const isLineCut = !isCut && lineStatus === "cut";
