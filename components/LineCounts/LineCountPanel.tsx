@@ -210,8 +210,8 @@ export default function LineCountPanel({
                         />
                       )}
                       <div
-                        className={`absolute h-full rounded-full transition-all ${actorHasAdded ? "bg-green-500" : "bg-amber-400"}`}
-                        style={{ width: `${pctBar}%` }}
+                        className="absolute h-full rounded-full transition-all"
+                        style={{ width: `${pctBar}%`, backgroundColor: actor?.color ?? "#f59e0b" }}
                       />
                     </div>
                     {charNames && (
