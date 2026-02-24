@@ -16,20 +16,33 @@ function getEffectiveChars(sd: StageDirection, edits?: Record<string, string[]>)
 
 /**
  * Per-scene on-stage walk using entrance/exit SDs (mirrors StageTimeEngine logic).
- * Returns a Map<characterId, number of conflict events for this character>.
- * A conflict = this character and another character of the same actor are both on stage at the same time.
+ * Returns Map<characterId, Set<characterId>> of characters that were EVER simultaneously
+ * on stage at the same moment (not just the same scene).
  */
-function computeConflicts(
+function computeSimultaneousMap(
   play: Play,
-  charToActor: Record<string, string>,
   cutMap: Record<string, "cut" | "kept">,
   edits?: Record<string, string[]>
-): Map<string, number> {
-  const conflictsPerChar = new Map<string, number>();
+): Map<string, Set<string>> {
+  const simMap = new Map<string, Set<string>>();
+
+  function recordPairs(onStage: Set<string>) {
+    const list = Array.from(onStage);
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i];
+        const b = list[j];
+        if (!simMap.has(a)) simMap.set(a, new Set());
+        if (!simMap.has(b)) simMap.set(b, new Set());
+        simMap.get(a)!.add(b);
+        simMap.get(b)!.add(a);
+      }
+    }
+  }
 
   for (const act of play.acts) {
     for (const scene of act.scenes) {
-      // Pre-scan for explicitly entered characters
+      // Pre-scan: collect explicitly entered characters
       const explicitlyEntered = new Set<string>();
       for (const unit of scene.units) {
         if (unit.type === "stage" && unit.stageType === "entrance") {
@@ -51,18 +64,17 @@ function computeConflicts(
         }
       }
 
-      // Check for conflicts in initial onStage group
-      checkConflicts(onStage, charToActor, conflictsPerChar);
+      // Record initial simultaneous pairs
+      recordPairs(onStage);
 
-      // Walk units
+      // Walk units — after each entrance, snapshot simultaneous pairs
       for (const unit of scene.units) {
         if (unit.type === "stage") {
           if (unit.stageType === "entrance") {
             for (const charId of getEffectiveChars(unit, edits)) {
               onStage.add(charId);
             }
-            // After each entrance, check if any actor now has two characters on stage
-            checkConflicts(onStage, charToActor, conflictsPerChar);
+            recordPairs(onStage);
           } else if (unit.stageType === "exit") {
             for (const charId of getEffectiveChars(unit, edits)) {
               onStage.delete(charId);
@@ -73,27 +85,7 @@ function computeConflicts(
     }
   }
 
-  return conflictsPerChar;
-}
-
-function checkConflicts(
-  onStage: Set<string>,
-  charToActor: Record<string, string>,
-  conflictsPerChar: Map<string, number>
-) {
-  const onStageList = Array.from(onStage);
-  for (let i = 0; i < onStageList.length; i++) {
-    for (let j = i + 1; j < onStageList.length; j++) {
-      const a = onStageList[i];
-      const b = onStageList[j];
-      const actorA = charToActor[a];
-      const actorB = charToActor[b];
-      if (actorA && actorB && actorA === actorB) {
-        conflictsPerChar.set(a, (conflictsPerChar.get(a) ?? 0) + 1);
-        conflictsPerChar.set(b, (conflictsPerChar.get(b) ?? 0) + 1);
-      }
-    }
-  }
+  return simMap;
 }
 
 export default function CastingManager({ playId }: Props) {
@@ -135,13 +127,36 @@ export default function CastingManager({ playId }: Props) {
   }
   const speakingChars = play.castList.filter((c) => speakingCharIds.has(c.id));
 
-  // Conflict detection using active cut's on-stage state
-  const conflictsPerChar = computeConflicts(
+  // Build simultaneous map (chars that are ever on stage at the same moment in the cut)
+  const simultaneousMap = computeSimultaneousMap(
     play,
-    charToActor,
     activeCut?.cutMap ?? {},
     activeCut?.stageDirectionEdits
   );
+
+  // For each character: count how many of its simultaneous partners share its assigned actor
+  const conflictsPerChar = new Map<string, number>();
+  for (const [charId, simSet] of simultaneousMap) {
+    const myActor = charToActor[charId];
+    if (!myActor) continue;
+    let count = 0;
+    for (const otherCharId of simSet) {
+      if (charToActor[otherCharId] === myActor) count++;
+    }
+    if (count > 0) conflictsPerChar.set(charId, count);
+  }
+
+  // For each character: the set of actor IDs that would cause a doubling conflict
+  // (already assigned to a character simultaneously on stage with this one)
+  function getConflictingActorIds(charId: string): Set<string> {
+    const simSet = simultaneousMap.get(charId) ?? new Set<string>();
+    const conflicting = new Set<string>();
+    for (const otherCharId of simSet) {
+      const actorId = charToActor[otherCharId];
+      if (actorId) conflicting.add(actorId);
+    }
+    return conflicting;
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
@@ -223,6 +238,7 @@ export default function CastingManager({ playId }: Props) {
               dispatch({ type: "ASSIGN_CHARACTER", characterId: char.id, actorId })
             }
             conflictCount={conflictsPerChar.get(char.id) ?? 0}
+            conflictingActorIds={getConflictingActorIds(char.id)}
           />
         ))}
       </div>

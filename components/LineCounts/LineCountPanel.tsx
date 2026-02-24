@@ -100,7 +100,8 @@ export default function LineCountPanel({
   if (panelTab === "time" && stageTime) {
     const byCharList = Object.values(stageTime.byCharacter)
       .sort((a, b) => b.minutes - a.minutes);
-    const maxMinutes = byCharList[0]?.minutes ?? 1;
+    const maxOrigMinutes = byCharList[0]?.originalMinutes ?? 1;
+    const hasCuts = stageTime.totalMinutes < stageTime.originalTotalMinutes - 0.01;
 
     return (
       <div className="p-4">
@@ -110,9 +111,21 @@ export default function LineCountPanel({
           <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">
             Running Time
           </div>
-          <div className="text-2xl font-bold text-stone-800">
-            {formatMinutes(stageTime.totalMinutes)}
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-stone-800">
+              {formatMinutes(stageTime.totalMinutes)}
+            </span>
+            {hasCuts && (
+              <span className="text-sm text-stone-400">
+                / {formatMinutes(stageTime.originalTotalMinutes)}
+              </span>
+            )}
           </div>
+          {hasCuts && (
+            <div className="mt-1 text-xs text-amber-600 font-medium">
+              {Math.round((1 - stageTime.totalMinutes / stageTime.originalTotalMinutes) * 100)}% cut
+            </div>
+          )}
           {settings?.wordsPerMinute && (
             <div className="text-xs text-stone-400 mt-1">
               at {settings.wordsPerMinute} wpm
@@ -125,18 +138,31 @@ export default function LineCountPanel({
             On Stage By Character
           </div>
           <div className="space-y-2">
-            {byCharList.map(({ characterId, minutes }) => {
+            {byCharList.map(({ characterId, minutes, originalMinutes }) => {
               const char = play.castList.find((c) => c.id === characterId);
-              const pctBar = maxMinutes > 0 ? (minutes / maxMinutes) * 100 : 0;
+              const pctBar = maxOrigMinutes > 0 ? (minutes / maxOrigMinutes) * 100 : 0;
+              const origPctBar = maxOrigMinutes > 0 ? (originalMinutes / maxOrigMinutes) * 100 : 0;
+              const charHasCuts = minutes < originalMinutes - 0.01;
               return (
                 <div key={characterId}>
                   <div className="flex items-baseline justify-between text-xs mb-0.5">
                     <span className="text-stone-600 truncate mr-2">{char?.name ?? characterId}</span>
-                    <span className="text-stone-400 shrink-0 tabular-nums">{formatMinutes(minutes)}</span>
+                    <span className="text-stone-400 shrink-0 tabular-nums">
+                      {formatMinutes(minutes)}
+                      {charHasCuts && (
+                        <span className="text-stone-300"> / {formatMinutes(originalMinutes)}</span>
+                      )}
+                    </span>
                   </div>
-                  <div className="h-1 bg-stone-100 rounded-full overflow-hidden">
+                  <div className="h-1 bg-stone-100 rounded-full overflow-hidden relative">
+                    {charHasCuts && (
+                      <div
+                        className="absolute h-full bg-stone-200 rounded-full"
+                        style={{ width: `${origPctBar}%` }}
+                      />
+                    )}
                     <div
-                      className="h-full bg-amber-400 rounded-full transition-all"
+                      className="absolute h-full bg-amber-400 rounded-full transition-all"
                       style={{ width: `${pctBar}%` }}
                     />
                   </div>

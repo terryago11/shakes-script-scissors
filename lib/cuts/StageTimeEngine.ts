@@ -6,7 +6,10 @@ const DEFAULT_WPM = 135;
 
 export interface CharacterStageTime {
   characterId: string;
+  /** On-stage minutes in the cut script */
   minutes: number;
+  /** On-stage minutes in the uncut script */
+  originalMinutes: number;
   /** Scene IDs in which this character was on stage */
   scenes: string[];
 }
@@ -14,11 +17,19 @@ export interface CharacterStageTime {
 export interface StageTimeResult {
   byCharacter: Record<string, CharacterStageTime>;
   totalMinutes: number;
+  originalTotalMinutes: number;
 }
 
 /** Returns the effective character list for an SD, applying any overrides from the cut. */
-function getEffectiveCharacters(sd: StageDirection, edits?: Record<string, string[]>): string[] {
+export function getEffectiveCharacters(sd: StageDirection, edits?: Record<string, string[]>): string[] {
   return edits?.[sd.id] ?? sd.characters;
+}
+
+function ensureChar(byChar: Record<string, CharacterStageTime>, charId: string): CharacterStageTime {
+  if (!byChar[charId]) {
+    byChar[charId] = { characterId: charId, minutes: 0, originalMinutes: 0, scenes: [] };
+  }
+  return byChar[charId];
 }
 
 export function computeStageTime(
@@ -31,6 +42,7 @@ export function computeStageTime(
 
   const byCharacter: Record<string, CharacterStageTime> = {};
   let totalMinutes = 0;
+  let originalTotalMinutes = 0;
 
   // Effective scene order (custom or TEI default)
   const defaultSceneOrder = play.acts.flatMap((act) => act.scenes.map((s) => s.id));
@@ -50,7 +62,7 @@ export function computeStageTime(
 
     const units = scene.units;
 
-    // ── Step 1: Pre-scan for explicitly entered characters ──────────────────
+    // ── Pre-scan: collect explicitly entered characters ──────────────────────
     const explicitlyEntered = new Set<string>();
     for (const unit of units) {
       if (unit.type === "stage" && unit.stageType === "entrance") {
@@ -60,61 +72,68 @@ export function computeStageTime(
       }
     }
 
-    // ── Step 2: Initialize onStage ──────────────────────────────────────────
-    // Characters with kept speeches who were never explicitly entered → assumed on from start (fallback)
+    // ── Initialize on-stage sets ─────────────────────────────────────────────
+    // cut version: fallback chars have KEPT speeches + no entrance SD
     const onStage = new Set<string>();
+    // original version: fallback chars have ANY speeches + no entrance SD
+    const onStageOrig = new Set<string>();
+
     for (const unit of units) {
-      if (
-        unit.type === "speech" &&
-        (cut.cutMap[unit.id] ?? "kept") === "kept" &&
-        !explicitlyEntered.has(unit.characterId)
-      ) {
-        onStage.add(unit.characterId);
+      if (unit.type === "speech" && !explicitlyEntered.has(unit.characterId)) {
+        onStageOrig.add(unit.characterId);
+        if ((cut.cutMap[unit.id] ?? "kept") === "kept") {
+          onStage.add(unit.characterId);
+        }
       }
     }
 
-    // ── Step 3: Walk units in document order ────────────────────────────────
+    // ── Walk units in document order ─────────────────────────────────────────
     for (const unit of units) {
       if (unit.type === "stage") {
         if (unit.stageType === "entrance") {
           for (const charId of getEffectiveCharacters(unit, edits)) {
             onStage.add(charId);
+            onStageOrig.add(charId);
           }
         } else if (unit.stageType === "exit") {
           for (const charId of getEffectiveCharacters(unit, edits)) {
             onStage.delete(charId);
+            onStageOrig.delete(charId);
           }
         }
       } else if (unit.type === "speech") {
+        // ── Original: accumulate for ALL speeches ──────────────────────────
+        const origMinutes = (unit.lineCount * AVG_WORDS_PER_LINE) / wpm;
+        originalTotalMinutes += origMinutes;
+        for (const charId of onStageOrig) {
+          const entry = ensureChar(byCharacter, charId);
+          entry.originalMinutes += origMinutes;
+          if (!entry.scenes.includes(sceneId)) entry.scenes.push(sceneId);
+        }
+
+        // ── Cut: only for kept speeches ────────────────────────────────────
         const isKept = (cut.cutMap[unit.id] ?? "kept") === "kept";
         if (!isKept) continue;
 
-        // Kept lines count (account for lineCutMap)
         let keptLines = unit.lineCount;
         if (cut.lineCutMap) {
-          const cutLines = unit.lines.filter(
-            (l) => cut.lineCutMap![l.id] === "cut"
-          ).length;
-          keptLines = Math.max(0, unit.lineCount - cutLines);
+          const cutCount = unit.lines.filter((l) => cut.lineCutMap![l.id] === "cut").length;
+          keptLines = Math.max(0, unit.lineCount - cutCount);
         }
 
-        const speechMinutes = (keptLines * AVG_WORDS_PER_LINE) / wpm;
-        totalMinutes += speechMinutes;
+        const cutMinutes = (keptLines * AVG_WORDS_PER_LINE) / wpm;
+        totalMinutes += cutMinutes;
 
-        const charId = unit.characterId;
-        if (onStage.has(charId)) {
-          if (!byCharacter[charId]) {
-            byCharacter[charId] = { characterId: charId, minutes: 0, scenes: [] };
-          }
-          byCharacter[charId].minutes += speechMinutes;
-          if (!byCharacter[charId].scenes.includes(sceneId)) {
-            byCharacter[charId].scenes.push(sceneId);
-          }
+        // Accumulate for ALL characters currently on stage (not just the speaker)
+        for (const charId of onStage) {
+          const entry = ensureChar(byCharacter, charId);
+          entry.minutes += cutMinutes;
+          if (!entry.scenes.includes(sceneId)) entry.scenes.push(sceneId);
         }
       }
     }
-    // Step 4: Characters remaining in onStage at scene end are fine — no explicit exit needed (fallback)
+    // Characters remaining at scene end stay until end (fallback — no action needed)
   }
 
-  return { byCharacter, totalMinutes };
+  return { byCharacter, totalMinutes, originalTotalMinutes };
 }
