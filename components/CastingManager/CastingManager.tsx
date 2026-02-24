@@ -85,10 +85,20 @@ export default function CastingManager({ playId }: Props) {
                 key={actor.id}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-stone-200 bg-white text-sm"
               >
-                <div
-                  className="w-3 h-3 rounded-full"
+                <label
+                  className="w-3 h-3 rounded-full cursor-pointer shrink-0 hover:ring-2 hover:ring-offset-1 hover:ring-stone-400 transition-shadow"
                   style={{ backgroundColor: actor.color }}
-                />
+                  title="Click to change color"
+                >
+                  <input
+                    type="color"
+                    value={actor.color}
+                    onChange={(e) =>
+                      dispatch({ type: "UPDATE_ACTOR", actorId: actor.id, name: actor.name, color: e.target.value })
+                    }
+                    className="sr-only"
+                  />
+                </label>
                 <span className="text-stone-700">{actor.name}</span>
                 <button
                   onClick={() => dispatch({ type: "DELETE_ACTOR", actorId: actor.id })}

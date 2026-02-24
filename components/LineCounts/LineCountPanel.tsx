@@ -3,6 +3,7 @@
 import type { Play } from "@/types/play";
 import type { Actor, ActorAssignment } from "@/types/project";
 import type { LineCounts } from "@/types/cut";
+import { useMetric } from "@/lib/ui/MetricContext";
 import CharacterRow from "./CharacterRow";
 import ActorRow from "./ActorRow";
 
@@ -19,9 +20,19 @@ interface Props {
 }
 
 export default function LineCountPanel({ play, lineCounts, actors, filter, onFilterCharacter, onFilterActor }: Props) {
+  const { metric, setMetric } = useMetric();
+
   const { total, byCharacter, byActor } = lineCounts;
-  const pct = total.original > 0
-    ? Math.round((1 - total.afterCut / total.original) * 100)
+  const wordTotal = lineCounts.words.total;
+  const wordByCharacter = lineCounts.words.byCharacter;
+  const wordByActor = lineCounts.words.byActor;
+
+  const activeCounts = metric === "lines"
+    ? { total, byCharacter, byActor }
+    : { total: wordTotal, byCharacter: wordByCharacter, byActor: wordByActor };
+
+  const pct = activeCounts.total.original > 0
+    ? Math.round((1 - activeCounts.total.afterCut / activeCounts.total.original) * 100)
     : 0;
 
   function handleCharacterClick(characterId: string) {
@@ -34,23 +45,42 @@ export default function LineCountPanel({ play, lineCounts, actors, filter, onFil
 
   return (
     <div className="p-4">
+      {/* Metric toggle */}
+      <div className="flex gap-1 mb-5 p-0.5 bg-stone-100 rounded-md">
+        <button
+          onClick={() => setMetric("lines")}
+          className={`flex-1 text-xs py-1 px-2 rounded transition-colors font-medium ${
+            metric === "lines" ? "bg-white text-stone-700 shadow-sm" : "text-stone-400 hover:text-stone-600"
+          }`}
+        >
+          Lines
+        </button>
+        <button
+          onClick={() => setMetric("words")}
+          className={`flex-1 text-xs py-1 px-2 rounded transition-colors font-medium ${
+            metric === "words" ? "bg-white text-stone-700 shadow-sm" : "text-stone-400 hover:text-stone-600"
+          }`}
+        >
+          Words
+        </button>
+      </div>
+
       {/* Total */}
       <div className="mb-5">
         <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">
-          Total Lines
+          Total {metric === "lines" ? "Lines" : "Words"}
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold text-stone-800">{total.afterCut}</span>
-          <span className="text-sm text-stone-400">/ {total.original}</span>
+          <span className="text-2xl font-bold text-stone-800">{activeCounts.total.afterCut.toLocaleString()}</span>
+          <span className="text-sm text-stone-400">/ {activeCounts.total.original.toLocaleString()}</span>
         </div>
         {pct > 0 && (
           <div className="mt-1 text-xs text-amber-600 font-medium">{pct}% cut</div>
         )}
-        {/* Progress bar */}
         <div className="mt-2 h-1.5 bg-stone-100 rounded-full overflow-hidden">
           <div
             className="h-full bg-amber-400 rounded-full transition-all"
-            style={{ width: `${total.original > 0 ? (total.afterCut / total.original) * 100 : 100}%` }}
+            style={{ width: `${activeCounts.total.original > 0 ? (activeCounts.total.afterCut / activeCounts.total.original) * 100 : 100}%` }}
           />
         </div>
       </div>
@@ -61,10 +91,7 @@ export default function LineCountPanel({ play, lineCounts, actors, filter, onFil
           <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">
             By Actor
             {filter?.type === "actor" && (
-              <button
-                onClick={() => onFilterActor?.(null)}
-                className="ml-2 normal-case font-normal text-amber-500 hover:text-amber-700"
-              >
+              <button onClick={() => onFilterActor?.(null)} className="ml-2 normal-case font-normal text-amber-500 hover:text-amber-700">
                 Clear filter
               </button>
             )}
@@ -76,7 +103,7 @@ export default function LineCountPanel({ play, lineCounts, actors, filter, onFil
                 <ActorRow
                   key={actor.id}
                   actor={actor}
-                  counts={byActor[actor.id] || { characters: [], original: 0, afterCut: 0 }}
+                  counts={activeCounts.byActor[actor.id] || { characters: [], original: 0, afterCut: 0 }}
                   play={play}
                   isFiltered={isFiltered}
                   onClick={onFilterActor ? () => handleActorClick(actor.id) : undefined}
@@ -92,26 +119,20 @@ export default function LineCountPanel({ play, lineCounts, actors, filter, onFil
         <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">
           By Character
           {filter?.type === "character" && (
-            <button
-              onClick={() => onFilterCharacter?.(null)}
-              className="ml-2 normal-case font-normal text-amber-500 hover:text-amber-700"
-            >
+            <button onClick={() => onFilterCharacter?.(null)} className="ml-2 normal-case font-normal text-amber-500 hover:text-amber-700">
               Clear filter
             </button>
           )}
         </div>
         <div className="space-y-1">
           {play.castList
-            .filter((c) => (byCharacter[c.id]?.original ?? 0) > 0)
-            .sort(
-              (a, b) =>
-                (byCharacter[b.id]?.original ?? 0) - (byCharacter[a.id]?.original ?? 0)
-            )
+            .filter((c) => (activeCounts.byCharacter[c.id]?.original ?? 0) > 0)
+            .sort((a, b) => (activeCounts.byCharacter[b.id]?.original ?? 0) - (activeCounts.byCharacter[a.id]?.original ?? 0))
             .map((char) => (
               <CharacterRow
                 key={char.id}
                 character={char}
-                counts={byCharacter[char.id] || { original: 0, afterCut: 0 }}
+                counts={activeCounts.byCharacter[char.id] || { original: 0, afterCut: 0 }}
                 isFiltered={filter?.type === "character" && filter.id === char.id}
                 onClick={onFilterCharacter ? () => handleCharacterClick(char.id) : undefined}
               />

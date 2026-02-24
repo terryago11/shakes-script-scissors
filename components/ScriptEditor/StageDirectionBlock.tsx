@@ -13,29 +13,19 @@ export default function StageDirectionBlock({ stage, status, onToggle }: Props) 
   const readonly = onToggle === null;
 
   return (
-    <div
-      className={`group flex gap-3 py-1.5 px-2 rounded transition-colors ${
-        readonly
-          ? isCut ? "opacity-40" : ""
-          : isCut
-          ? "opacity-40 hover:opacity-60 cursor-pointer"
-          : "hover:bg-stone-50 cursor-pointer"
-      }`}
-      onClick={readonly ? undefined : onToggle ?? undefined}
-      title={readonly ? undefined : isCut ? "Click to restore" : "Click to cut"}
-    >
+    <div className={`group flex items-start gap-3 py-1.5 px-2 rounded ${isCut ? "opacity-50" : ""}`}>
       <div className="w-1 shrink-0" />
-      <div
-        className={`text-sm italic text-stone-500 ${
-          isCut ? "line-through text-stone-400" : ""
-        }`}
-      >
+      <div className={`text-sm italic text-stone-500 flex-1 min-w-0 ${isCut ? "line-through text-stone-400" : ""}`}>
         {stage.text}
       </div>
-      {!readonly && (
-        <div className="shrink-0 opacity-0 group-hover:opacity-100 text-stone-300 text-xs self-center">
-          {isCut ? "↩" : "✕"}
-        </div>
+      {!readonly && isCut && (
+        <button
+          onClick={onToggle ?? undefined}
+          className="opacity-0 group-hover:opacity-100 self-center text-xs px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 transition-all shrink-0"
+          title="Restore stage direction"
+        >
+          ↩ restore
+        </button>
       )}
     </div>
   );

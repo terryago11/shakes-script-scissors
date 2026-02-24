@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from "react";
 import type { Project, Actor, ActorAssignment, Cut } from "@/types/project";
+import type { SpeechEdit, EditOp } from "@/types/edit";
 import { generateId, defaultColors } from "./projectUtils";
 
 const CURRENT_VERSION = 1;
@@ -20,7 +21,8 @@ type ProjectAction =
   | { type: "SET_ACTIVE_CUT"; cutId: string }
   | { type: "TOGGLE_UNIT"; unitId: string }
   | { type: "SET_UNIT_STATUS"; unitId: string; status: "cut" | "kept" }
-  | { type: "TOGGLE_LINE"; lineId: string }
+  | { type: "BULK_ADD_EDIT_OPS"; ops: Array<{ unitId: string; op: EditOp }> }
+  | { type: "CLEAR_SPEECH_EDITS"; unitId: string }
   | { type: "ADD_CUT"; name: string; cloneFromId?: string }
   | { type: "RENAME_CUT"; cutId: string; name: string }
   | { type: "DELETE_CUT"; cutId: string }
@@ -73,13 +75,28 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         cutMap: { ...c.cutMap, [action.unitId]: action.status },
       }));
 
-    case "TOGGLE_LINE": {
-      const lineCutMap = state.project!.cuts.find((c) => c.id === state.activeCutId)?.lineCutMap ?? {};
-      const current = lineCutMap[action.lineId];
-      const newStatus = current === "cut" ? "kept" : "cut";
+    case "BULK_ADD_EDIT_OPS": {
+      // Apply all ops in one state update (avoids N re-renders in cut mode)
+      return updateActiveCut(state, (c) => {
+        const edits = { ...(c.speechEdits ?? {}) };
+        for (const { unitId, op } of action.ops) {
+          const existing = edits[unitId];
+          edits[unitId] = {
+            unitId,
+            ops: [...(existing?.ops ?? []), op],
+          };
+        }
+        return { ...c, speechEdits: edits };
+      });
+    }
+
+    case "CLEAR_SPEECH_EDITS": {
+      const current = state.project!.cuts.find((c) => c.id === state.activeCutId)?.speechEdits ?? {};
+      const { [action.unitId]: _removed, ...rest } = current;
+      void _removed;
       return updateActiveCut(state, (c) => ({
         ...c,
-        lineCutMap: { ...(c.lineCutMap ?? {}), [action.lineId]: newStatus },
+        speechEdits: rest,
       }));
     }
 
@@ -94,6 +111,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         createdAt: now(),
         cutMap: source ? { ...source.cutMap } : {},
         lineCutMap: source?.lineCutMap ? { ...source.lineCutMap } : {},
+        speechEdits: source?.speechEdits ? { ...source.speechEdits } : {},
       };
       const newProject = {
         ...p,
