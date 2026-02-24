@@ -1,6 +1,6 @@
 import type { Play, Scene, ScriptUnit } from "@/types/play";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
-import type { LineCounts, ScriptUnitWithStatus } from "@/types/cut";
+import type { LineCounts, LineWithStatus, ScriptUnitWithStatus } from "@/types/cut";
 
 /**
  * Pure function: given a play, a cut, casting assignments, and actors,
@@ -13,6 +13,7 @@ export function computeCuts(
   actors: Actor[]
 ): { unitsByScene: Map<string, ScriptUnitWithStatus[]>; lineCounts: LineCounts } {
   const unitsByScene = new Map<string, ScriptUnitWithStatus[]>();
+  const lineCutMap = cut.lineCutMap ?? {};
 
   // Build character → actor lookup
   const charToActor: Record<string, string> = {};
@@ -43,20 +44,42 @@ export function computeCuts(
 
       for (const unit of scene.units) {
         const status: "kept" | "cut" = cut.cutMap[unit.id] === "cut" ? "cut" : "kept";
-        unitsWithStatus.push({ unit, status });
 
         if (unit.type === "speech") {
-          const count = unit.lineCount;
           if (!byCharacter[unit.characterId]) {
             byCharacter[unit.characterId] = { original: 0, afterCut: 0 };
           }
-          byCharacter[unit.characterId].original += count;
-          totalOriginal += count;
 
-          if (status === "kept") {
-            byCharacter[unit.characterId].afterCut += count;
-            totalAfterCut += count;
+          // Build per-line statuses (only if this speech is kept)
+          let lineStatuses: LineWithStatus[] | undefined;
+          let effectiveStatus = status;
+          let keptLineCount = unit.lineCount;
+
+          if (status === "kept" && unit.lines.length > 0) {
+            // Check if any lines have been individually cut
+            const hasLineCuts = unit.lines.some((l) => lineCutMap[l.id] === "cut");
+            if (hasLineCuts) {
+              lineStatuses = unit.lines.map((l) => ({
+                lineId: l.id,
+                status: lineCutMap[l.id] === "cut" ? "cut" : "kept",
+              }));
+              keptLineCount = lineStatuses.filter((ls) => ls.status === "kept").length;
+              // If every line is individually cut, treat the whole speech as cut
+              if (keptLineCount === 0) effectiveStatus = "cut";
+            }
           }
+
+          byCharacter[unit.characterId].original += unit.lineCount;
+          totalOriginal += unit.lineCount;
+
+          if (effectiveStatus === "kept") {
+            byCharacter[unit.characterId].afterCut += keptLineCount;
+            totalAfterCut += keptLineCount;
+          }
+
+          unitsWithStatus.push({ unit, status: effectiveStatus, lineStatuses });
+        } else {
+          unitsWithStatus.push({ unit, status });
         }
       }
 
@@ -106,13 +129,15 @@ export function countCharacterLines(
 ): { original: number; afterCut: number } {
   let original = 0;
   let afterCut = 0;
+  const lineCutMap = cut.lineCutMap ?? {};
   for (const act of play.acts) {
     for (const scene of act.scenes) {
       for (const unit of scene.units) {
         if (unit.type === "speech" && unit.characterId === characterId) {
           original += unit.lineCount;
           if (cut.cutMap[unit.id] !== "cut") {
-            afterCut += unit.lineCount;
+            const keptLines = unit.lines.filter((l) => lineCutMap[l.id] !== "cut").length;
+            afterCut += keptLines;
           }
         }
       }

@@ -20,6 +20,7 @@ type ProjectAction =
   | { type: "SET_ACTIVE_CUT"; cutId: string }
   | { type: "TOGGLE_UNIT"; unitId: string }
   | { type: "SET_UNIT_STATUS"; unitId: string; status: "cut" | "kept" }
+  | { type: "TOGGLE_LINE"; lineId: string }
   | { type: "ADD_CUT"; name: string; cloneFromId?: string }
   | { type: "RENAME_CUT"; cutId: string; name: string }
   | { type: "DELETE_CUT"; cutId: string }
@@ -72,6 +73,16 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         cutMap: { ...c.cutMap, [action.unitId]: action.status },
       }));
 
+    case "TOGGLE_LINE": {
+      const lineCutMap = state.project!.cuts.find((c) => c.id === state.activeCutId)?.lineCutMap ?? {};
+      const current = lineCutMap[action.lineId];
+      const newStatus = current === "cut" ? "kept" : "cut";
+      return updateActiveCut(state, (c) => ({
+        ...c,
+        lineCutMap: { ...(c.lineCutMap ?? {}), [action.lineId]: newStatus },
+      }));
+    }
+
     case "ADD_CUT": {
       const p = state.project!;
       const source = action.cloneFromId
@@ -82,6 +93,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         name: action.name,
         createdAt: now(),
         cutMap: source ? { ...source.cutMap } : {},
+        lineCutMap: source?.lineCutMap ? { ...source.lineCutMap } : {},
       };
       const newProject = {
         ...p,

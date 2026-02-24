@@ -87,7 +87,7 @@ export function parseTei(xml: string, playId: string): Play {
           units.push({ type: "stage", id, text, characters });
         } else if (tagName === "sp") {
           try {
-            const speech = parseSpeech(child, playId, speechIndex);
+            const speech = parseSpeech(child, playId, speechIndex, castList);
             speechIndex++;
             units.push(speech);
           } catch (e) {
@@ -115,7 +115,7 @@ export function parseTei(xml: string, playId: string): Play {
   return { id: playId, title, acts, castList };
 }
 
-function parseSpeech(spNode: unknown, playId: string, index: number): Speech {
+function parseSpeech(spNode: unknown, playId: string, index: number, castList: Character[]): Speech {
   const id = getAttr(spNode, "@_xml:id") || `${playId}-sp-${index}`;
   const who = getAttr(spNode, "@_who") || "";
   // Take the first character ID if multiple speakers
@@ -123,9 +123,13 @@ function parseSpeech(spNode: unknown, playId: string, index: number): Speech {
 
   const spChildren = getChildren(spNode);
   const speakerNode = findFirst(spChildren, "speaker");
-  const characterName = speakerNode
+  const speakerTagName = speakerNode
     ? extractAllText(getChildren(speakerNode)).trim()
     : characterId.replace(/^#/, "").toUpperCase();
+
+  // Use canonical name from castList (avoids alias names like GANYMEDE for Rosalind)
+  const castEntry = castList.find((c) => c.id === characterId);
+  const characterName = castEntry ? castEntry.name.toUpperCase() : speakerTagName;
 
   const lines: Line[] = [];
   let lineIndex = 0;
@@ -223,9 +227,11 @@ function extractCastList(teiChildren: unknown[], playId: string): Character[] {
     const itemChildren = getChildren(item);
     const roleNode = findFirst(itemChildren, "role");
     const nameNode = roleNode ? findFirst(getChildren(roleNode), "name") : null;
-    const name = nameNode
+    const rawName = nameNode
       ? extractAllText(getChildren(nameNode)).trim()
       : id.replace(/^#/, "").replace(/_.*$/, "");
+
+    const name = normalizeCharacterName(rawName);
 
     if (!chars.find((c) => c.id === id)) {
       chars.push({ id, name });
@@ -234,6 +240,172 @@ function extractCastList(teiChildren: unknown[], playId: string): Character[] {
 
   void playId;
   return chars;
+}
+
+/**
+ * Normalize character names from TEI ID stems into readable Title Case display names.
+ *
+ * ID patterns observed across the corpus (stem = part before _PlayId):
+ *
+ *   Simple:
+ *     ATTENDANTS          → Attendants
+ *     PLAYERS.1           → First Player
+ *     PLAYERS.0.1         → First Player       (decimal ordinal)
+ *     PLAYERS.King        → Player King
+ *     PLAYERS.Queen       → Player Queen
+ *
+ *   With qualifier (GROUP.QUALIFIER.N or GROUP.QUALIFIER.N.M):
+ *     LORDS.COURT.2       → Second Court Lord
+ *     LORDS.DUMAINE.1     → First Lord Dumaine (proper name → append after noun)
+ *     ATTENDANTS.KING.0.1 → First King Attendant
+ *     SOLDIERS.0.1        → First Soldier
+ *
+ *   Qualifier only, no number (GROUP.QUALIFIER):
+ *     FOLLOWERS.LAERTES   → Laertes' Follower  (proper name → possessive)
+ *     ATTENDANTS.GUARDS   → Attendant Guards   (common noun → compound)
+ *
+ *   CamelCase compounds:
+ *     GravediggersCompanion → Gravedigger's Companion
+ *     Gravedigger           → Gravedigger  (no change)
+ */
+function normalizeCharacterName(raw: string): string {
+  const ordinals: Record<string, string> = {
+    "0": "First", "1": "First", "2": "Second", "3": "Third", "4": "Fourth",
+    "5": "Fifth", "6": "Sixth", "7": "Seventh", "8": "Eighth", "9": "Ninth",
+  };
+
+  // Already contains apostrophe → already human-readable, just title-case
+  if (raw.includes("'")) return toTitleCase(raw);
+
+  // Only process dotted patterns here — split on dots first
+  if (raw.includes(".")) {
+    const parts = raw.split(".");
+
+    // Derive the singular group noun from parts[0] (always the group)
+    const groupSingular = toTitleCase(decapitalizePlural(parts[0]));
+
+    // Collect the remaining parts
+    const rest = parts.slice(1);
+
+    // All-numeric tail? → ordinal (e.g. PLAYERS.1 or PLAYERS.0.1)
+    // "all-numeric tail" = last part is a digit, second-to-last is also a digit (decimal) or nothing
+    const lastPart = rest[rest.length - 1];
+    const isNumericTail = /^\d+$/.test(lastPart);
+
+    if (isNumericTail) {
+      const ord = ordinals[lastPart] ?? `${lastPart}th`;
+      // Middle qualifier parts (everything between group and the final number)
+      const qualifiers = rest.slice(0, -1).filter((p) => !/^\d+$/.test(p));
+      if (qualifiers.length === 0) {
+        // e.g. PLAYERS.1, SOLDIERS.0.1 → "First Player"
+        return `${ord} ${groupSingular}`;
+      } else {
+        // e.g. LORDS.COURT.2 → "Second Court Lord"
+        //      LORDS.DUMAINE.1 → "First Lord Dumaine"  (proper name goes after)
+        //      ATTENDANTS.KING.0.1 → "First King Attendant"
+        const qualifier = toTitleCase(qualifiers.join(" "));
+        if (isProperName(qualifiers[0])) {
+          // Proper name: "First Lord Dumaine"
+          return `${ord} ${groupSingular} ${qualifier}`;
+        } else {
+          // Common noun qualifier: "Second Court Lord"
+          return `${ord} ${qualifier} ${groupSingular}`;
+        }
+      }
+    }
+
+    // Non-numeric tail → single qualifier word (GROUP.QUALIFIER)
+    // e.g. FOLLOWERS.LAERTES, ATTENDANTS.GUARDS, PLAYERS.Queen
+    // Groups that describe internal roles (not possession) always compound:
+    //   PLAYERS.King → Player King (not "King's Player")
+    // Groups that belong to someone use possessive: FOLLOWERS.LAERTES → Laertes' Follower
+    const noPossessiveGroups = new Set(["player", "players"]);
+    if (rest.length === 1) {
+      const qualifier = rest[0];
+      const groupLower = parts[0].toLowerCase();
+      if (isProperName(qualifier) && !noPossessiveGroups.has(groupLower)) {
+        // Proper name → possessive: "Laertes' Follower"
+        return `${toTitleCase(qualifier)}' ${groupSingular}`;
+      } else {
+        // Common noun or role-based group → compound: "Player Queen", "Attendant Guard"
+        return `${groupSingular} ${toTitleCase(qualifier)}`;
+      }
+    }
+
+    // GROUP.QUALIFIER.WORD (e.g. SOLDIERS.FORTINBRAS.Captain)
+    if (rest.length === 2 && !/^\d+$/.test(rest[0]) && !/^\d+$/.test(rest[1])) {
+      const qualifier = toTitleCase(rest[0]);
+      const role = toTitleCase(rest[1]);
+      if (isProperName(rest[0])) {
+        return `${qualifier}'s ${role}`;
+      } else {
+        return `${qualifier} ${role}`;
+      }
+    }
+
+    // Fallback for any other dotted pattern
+    return toTitleCase(parts.join(" "));
+  }
+
+  // No dots — bare ALL CAPS group (e.g. ATTENDANTS → Attendants)
+  if (/^[A-Z]+$/.test(raw)) return toTitleCase(raw);
+
+  // Has spaces — already partially formatted
+  if (raw.includes(" ")) return toTitleCase(raw);
+
+  // CamelCase — handle known possessive compounds
+  const possessiveRoots: [RegExp, string][] = [
+    [/^Gravediggers(Companion)?$/i, "Gravedigger's Companion"],
+    [/^Clowns(Companion)?$/i, "Clown's Companion"],
+  ];
+  for (const [pattern, replacement] of possessiveRoots) {
+    if (pattern.test(raw)) return replacement;
+  }
+
+  // Generic CamelCase split (e.g. DukeSenior → Duke Senior)
+  if (/[A-Z]/.test(raw.slice(1))) return splitCamelCase(raw);
+
+  // Plain word — title-case it
+  return toTitleCase(raw);
+}
+
+/**
+ * Heuristic: is this a proper name (person/place) vs a common noun qualifier?
+ * Proper names in the corpus: LAERTES, FORTINBRAS, DUMAINE, KING (borderline)
+ * Common nouns: COURT, GUARDS, INTERPRETER
+ * We treat ALL-CAPS words that match known character stems as proper names.
+ * Fallback: words that look like English common nouns are not proper names.
+ */
+function isProperName(word: string): boolean {
+  const commonNouns = new Set([
+    "court", "guard", "guards", "interpreter", "soldier", "soldiers",
+    "attendant", "attendants", "lord", "lords", "lady", "servant",
+    "captain", "officer", "messenger", "ambassador", "king", "queen",
+    "prince", "duke", "count", "earl",
+  ]);
+  return !commonNouns.has(word.toLowerCase());
+}
+
+/** Title-case every word. */
+function toTitleCase(s: string): string {
+  return s.replace(/\b\w+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
+/** Remove trailing plural S/ES to get the stem for group names (e.g. "PLAYER" from "PLAYERS"). */
+function decapitalizePlural(s: string): string {
+  if (/[aeiou]s$/i.test(s)) return s; // "Chorus" — not a simple plural
+  if (/es$/i.test(s)) return s.slice(0, -2);
+  if (/s$/i.test(s)) return s.slice(0, -1);
+  return s;
+}
+
+/** Split a CamelCase string into space-separated Title Case words. */
+function splitCamelCase(s: string): string {
+  const spaced = s
+    .replace(/([A-Z][a-z]+)/g, " $1")
+    .replace(/([A-Z]+)(?=[A-Z][a-z])/g, " $1")
+    .trim();
+  return toTitleCase(spaced);
 }
 
 // --- XML traversal helpers ---

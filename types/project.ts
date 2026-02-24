@@ -31,4 +31,6 @@ export interface Cut {
   createdAt: string;
   /** ScriptUnit.id → status; absent = "kept" (default) */
   cutMap: Record<string, "cut" | "kept">;
+  /** Line.id → status; absent = "kept" (default). Only meaningful within kept speeches. */
+  lineCutMap?: Record<string, "cut" | "kept">;
 }

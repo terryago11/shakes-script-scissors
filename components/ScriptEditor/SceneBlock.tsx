@@ -13,18 +13,27 @@ interface Props {
   assignments: ActorAssignment[];
   actors: Actor[];
   onToggle: ((unitId: string) => void) | null;
+  onToggleLine?: (lineId: string) => void;
+  filteredCharacterIds?: Set<string>;
 }
 
-export default function SceneBlock({ scene, units, assignments, actors, onToggle }: Props) {
+export default function SceneBlock({ scene, units, assignments, actors, onToggle, onToggleLine, filteredCharacterIds }: Props) {
   const [collapsed, setCollapsed] = useState(false);
 
-  // Line count badge
+  // Line count badge — respect line-level cuts
   const totalLines = units
     .filter((u) => u.unit.type === "speech")
     .reduce((sum, u) => sum + (u.unit.type === "speech" ? u.unit.lineCount : 0), 0);
   const keptLines = units
     .filter((u) => u.unit.type === "speech" && u.status === "kept")
-    .reduce((sum, u) => sum + (u.unit.type === "speech" ? u.unit.lineCount : 0), 0);
+    .reduce((sum, u) => {
+      if (u.unit.type !== "speech") return sum;
+      // If there are per-line statuses, count only kept lines
+      if (u.lineStatuses) {
+        return sum + u.lineStatuses.filter((ls) => ls.status === "kept").length;
+      }
+      return sum + u.unit.lineCount;
+    }, 0);
 
   // Build charId → actor color lookup
   const charColor: Record<string, string> = {};
@@ -33,14 +42,48 @@ export default function SceneBlock({ scene, units, assignments, actors, onToggle
     if (actor) charColor[a.characterId] = actor.color;
   }
 
+  // When filtering, skip scenes with no matching speeches
+  if (filteredCharacterIds && filteredCharacterIds.size > 0) {
+    const hasMatch = units.some(
+      (u) => u.unit.type === "speech" && filteredCharacterIds.has(u.unit.characterId)
+    );
+    if (!hasMatch) return null;
+  }
+
+  const isFullyCut = totalLines > 0 && keptLines === 0;
+
+  // Continuation detection: for each kept Speech, is the previous kept Speech
+  // by the same character? (intervening cut units don't break continuity)
+  const continuationIds = new Set<string>();
+  let lastKeptCharId: string | null = null;
+  for (const { unit, status } of units) {
+    if (unit.type === "speech") {
+      if (status === "kept") {
+        if (lastKeptCharId === unit.characterId) {
+          continuationIds.add(unit.id);
+        }
+        lastKeptCharId = unit.characterId;
+      }
+      // cut speeches don't update lastKeptCharId — continuity skips over them
+    }
+    // stage directions don't break continuity
+  }
+
   return (
-    <div className="border border-stone-100 rounded-lg bg-white">
+    <div id={`scene-${scene.id}`} className={`border rounded-lg ${isFullyCut ? "border-stone-200 bg-stone-50" : "border-stone-100 bg-white"}`}>
       <button
         onClick={() => setCollapsed((c) => !c)}
-        className="flex items-center gap-3 w-full text-left px-4 py-3 hover:bg-stone-50 rounded-lg"
+        className={`flex items-center gap-3 w-full text-left px-4 py-3 hover:bg-stone-50 rounded-lg ${isFullyCut ? "opacity-50" : ""}`}
       >
         <span className="text-xs text-stone-400">{collapsed ? "▶" : "▼"}</span>
-        <span className="font-semibold text-stone-600 text-sm">{scene.title}</span>
+        <span className={`font-semibold text-sm ${isFullyCut ? "text-stone-400 line-through" : "text-stone-600"}`}>
+          {scene.title}
+        </span>
+        {isFullyCut && (
+          <span className="text-xs text-stone-400 bg-stone-200 px-1.5 py-0.5 rounded font-normal">
+            fully cut
+          </span>
+        )}
         <span className="ml-auto text-xs text-stone-400 tabular-nums">
           {keptLines === totalLines ? (
             <span>{totalLines} lines</span>
@@ -55,24 +98,34 @@ export default function SceneBlock({ scene, units, assignments, actors, onToggle
 
       {!collapsed && (
         <div className="px-4 pb-4 space-y-0.5">
-          {units.map(({ unit, status }) =>
-            unit.type === "speech" ? (
-              <SpeechBlock
-                key={unit.id}
-                speech={unit}
-                status={status}
-                actorColor={charColor[unit.characterId]}
-                onToggle={onToggle ? () => onToggle(unit.id) : null}
-              />
-            ) : (
-              <StageDirectionBlock
-                key={unit.id}
-                stage={unit}
-                status={status}
-                onToggle={onToggle ? () => onToggle(unit.id) : null}
-              />
-            )
-          )}
+          {units.map(({ unit, status, lineStatuses }) => {
+            const isFiltering = filteredCharacterIds && filteredCharacterIds.size > 0;
+            if (unit.type === "speech") {
+              if (isFiltering && !filteredCharacterIds!.has(unit.characterId)) return null;
+              return (
+                <SpeechBlock
+                  key={unit.id}
+                  speech={unit}
+                  status={status}
+                  actorColor={charColor[unit.characterId]}
+                  onToggle={onToggle ? () => onToggle(unit.id) : null}
+                  onToggleLine={onToggleLine ?? null}
+                  lineStatuses={lineStatuses}
+                  isContinuation={continuationIds.has(unit.id)}
+                />
+              );
+            } else {
+              if (isFiltering) return null; // hide stage directions when filtering
+              return (
+                <StageDirectionBlock
+                  key={unit.id}
+                  stage={unit}
+                  status={status}
+                  onToggle={onToggle ? () => onToggle(unit.id) : null}
+                />
+              );
+            }
+          })}
         </div>
       )}
     </div>

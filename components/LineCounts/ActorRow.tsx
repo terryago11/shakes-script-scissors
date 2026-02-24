@@ -5,9 +5,11 @@ interface Props {
   actor: Actor;
   counts: { characters: string[]; original: number; afterCut: number };
   play: Play;
+  isFiltered?: boolean;
+  onClick?: () => void;
 }
 
-export default function ActorRow({ actor, counts, play }: Props) {
+export default function ActorRow({ actor, counts, play, isFiltered, onClick }: Props) {
   const { original, afterCut, characters } = counts;
   const pct = original > 0 ? afterCut / original : 1;
 
@@ -16,13 +18,20 @@ export default function ActorRow({ actor, counts, play }: Props) {
     .join(", ");
 
   return (
-    <div className="py-1">
+    <div
+      className={`py-1 rounded px-1 -mx-1 transition-colors ${
+        onClick ? "cursor-pointer hover:bg-stone-50" : ""
+      } ${isFiltered ? "bg-amber-50" : ""}`}
+      onClick={onClick}
+    >
       <div className="flex items-center gap-2 mb-0.5">
         <div
           className="w-2 h-2 rounded-full shrink-0"
           style={{ backgroundColor: actor.color }}
         />
-        <div className="text-xs font-medium text-stone-700 truncate">{actor.name}</div>
+        <div className={`text-xs font-medium truncate ${isFiltered ? "text-amber-800" : "text-stone-700"}`}>
+          {actor.name}
+        </div>
         <div className="ml-auto text-xs text-stone-500 tabular-nums">
           <span className="font-medium">{afterCut}</span>
           <span className="text-stone-300"> / {original}</span>

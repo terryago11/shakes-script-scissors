@@ -23,12 +23,15 @@ export function buildCueScript(
   const actorCharIds = new Set(
     assignments.filter((a) => a.actorId === actor.id).map((a) => a.characterId)
   );
+  const lineCutMap = cut.lineCutMap ?? {};
 
   const allUnits = getAllUnitsInOrder(play);
   const entries: CueEntry[] = [];
 
   let lastOtherSpeechText: string | null = null;
+  let lastOtherSpeakerName: string | null = null;
   let pendingCue: string | null = null;
+  let pendingCueSpeakerName: string | null = null;
   let inActorBlock = false;
 
   for (const unit of allUnits) {
@@ -39,30 +42,43 @@ export function buildCueScript(
       const speech = unit as Speech;
       const isActorSpeech = actorCharIds.has(speech.characterId);
 
+      // Filter lines by lineCutMap (cut lines are excluded from cue scripts)
+      const keptLines = speech.lines.filter((l) => lineCutMap[l.id] !== "cut");
+      if (keptLines.length === 0 && !isActorSpeech) {
+        // Treat as if the speech doesn't exist for cue purposes
+        continue;
+      }
+
       if (isActorSpeech) {
         // If we have a pending cue from the previous speaker, emit it
         if (pendingCue !== null) {
-          entries.push({ type: "cue", text: pendingCue });
+          entries.push({ type: "cue", text: pendingCue, cueSpeakerName: pendingCueSpeakerName ?? undefined });
           pendingCue = null;
+          pendingCueSpeakerName = null;
         } else if (!inActorBlock && lastOtherSpeechText !== null) {
           // First speech — extract cue from the last other speech we saw
-          entries.push({ type: "cue", text: extractCue(lastOtherSpeechText) });
+          entries.push({ type: "cue", text: extractCue(lastOtherSpeechText), cueSpeakerName: lastOtherSpeakerName ?? undefined });
         }
 
-        // Emit the actor's lines
-        const linesText = speech.lines.map((l) => l.text).join("\n");
-        entries.push({ type: "lines", text: linesText });
+        // Emit the actor's kept lines only
+        const linesText = keptLines.map((l) => l.text).join("\n");
+        if (linesText) {
+          entries.push({ type: "lines", text: linesText, characterName: speech.characterName });
+        }
         inActorBlock = true;
         lastOtherSpeechText = null;
+        lastOtherSpeakerName = null;
       } else {
-        // Someone else is speaking
-        const fullText = speech.lines.map((l) => l.text).join(" ");
+        // Someone else is speaking — use only kept lines for cue text
+        const fullText = keptLines.map((l) => l.text).join(" ");
         if (inActorBlock) {
           // We just finished an actor block — prep the cue from this speech
           pendingCue = extractCue(fullText);
+          pendingCueSpeakerName = speech.characterName;
           inActorBlock = false;
         }
         lastOtherSpeechText = fullText;
+        lastOtherSpeakerName = speech.characterName;
       }
     } else if (unit.type === "stage") {
       const stage = unit as StageDirection;

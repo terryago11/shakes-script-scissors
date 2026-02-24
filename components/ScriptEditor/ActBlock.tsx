@@ -12,9 +12,11 @@ interface Props {
   assignments: ActorAssignment[];
   actors: Actor[];
   onToggle: ((unitId: string) => void) | null;
+  onToggleLine?: (lineId: string) => void;
+  filteredCharacterIds?: Set<string>;
 }
 
-export default function ActBlock({ act, unitsByScene, assignments, actors, onToggle }: Props) {
+export default function ActBlock({ act, unitsByScene, assignments, actors, onToggle, onToggleLine, filteredCharacterIds }: Props) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -41,6 +43,8 @@ export default function ActBlock({ act, unitsByScene, assignments, actors, onTog
               assignments={assignments}
               actors={actors}
               onToggle={onToggle}
+              onToggleLine={onToggleLine}
+              filteredCharacterIds={filteredCharacterIds}
             />
           ))}
         </div>
