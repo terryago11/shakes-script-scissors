@@ -210,7 +210,7 @@ export default function LineCountPanel({
                         />
                       )}
                       <div
-                        className={`absolute h-full rounded-full transition-all ${actorHasAdded ? "bg-blue-400" : "bg-amber-400"}`}
+                        className={`absolute h-full rounded-full transition-all ${actorHasAdded ? "bg-green-500" : "bg-amber-400"}`}
                         style={{ width: `${pctBar}%` }}
                       />
                     </div>
@@ -261,7 +261,7 @@ export default function LineCountPanel({
                       />
                     )}
                     <div
-                      className={`absolute h-full rounded-full transition-all ${charHasAdded ? "bg-blue-400" : "bg-amber-400"}`}
+                      className={`absolute h-full rounded-full transition-all ${charHasAdded ? "bg-green-500" : "bg-amber-400"}`}
                       style={{ width: `${pctBar}%` }}
                     />
                   </div>
