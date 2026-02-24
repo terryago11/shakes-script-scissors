@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Play } from "@/types/play";
+import type { Play, StageDirection } from "@/types/play";
 import { useProject } from "@/lib/project/ProjectStore";
 import CharacterCard from "./CharacterCard";
 
@@ -9,8 +9,65 @@ interface Props {
   playId: string;
 }
 
+/** Returns the effective character list for an SD, applying any overrides. */
+function getEffectiveChars(sd: StageDirection, edits?: Record<string, string[]>): string[] {
+  return edits?.[sd.id] ?? sd.characters;
+}
+
+/**
+ * Per-scene on-stage walk using entrance/exit SDs (mirrors StageTimeEngine logic).
+ * Returns Map<characterId, Set<characterId>> of characters that were EVER simultaneously
+ * on stage at the same moment (not just the same scene).
+ */
+function computeSimultaneousMap(
+  play: Play,
+  cutMap: Record<string, "cut" | "kept">,
+  edits?: Record<string, string[]>
+): Map<string, Set<string>> {
+  const simMap = new Map<string, Set<string>>();
+
+  function recordPairs(onStage: Set<string>) {
+    const list = Array.from(onStage);
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i];
+        const b = list[j];
+        if (!simMap.has(a)) simMap.set(a, new Set());
+        if (!simMap.has(b)) simMap.set(b, new Set());
+        simMap.get(a)!.add(b);
+        simMap.get(b)!.add(a);
+      }
+    }
+  }
+
+  for (const act of play.acts) {
+    for (const scene of act.scenes) {
+      // On-stage set — populated ONLY by entrance/exit SDs (no speech fallback)
+      const onStage = new Set<string>();
+
+      // Walk units — after each entrance, snapshot simultaneous pairs
+      for (const unit of scene.units) {
+        if (unit.type === "stage") {
+          if (unit.stageType === "entrance") {
+            for (const charId of getEffectiveChars(unit, edits)) {
+              onStage.add(charId);
+            }
+            recordPairs(onStage);
+          } else if (unit.stageType === "exit") {
+            for (const charId of getEffectiveChars(unit, edits)) {
+              onStage.delete(charId);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return simMap;
+}
+
 export default function CastingManager({ playId }: Props) {
-  const { project, dispatch } = useProject();
+  const { project, activeCut, dispatch } = useProject();
   const [play, setPlay] = useState<Play | null>(null);
   const [newActorName, setNewActorName] = useState("");
 
@@ -47,6 +104,37 @@ export default function CastingManager({ playId }: Props) {
     }
   }
   const speakingChars = play.castList.filter((c) => speakingCharIds.has(c.id));
+
+  // Build simultaneous map (chars that are ever on stage at the same moment in the cut)
+  const simultaneousMap = computeSimultaneousMap(
+    play,
+    activeCut?.cutMap ?? {},
+    activeCut?.stageDirectionEdits
+  );
+
+  // For each character: count how many of its simultaneous partners share its assigned actor
+  const conflictsPerChar = new Map<string, number>();
+  for (const [charId, simSet] of simultaneousMap) {
+    const myActor = charToActor[charId];
+    if (!myActor) continue;
+    let count = 0;
+    for (const otherCharId of simSet) {
+      if (charToActor[otherCharId] === myActor) count++;
+    }
+    if (count > 0) conflictsPerChar.set(charId, count);
+  }
+
+  // For each character: the set of actor IDs that would cause a doubling conflict
+  // (already assigned to a character simultaneously on stage with this one)
+  function getConflictingActorIds(charId: string): Set<string> {
+    const simSet = simultaneousMap.get(charId) ?? new Set<string>();
+    const conflicting = new Set<string>();
+    for (const otherCharId of simSet) {
+      const actorId = charToActor[otherCharId];
+      if (actorId) conflicting.add(actorId);
+    }
+    return conflicting;
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
@@ -85,10 +173,20 @@ export default function CastingManager({ playId }: Props) {
                 key={actor.id}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-stone-200 bg-white text-sm"
               >
-                <div
-                  className="w-3 h-3 rounded-full"
+                <label
+                  className="w-3 h-3 rounded-full cursor-pointer shrink-0 hover:ring-2 hover:ring-offset-1 hover:ring-stone-400 transition-shadow"
                   style={{ backgroundColor: actor.color }}
-                />
+                  title="Click to change color"
+                >
+                  <input
+                    type="color"
+                    value={actor.color}
+                    onChange={(e) =>
+                      dispatch({ type: "UPDATE_ACTOR", actorId: actor.id, name: actor.name, color: e.target.value })
+                    }
+                    className="sr-only"
+                  />
+                </label>
                 <span className="text-stone-700">{actor.name}</span>
                 <button
                   onClick={() => dispatch({ type: "DELETE_ACTOR", actorId: actor.id })}
@@ -117,6 +215,8 @@ export default function CastingManager({ playId }: Props) {
             onAssign={(actorId) =>
               dispatch({ type: "ASSIGN_CHARACTER", characterId: char.id, actorId })
             }
+            conflictCount={conflictsPerChar.get(char.id) ?? 0}
+            conflictingActorIds={getConflictingActorIds(char.id)}
           />
         ))}
       </div>

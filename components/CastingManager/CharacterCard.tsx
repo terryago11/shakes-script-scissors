@@ -6,10 +6,22 @@ interface Props {
   assignedActorId: string | null;
   actors: Actor[];
   onAssign: (actorId: string | null) => void;
+  conflictCount?: number;
+  /** Actor IDs that would cause a doubling conflict with this character */
+  conflictingActorIds?: Set<string>;
 }
 
-export default function CharacterCard({ character, assignedActorId, actors, onAssign }: Props) {
+export default function CharacterCard({
+  character,
+  assignedActorId,
+  actors,
+  onAssign,
+  conflictCount,
+  conflictingActorIds,
+}: Props) {
   const assignedActor = actors.find((a) => a.id === assignedActorId) || null;
+  const assignmentConflicts =
+    assignedActorId != null && (conflictingActorIds?.has(assignedActorId) ?? false);
 
   return (
     <div className="border border-stone-200 rounded-lg bg-white px-4 py-3 flex items-center gap-3">
@@ -20,8 +32,18 @@ export default function CharacterCard({ character, assignedActorId, actors, onAs
       />
 
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-stone-700 truncate">
-          {character.name}
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-semibold text-stone-700 truncate">
+            {character.name}
+          </span>
+          {(conflictCount ?? 0) > 0 && (
+            <span
+              className="text-xs text-amber-600 font-medium shrink-0"
+              title={`${conflictCount} doubling conflict${conflictCount! > 1 ? "s" : ""} — this actor is on stage as two characters simultaneously`}
+            >
+              ⚠ {conflictCount}
+            </span>
+          )}
         </div>
         {assignedActor && (
           <div className="text-xs text-stone-400">{assignedActor.name}</div>
@@ -31,14 +53,21 @@ export default function CharacterCard({ character, assignedActorId, actors, onAs
       <select
         value={assignedActorId || ""}
         onChange={(e) => onAssign(e.target.value || null)}
-        className="text-xs border border-stone-300 rounded px-2 py-1 bg-white text-stone-600 focus:outline-none focus:ring-2 focus:ring-amber-400"
+        className={`text-xs border rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 ${
+          assignmentConflicts
+            ? "border-amber-400 text-amber-700"
+            : "border-stone-300 text-stone-600"
+        }`}
       >
         <option value="">Unassigned</option>
-        {actors.map((actor) => (
-          <option key={actor.id} value={actor.id}>
-            {actor.name}
-          </option>
-        ))}
+        {actors.map((actor) => {
+          const wouldConflict = conflictingActorIds?.has(actor.id) ?? false;
+          return (
+            <option key={actor.id} value={actor.id}>
+              {wouldConflict ? "⚠ " : ""}{actor.name}
+            </option>
+          );
+        })}
       </select>
     </div>
   );

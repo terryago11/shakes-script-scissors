@@ -5,6 +5,9 @@ import { ProjectProvider } from "@/lib/project/ProjectStore";
 export const metadata: Metadata = {
   title: "ShakesScriptScissors",
   description: "Interactively cut Shakespeare scripts for production",
+  icons: {
+    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂</text></svg>",
+  },
 };
 
 export default function RootLayout({

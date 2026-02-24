@@ -45,6 +45,8 @@ export interface StageDirection {
   text: string;
   /** Character IDs mentioned in the stage direction */
   characters: string[];
+  stageType?: "entrance" | "exit" | "business" | "delivery";
+  isSong?: boolean;
 }
 
 export interface Character {

@@ -84,7 +84,9 @@ export function parseTei(xml: string, playId: string): Play {
             .split(/\s+/)
             .filter((w) => w.startsWith("#"))
             .map((w) => w);
-          units.push({ type: "stage", id, text, characters });
+          const stageType = getAttr(child, "@_type") as StageDirection["stageType"] | undefined;
+          const isSong = /\bsong\b|\bsings\b|\bsinging\b/i.test(text) || undefined;
+          units.push({ type: "stage", id, text, characters, stageType, isSong });
         } else if (tagName === "sp") {
           try {
             const speech = parseSpeech(child, playId, speechIndex, castList);

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "predev": "rm -f .next/dev/lock 2>/dev/null; exit 0",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

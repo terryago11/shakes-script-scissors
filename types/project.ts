@@ -1,9 +1,16 @@
+export interface ProjectSettings {
+  wordsPerMinute: number;
+}
+
 export interface Project {
   /** Schema version for future migrations */
   version: number;
   id: string;
   playId: string;
   playTitle: string;
+  /** User-given project name (e.g. "2024 Production"). Falls back to playTitle if absent. */
+  name?: string;
+  settings?: ProjectSettings;
   actors: Actor[];
   /** Maps characterId → actorId (one actor per character) */
   assignments: ActorAssignment[];
@@ -33,4 +40,10 @@ export interface Cut {
   cutMap: Record<string, "cut" | "kept">;
   /** Line.id → status; absent = "kept" (default). Only meaningful within kept speeches. */
   lineCutMap?: Record<string, "cut" | "kept">;
+  /** unitId → word-level edit ops for that speech */
+  speechEdits?: Record<string, import("./edit").SpeechEdit>;
+  /** Flat list of scene IDs in display order; absent = TEI order */
+  sceneOrder?: string[];
+  /** stageId → effective character list (full override of StageDirection.characters) */
+  stageDirectionEdits?: Record<string, string[]>;
 }

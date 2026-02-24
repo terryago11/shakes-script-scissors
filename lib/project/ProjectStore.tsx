@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from "react";
 import type { Project, Actor, ActorAssignment, Cut } from "@/types/project";
+import type { SpeechEdit, EditOp } from "@/types/edit";
 import { generateId, defaultColors } from "./projectUtils";
 
 const CURRENT_VERSION = 1;
@@ -20,7 +21,8 @@ type ProjectAction =
   | { type: "SET_ACTIVE_CUT"; cutId: string }
   | { type: "TOGGLE_UNIT"; unitId: string }
   | { type: "SET_UNIT_STATUS"; unitId: string; status: "cut" | "kept" }
-  | { type: "TOGGLE_LINE"; lineId: string }
+  | { type: "BULK_ADD_EDIT_OPS"; ops: Array<{ unitId: string; op: EditOp }> }
+  | { type: "CLEAR_SPEECH_EDITS"; unitId: string }
   | { type: "ADD_CUT"; name: string; cloneFromId?: string }
   | { type: "RENAME_CUT"; cutId: string; name: string }
   | { type: "DELETE_CUT"; cutId: string }
@@ -28,6 +30,9 @@ type ProjectAction =
   | { type: "UPDATE_ACTOR"; actorId: string; name: string; color: string }
   | { type: "DELETE_ACTOR"; actorId: string }
   | { type: "ASSIGN_CHARACTER"; characterId: string; actorId: string | null }
+  | { type: "RENAME_PROJECT"; name: string }
+  | { type: "SET_SCENE_ORDER"; sceneOrder: string[] }
+  | { type: "SET_SD_CHARACTERS"; stageId: string; characters: string[] }
   | { type: "REPLACE_PROJECT"; project: Project };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
@@ -45,6 +50,14 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
 
     case "UNLOAD":
       return { project: null, activeCutId: null };
+
+    case "RENAME_PROJECT":
+      return {
+        ...state,
+        project: state.project
+          ? { ...state.project, name: action.name, updatedAt: now() }
+          : null,
+      };
 
     case "SET_ACTIVE_CUT":
       return {
@@ -73,13 +86,40 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         cutMap: { ...c.cutMap, [action.unitId]: action.status },
       }));
 
-    case "TOGGLE_LINE": {
-      const lineCutMap = state.project!.cuts.find((c) => c.id === state.activeCutId)?.lineCutMap ?? {};
-      const current = lineCutMap[action.lineId];
-      const newStatus = current === "cut" ? "kept" : "cut";
+    case "BULK_ADD_EDIT_OPS": {
+      // Apply all ops in one state update (avoids N re-renders in cut mode)
+      return updateActiveCut(state, (c) => {
+        const edits = { ...(c.speechEdits ?? {}) };
+        for (const { unitId, op } of action.ops) {
+          const existing = edits[unitId];
+          edits[unitId] = {
+            unitId,
+            ops: [...(existing?.ops ?? []), op],
+          };
+        }
+        return { ...c, speechEdits: edits };
+      });
+    }
+
+    case "SET_SCENE_ORDER":
+      return updateActiveCut(state, (c) => ({ ...c, sceneOrder: action.sceneOrder }));
+
+    case "SET_SD_CHARACTERS":
       return updateActiveCut(state, (c) => ({
         ...c,
-        lineCutMap: { ...(c.lineCutMap ?? {}), [action.lineId]: newStatus },
+        stageDirectionEdits: {
+          ...c.stageDirectionEdits,
+          [action.stageId]: action.characters,
+        },
+      }));
+
+    case "CLEAR_SPEECH_EDITS": {
+      const current = state.project!.cuts.find((c) => c.id === state.activeCutId)?.speechEdits ?? {};
+      const { [action.unitId]: _removed, ...rest } = current;
+      void _removed;
+      return updateActiveCut(state, (c) => ({
+        ...c,
+        speechEdits: rest,
       }));
     }
 
@@ -94,6 +134,9 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         createdAt: now(),
         cutMap: source ? { ...source.cutMap } : {},
         lineCutMap: source?.lineCutMap ? { ...source.lineCutMap } : {},
+        speechEdits: source?.speechEdits ? { ...source.speechEdits } : {},
+        sceneOrder: source?.sceneOrder ? [...source.sceneOrder] : undefined,
+        stageDirectionEdits: source?.stageDirectionEdits ? { ...source.stageDirectionEdits } : undefined,
       };
       const newProject = {
         ...p,
@@ -230,7 +273,7 @@ interface ProjectContextValue {
   activeCutId: string | null;
   activeCut: Cut | null;
   dispatch: React.Dispatch<ProjectAction>;
-  createProject: (playId: string, playTitle: string) => Project;
+  createProject: (playId: string, playTitle: string, name?: string) => Project;
   loadProject: (project: Project) => void;
   unloadProject: () => void;
 }
@@ -253,7 +296,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.project]);
 
-  const createProject = useCallback((playId: string, playTitle: string): Project => {
+  const createProject = useCallback((playId: string, playTitle: string, name?: string): Project => {
     const id = generateId();
     const firstCutId = generateId();
     const project: Project = {
@@ -261,6 +304,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       id,
       playId,
       playTitle,
+      ...(name && name !== playTitle ? { name } : {}),
       actors: [],
       assignments: [],
       cuts: [
@@ -318,6 +362,7 @@ export interface ProjectSummary {
   id: string;
   playId: string;
   playTitle: string;
+  name?: string;
   updatedAt: string;
 }
 
