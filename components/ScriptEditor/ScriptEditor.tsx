@@ -22,6 +22,7 @@ export default function ScriptEditor({ playId }: Props) {
   const [error, setError] = useState<string | null>(null);
   type FilterState = { type: "character"; id: string } | { type: "actor"; id: string } | null;
   const [filter, setFilter] = useState<FilterState>(null);
+  const [focusedSceneId, setFocusedSceneId] = useState<string | null>(null);
   const { setScenes, setActiveSceneId } = useSceneJump();
   const { cutModeActive, setCutModeActive } = useCutMode();
   const scriptColRef = useRef<HTMLDivElement>(null);
@@ -191,6 +192,24 @@ export default function ScriptEditor({ playId }: Props) {
     return actor ? actor.name : filter.id;
   })();
 
+  // Compute effective scene order (custom or TEI default)
+  const defaultSceneOrder = play.acts.flatMap((act) => act.scenes.map((s) => s.id));
+  const effectiveSceneOrder = activeCut.sceneOrder ?? defaultSceneOrder;
+
+  function handleSceneReorder(newOrder: string[]) {
+    dispatch({ type: "SET_SCENE_ORDER", sceneOrder: newOrder });
+  }
+
+  // Find the focused scene's title for the banner
+  const focusedSceneTitle = (() => {
+    if (!focusedSceneId) return null;
+    for (const act of play.acts) {
+      const s = act.scenes.find((s) => s.id === focusedSceneId);
+      if (s) return `${act.title} · ${s.title}`;
+    }
+    return null;
+  })();
+
   return (
     <div className="max-w-screen-xl mx-auto flex gap-0">
       {/* Script column */}
@@ -211,6 +230,21 @@ export default function ScriptEditor({ playId }: Props) {
           </div>
         )}
 
+        {/* Scene focus banner */}
+        {focusedSceneId && (
+          <div className="no-print sticky top-14 z-10 bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-3 text-sm">
+            <span className="text-amber-700 font-medium">
+              {focusedSceneTitle ?? "Focused scene"}
+            </span>
+            <button
+              onClick={() => setFocusedSceneId(null)}
+              className="ml-auto text-amber-600 hover:text-amber-800 text-xs underline"
+            >
+              Show full play
+            </button>
+          </div>
+        )}
+
         <div className="px-4 py-6">
           {play.acts.map((act) => (
             <ActBlock
@@ -225,6 +259,10 @@ export default function ScriptEditor({ playId }: Props) {
               filteredCharacterIds={filteredCharacterIds}
               cutModeActive={cutModeActive}
               lineCounts={lineCounts}
+              sceneOrder={effectiveSceneOrder}
+              focusedSceneId={focusedSceneId}
+              onFocusScene={setFocusedSceneId}
+              onSceneReorder={handleSceneReorder}
             />
           ))}
         </div>

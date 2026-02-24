@@ -31,6 +31,7 @@ type ProjectAction =
   | { type: "DELETE_ACTOR"; actorId: string }
   | { type: "ASSIGN_CHARACTER"; characterId: string; actorId: string | null }
   | { type: "RENAME_PROJECT"; name: string }
+  | { type: "SET_SCENE_ORDER"; sceneOrder: string[] }
   | { type: "REPLACE_PROJECT"; project: Project };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
@@ -99,6 +100,9 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
       });
     }
 
+    case "SET_SCENE_ORDER":
+      return updateActiveCut(state, (c) => ({ ...c, sceneOrder: action.sceneOrder }));
+
     case "CLEAR_SPEECH_EDITS": {
       const current = state.project!.cuts.find((c) => c.id === state.activeCutId)?.speechEdits ?? {};
       const { [action.unitId]: _removed, ...rest } = current;
@@ -121,6 +125,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         cutMap: source ? { ...source.cutMap } : {},
         lineCutMap: source?.lineCutMap ? { ...source.lineCutMap } : {},
         speechEdits: source?.speechEdits ? { ...source.speechEdits } : {},
+        sceneOrder: source?.sceneOrder ? [...source.sceneOrder] : undefined,
       };
       const newProject = {
         ...p,

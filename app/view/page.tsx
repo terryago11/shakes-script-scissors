@@ -136,6 +136,10 @@ function ViewPageInner() {
               assignments={project.assignments}
               actors={project.actors}
               onToggle={null}
+              sceneOrder={play.acts.flatMap((a) => a.scenes.map((s) => s.id))}
+              focusedSceneId={null}
+              onFocusScene={() => {}}
+              onSceneReorder={() => {}}
             />
           ))}
         </div>

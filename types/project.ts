@@ -37,4 +37,6 @@ export interface Cut {
   lineCutMap?: Record<string, "cut" | "kept">;
   /** unitId → word-level edit ops for that speech */
   speechEdits?: Record<string, import("./edit").SpeechEdit>;
+  /** Flat list of scene IDs in display order; absent = TEI order */
+  sceneOrder?: string[];
 }

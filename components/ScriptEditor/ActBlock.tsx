@@ -19,17 +19,30 @@ interface Props {
   filteredCharacterIds?: Set<string>;
   cutModeActive?: boolean;
   lineCounts?: LineCounts;
+  sceneOrder: string[];
+  focusedSceneId: string | null;
+  onFocusScene: (sceneId: string) => void;
+  onSceneReorder: (newOrder: string[]) => void;
 }
 
-export default function ActBlock({ act, unitsByScene, assignments, actors, onToggle, speechEdits, onClearEdits, filteredCharacterIds, cutModeActive, lineCounts }: Props) {
+export default function ActBlock({
+  act, unitsByScene, assignments, actors, onToggle, speechEdits, onClearEdits,
+  filteredCharacterIds, cutModeActive, lineCounts,
+  sceneOrder, focusedSceneId, onFocusScene, onSceneReorder,
+}: Props) {
   const [collapsed, setCollapsed] = useState(false);
   // Generation increments each time act collapses → SceneBlocks remount in collapsed state
   const [generation, setGeneration] = useState(0);
+  const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null);
   const { metric } = useMetric();
+
+  // If a scene is focused and it's not in this act, hide the entire act
+  if (focusedSceneId && !act.scenes.some((s) => s.id === focusedSceneId)) {
+    return null;
+  }
 
   function handleToggle() {
     if (!collapsed) {
-      // About to collapse: bump generation so scenes remount collapsed on re-expand
       setGeneration((g) => g + 1);
     }
     setCollapsed((c) => !c);
@@ -42,6 +55,49 @@ export default function ActBlock({ act, unitsByScene, assignments, actors, onTog
   const pctCut = counts && counts.original > 0
     ? Math.round((1 - counts.afterCut / counts.original) * 100)
     : 0;
+
+  // Sort act's scenes by sceneOrder; scenes absent from sceneOrder go at end
+  const sortedScenes = [...act.scenes].sort((a, b) => {
+    const ai = sceneOrder.indexOf(a.id);
+    const bi = sceneOrder.indexOf(b.id);
+    const aPos = ai === -1 ? Infinity : ai;
+    const bPos = bi === -1 ? Infinity : bi;
+    return aPos - bPos;
+  });
+
+  function handleDragStart(e: React.DragEvent, sceneId: string) {
+    e.dataTransfer.setData("text/plain", sceneId);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(e: React.DragEvent, sceneId: string) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverSceneId(sceneId);
+  }
+
+  function handleDragLeave() {
+    setDragOverSceneId(null);
+  }
+
+  function handleDrop(e: React.DragEvent, targetSceneId: string) {
+    e.preventDefault();
+    setDragOverSceneId(null);
+    const draggedId = e.dataTransfer.getData("text/plain");
+    if (!draggedId || draggedId === targetSceneId) return;
+
+    // Build new order: move draggedId to just before targetSceneId
+    // Start from current full sceneOrder (all scenes across all acts)
+    const newOrder = sceneOrder.filter((id) => id !== draggedId);
+    const targetIndex = newOrder.indexOf(targetSceneId);
+    if (targetIndex === -1) return;
+    newOrder.splice(targetIndex, 0, draggedId);
+    onSceneReorder(newOrder);
+  }
+
+  function handleDragEnd() {
+    setDragOverSceneId(null);
+  }
 
   return (
     <div className="mb-8">
@@ -75,7 +131,7 @@ export default function ActBlock({ act, unitsByScene, assignments, actors, onTog
 
       {!collapsed && (
         <div className="space-y-6">
-          {act.scenes.map((scene) => (
+          {sortedScenes.map((scene) => (
             <SceneBlock
               key={`${scene.id}-${generation}`}
               scene={scene}
@@ -88,6 +144,14 @@ export default function ActBlock({ act, unitsByScene, assignments, actors, onTog
               filteredCharacterIds={filteredCharacterIds}
               cutModeActive={cutModeActive}
               sceneCounts={lineCounts?.byScene[scene.id]}
+              focusedSceneId={focusedSceneId}
+              onFocusScene={onFocusScene}
+              isDragOver={dragOverSceneId === scene.id}
+              onDragStart={(e) => handleDragStart(e, scene.id)}
+              onDragOver={(e) => handleDragOver(e, scene.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, scene.id)}
+              onDragEnd={handleDragEnd}
             />
           ))}
         </div>
