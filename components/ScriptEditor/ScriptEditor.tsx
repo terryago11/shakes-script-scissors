@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Play } from "@/types/play";
 import { useProject } from "@/lib/project/ProjectStore";
 import { computeCuts } from "@/lib/cuts/CutEngine";
@@ -8,6 +8,7 @@ import ActBlock from "./ActBlock";
 import LineCountPanel from "@/components/LineCounts/LineCountPanel";
 import { useSceneJump } from "@/lib/ui/SceneJumpContext";
 import type { EditOp } from "@/types/edit";
+import { resolveSelectionToOps } from "@/lib/cuts/resolveSelection";
 
 interface Props {
   playId: string;
@@ -22,6 +23,20 @@ export default function ScriptEditor({ playId }: Props) {
   type FilterState = { type: "character"; id: string } | { type: "actor"; id: string } | null;
   const [filter, setFilter] = useState<FilterState>(null);
   const { setScenes, setActiveSceneId } = useSceneJump();
+
+  // Freestyle cut mode
+  const [cutModeActive, setCutModeActive] = useState(false);
+  const scriptColRef = useRef<HTMLDivElement>(null);
+
+  // Esc key exits cut mode
+  useEffect(() => {
+    if (!cutModeActive) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setCutModeActive(false);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [cutModeActive]);
 
   useEffect(() => {
     setLoading(true);
@@ -141,6 +156,23 @@ export default function ScriptEditor({ playId }: Props) {
     dispatch({ type: "CLEAR_SPEECH_EDITS", unitId });
   }
 
+  function handleScriptMouseUp() {
+    if (!cutModeActive || !scriptColRef.current) return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    const targets = resolveSelectionToOps(range, scriptColRef.current);
+    if (targets.length === 0) return;
+    dispatch({
+      type: "BULK_ADD_EDIT_OPS",
+      ops: targets.map((t) => ({
+        unitId: t.unitId,
+        op: { type: "cut" as const, lineId: t.lineId, start: t.start, end: t.end },
+      })),
+    });
+    sel.removeAllRanges();
+  }
+
   function handleFilterCharacter(characterId: string | null) {
     if (!characterId) { setFilter(null); return; }
     setFilter((prev) =>
@@ -174,9 +206,40 @@ export default function ScriptEditor({ playId }: Props) {
   return (
     <div className="max-w-screen-xl mx-auto flex gap-0">
       {/* Script column */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
+      <div
+        ref={scriptColRef}
+        className={`flex-1 min-w-0 overflow-y-auto ${cutModeActive ? "cursor-crosshair select-text" : ""}`}
+        onMouseUp={handleScriptMouseUp}
+      >
+        {/* Cut mode toggle — fixed to top-right of script column */}
+        {!cutModeActive && (
+          <div className="no-print sticky top-14 z-10 flex justify-end px-4 pt-2 pointer-events-none">
+            <button
+              onClick={() => setCutModeActive(true)}
+              className="pointer-events-auto text-xs px-3 py-1.5 rounded border border-stone-200 bg-white text-stone-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors shadow-sm"
+              title="Enter freestyle cut mode"
+            >
+              ✂ Cut mode
+            </button>
+          </div>
+        )}
+
+        {/* Cut mode banner */}
+        {cutModeActive && (
+          <div className="no-print sticky top-14 z-20 bg-red-50 border-b border-red-200 px-4 py-2 flex items-center gap-3 text-sm">
+            <span className="text-red-600 font-medium">✂ Cut mode</span>
+            <span className="text-red-400">Drag to select text — release to cut. Spans speeches freely.</span>
+            <button
+              onClick={() => setCutModeActive(false)}
+              className="ml-auto text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2 py-0.5 rounded transition-colors"
+            >
+              Exit (Esc)
+            </button>
+          </div>
+        )}
+
         {/* Active filter badge — shown when a character/actor filter is active */}
-        {filterLabel && (
+        {filterLabel && !cutModeActive && (
           <div className="no-print sticky top-14 z-10 bg-white border-b border-stone-100 px-4 py-2 flex items-center gap-2">
             <div className="flex items-center gap-1.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 px-2 py-1 rounded">
               <span>Showing: <strong>{filterLabel}</strong></span>
@@ -206,6 +269,7 @@ export default function ScriptEditor({ playId }: Props) {
               onRemoveEditOp={handleRemoveEditOp}
               onClearEdits={handleClearEdits}
               filteredCharacterIds={filteredCharacterIds}
+              cutModeActive={cutModeActive}
             />
           ))}
         </div>

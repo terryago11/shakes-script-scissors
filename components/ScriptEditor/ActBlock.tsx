@@ -19,9 +19,10 @@ interface Props {
   onRemoveEditOp?: (unitId: string, lineId: string, start: number, end: number) => void;
   onClearEdits?: (unitId: string) => void;
   filteredCharacterIds?: Set<string>;
+  cutModeActive?: boolean;
 }
 
-export default function ActBlock({ act, unitsByScene, assignments, actors, onToggle, onToggleLine, speechEdits, onAddEditOp, onRemoveEditOp, onClearEdits, filteredCharacterIds }: Props) {
+export default function ActBlock({ act, unitsByScene, assignments, actors, onToggle, onToggleLine, speechEdits, onAddEditOp, onRemoveEditOp, onClearEdits, filteredCharacterIds, cutModeActive }: Props) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -54,6 +55,7 @@ export default function ActBlock({ act, unitsByScene, assignments, actors, onTog
               onRemoveEditOp={onRemoveEditOp}
               onClearEdits={onClearEdits}
               filteredCharacterIds={filteredCharacterIds}
+              cutModeActive={cutModeActive}
             />
           ))}
         </div>

@@ -20,9 +20,10 @@ interface Props {
   onRemoveEditOp?: (unitId: string, lineId: string, start: number, end: number) => void;
   onClearEdits?: (unitId: string) => void;
   filteredCharacterIds?: Set<string>;
+  cutModeActive?: boolean;
 }
 
-export default function SceneBlock({ scene, units, assignments, actors, onToggle, onToggleLine, speechEdits, onAddEditOp, onRemoveEditOp, onClearEdits, filteredCharacterIds }: Props) {
+export default function SceneBlock({ scene, units, assignments, actors, onToggle, onToggleLine, speechEdits, onAddEditOp, onRemoveEditOp, onClearEdits, filteredCharacterIds, cutModeActive }: Props) {
   const [collapsed, setCollapsed] = useState(false);
 
   // Line count badge — respect line-level cuts
@@ -121,6 +122,7 @@ export default function SceneBlock({ scene, units, assignments, actors, onToggle
                   onRemoveEditOp={onRemoveEditOp}
                   onClearEdits={onClearEdits}
                   isContinuation={continuationIds.has(unit.id)}
+                  cutModeActive={cutModeActive}
                 />
               );
             } else {

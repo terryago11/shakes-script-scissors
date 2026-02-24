@@ -23,6 +23,7 @@ type ProjectAction =
   | { type: "SET_UNIT_STATUS"; unitId: string; status: "cut" | "kept" }
   | { type: "TOGGLE_LINE"; lineId: string }
   | { type: "ADD_SPEECH_EDIT_OP"; unitId: string; op: EditOp }
+  | { type: "BULK_ADD_EDIT_OPS"; ops: Array<{ unitId: string; op: EditOp }> }
   | { type: "REMOVE_SPEECH_EDIT_OP"; unitId: string; lineId: string; start: number; end: number }
   | { type: "CLEAR_SPEECH_EDITS"; unitId: string }
   | { type: "ADD_CUT"; name: string; cloneFromId?: string }
@@ -97,6 +98,21 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         ...c,
         speechEdits: { ...(c.speechEdits ?? {}), [action.unitId]: updatedEdit },
       }));
+    }
+
+    case "BULK_ADD_EDIT_OPS": {
+      // Apply all ops in one state update (avoids N re-renders in cut mode)
+      return updateActiveCut(state, (c) => {
+        const edits = { ...(c.speechEdits ?? {}) };
+        for (const { unitId, op } of action.ops) {
+          const existing = edits[unitId];
+          edits[unitId] = {
+            unitId,
+            ops: [...(existing?.ops ?? []), op],
+          };
+        }
+        return { ...c, speechEdits: edits };
+      });
     }
 
     case "REMOVE_SPEECH_EDIT_OP": {

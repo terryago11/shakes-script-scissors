@@ -18,6 +18,7 @@ interface Props {
   onRemoveEditOp?: (unitId: string, lineId: string, start: number, end: number) => void;
   onClearEdits?: (unitId: string) => void;
   isContinuation?: boolean;
+  cutModeActive?: boolean;
 }
 
 export default function SpeechBlock({
@@ -32,6 +33,7 @@ export default function SpeechBlock({
   onRemoveEditOp,
   onClearEdits,
   isContinuation,
+  cutModeActive,
 }: Props) {
   const isCut = status === "cut";
   const readonly = onToggle === null;
@@ -142,7 +144,7 @@ export default function SpeechBlock({
     return () => document.removeEventListener("mousedown", handleDocMouseDown);
   }, [toolbar]);
 
-  const showEditControls = !readonly && !isCut && (onToggleLine !== null || onAddEditOp !== null);
+  const showEditControls = !readonly && !isCut && !cutModeActive && (onToggleLine !== null || onAddEditOp !== null);
 
   return (
     <div
@@ -244,7 +246,7 @@ export default function SpeechBlock({
               </button>
             </div>
           )}
-          {!readonly && isCut && (
+          {!readonly && isCut && !cutModeActive && (
             <button
               onClick={onToggle ?? undefined}
               className="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-stone-600 text-xs px-1 py-0.5 rounded hover:bg-stone-100 transition-colors shrink-0"
@@ -348,6 +350,9 @@ export default function SpeechBlock({
               return (
                 <div
                   key={line.id}
+                  data-line-id={line.id}
+                  data-unit-id={speech.id}
+                  data-cut={isCut ? "true" : undefined}
                   className={isLineCut ? "line-through text-red-400 opacity-60" : undefined}
                   onClick={!readonly && isCut ? (onToggle ?? undefined) : undefined}
                   style={{ cursor: !readonly && isCut ? "pointer" : undefined }}
