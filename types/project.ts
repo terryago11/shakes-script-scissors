@@ -33,4 +33,6 @@ export interface Cut {
   cutMap: Record<string, "cut" | "kept">;
   /** Line.id → status; absent = "kept" (default). Only meaningful within kept speeches. */
   lineCutMap?: Record<string, "cut" | "kept">;
+  /** unitId → word-level edit ops for that speech */
+  speechEdits?: Record<string, import("./edit").SpeechEdit>;
 }

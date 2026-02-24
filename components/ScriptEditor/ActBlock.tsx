@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Act } from "@/types/play";
 import type { Actor, ActorAssignment } from "@/types/project";
 import type { ScriptUnitWithStatus } from "@/types/cut";
+import type { SpeechEdit, EditOp } from "@/types/edit";
 import SceneBlock from "./SceneBlock";
 
 interface Props {
@@ -13,10 +14,14 @@ interface Props {
   actors: Actor[];
   onToggle: ((unitId: string) => void) | null;
   onToggleLine?: (lineId: string) => void;
+  speechEdits?: Record<string, SpeechEdit>;
+  onAddEditOp?: (unitId: string, op: EditOp) => void;
+  onRemoveEditOp?: (unitId: string, lineId: string, start: number, end: number) => void;
+  onClearEdits?: (unitId: string) => void;
   filteredCharacterIds?: Set<string>;
 }
 
-export default function ActBlock({ act, unitsByScene, assignments, actors, onToggle, onToggleLine, filteredCharacterIds }: Props) {
+export default function ActBlock({ act, unitsByScene, assignments, actors, onToggle, onToggleLine, speechEdits, onAddEditOp, onRemoveEditOp, onClearEdits, filteredCharacterIds }: Props) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -44,6 +49,10 @@ export default function ActBlock({ act, unitsByScene, assignments, actors, onTog
               actors={actors}
               onToggle={onToggle}
               onToggleLine={onToggleLine}
+              speechEdits={speechEdits}
+              onAddEditOp={onAddEditOp}
+              onRemoveEditOp={onRemoveEditOp}
+              onClearEdits={onClearEdits}
               filteredCharacterIds={filteredCharacterIds}
             />
           ))}

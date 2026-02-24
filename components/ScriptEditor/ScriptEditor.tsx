@@ -7,6 +7,7 @@ import { computeCuts } from "@/lib/cuts/CutEngine";
 import ActBlock from "./ActBlock";
 import LineCountPanel from "@/components/LineCounts/LineCountPanel";
 import { useSceneJump } from "@/lib/ui/SceneJumpContext";
+import type { EditOp } from "@/types/edit";
 
 interface Props {
   playId: string;
@@ -128,6 +129,18 @@ export default function ScriptEditor({ playId }: Props) {
     dispatch({ type: "TOGGLE_LINE", lineId });
   }
 
+  function handleAddEditOp(unitId: string, op: EditOp) {
+    dispatch({ type: "ADD_SPEECH_EDIT_OP", unitId, op });
+  }
+
+  function handleRemoveEditOp(unitId: string, lineId: string, start: number, end: number) {
+    dispatch({ type: "REMOVE_SPEECH_EDIT_OP", unitId, lineId, start, end });
+  }
+
+  function handleClearEdits(unitId: string) {
+    dispatch({ type: "CLEAR_SPEECH_EDITS", unitId });
+  }
+
   function handleFilterCharacter(characterId: string | null) {
     if (!characterId) { setFilter(null); return; }
     setFilter((prev) =>
@@ -188,6 +201,10 @@ export default function ScriptEditor({ playId }: Props) {
               actors={project.actors}
               onToggle={handleToggle}
               onToggleLine={handleToggleLine}
+              speechEdits={activeCut.speechEdits}
+              onAddEditOp={handleAddEditOp}
+              onRemoveEditOp={handleRemoveEditOp}
+              onClearEdits={handleClearEdits}
               filteredCharacterIds={filteredCharacterIds}
             />
           ))}

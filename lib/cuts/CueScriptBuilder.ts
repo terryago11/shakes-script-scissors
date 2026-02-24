@@ -2,6 +2,7 @@ import type { Play, Speech, StageDirection } from "@/types/play";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import type { CueScript, CueEntry } from "@/types/cut";
 import { getAllUnitsInOrder } from "./CutEngine";
+import { applyEditsToLine, segmentsToText } from "./applyEdits";
 
 /**
  * Build a cue script for a single actor from a cut play.
@@ -24,6 +25,7 @@ export function buildCueScript(
     assignments.filter((a) => a.actorId === actor.id).map((a) => a.characterId)
   );
   const lineCutMap = cut.lineCutMap ?? {};
+  const speechEdits = cut.speechEdits ?? {};
 
   const allUnits = getAllUnitsInOrder(play);
   const entries: CueEntry[] = [];
@@ -42,8 +44,18 @@ export function buildCueScript(
       const speech = unit as Speech;
       const isActorSpeech = actorCharIds.has(speech.characterId);
 
-      // Filter lines by lineCutMap (cut lines are excluded from cue scripts)
-      const keptLines = speech.lines.filter((l) => lineCutMap[l.id] !== "cut");
+      // Filter lines by lineCutMap and apply word-level edits
+      const edit = speechEdits[speech.id];
+      const ops = edit?.ops ?? [];
+      const keptLines = speech.lines
+        .filter((l) => lineCutMap[l.id] !== "cut")
+        .map((l) => {
+          const lineOps = ops.filter((op) => op.lineId === l.id);
+          if (lineOps.length === 0) return { ...l };
+          const segments = applyEditsToLine(l.id, l.text, lineOps);
+          return { ...l, text: segmentsToText(segments) };
+        })
+        .filter((l) => l.text.trim().length > 0);
       if (keptLines.length === 0 && !isActorSpeech) {
         // Treat as if the speech doesn't exist for cue purposes
         continue;

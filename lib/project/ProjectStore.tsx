@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from "react";
 import type { Project, Actor, ActorAssignment, Cut } from "@/types/project";
+import type { SpeechEdit, EditOp } from "@/types/edit";
 import { generateId, defaultColors } from "./projectUtils";
 
 const CURRENT_VERSION = 1;
@@ -21,6 +22,9 @@ type ProjectAction =
   | { type: "TOGGLE_UNIT"; unitId: string }
   | { type: "SET_UNIT_STATUS"; unitId: string; status: "cut" | "kept" }
   | { type: "TOGGLE_LINE"; lineId: string }
+  | { type: "ADD_SPEECH_EDIT_OP"; unitId: string; op: EditOp }
+  | { type: "REMOVE_SPEECH_EDIT_OP"; unitId: string; lineId: string; start: number; end: number }
+  | { type: "CLEAR_SPEECH_EDITS"; unitId: string }
   | { type: "ADD_CUT"; name: string; cloneFromId?: string }
   | { type: "RENAME_CUT"; cutId: string; name: string }
   | { type: "DELETE_CUT"; cutId: string }
@@ -83,6 +87,42 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
       }));
     }
 
+    case "ADD_SPEECH_EDIT_OP": {
+      const existing = state.project!.cuts.find((c) => c.id === state.activeCutId)?.speechEdits?.[action.unitId];
+      const updatedEdit: SpeechEdit = {
+        unitId: action.unitId,
+        ops: [...(existing?.ops ?? []), action.op],
+      };
+      return updateActiveCut(state, (c) => ({
+        ...c,
+        speechEdits: { ...(c.speechEdits ?? {}), [action.unitId]: updatedEdit },
+      }));
+    }
+
+    case "REMOVE_SPEECH_EDIT_OP": {
+      const existing = state.project!.cuts.find((c) => c.id === state.activeCutId)?.speechEdits?.[action.unitId];
+      if (!existing) return state;
+      const filtered = existing.ops.filter(
+        (op) =>
+          !(op.type === "cut" && op.lineId === action.lineId && op.start === action.start && op.end === action.end)
+      );
+      const updatedEdit: SpeechEdit = { unitId: action.unitId, ops: filtered };
+      return updateActiveCut(state, (c) => ({
+        ...c,
+        speechEdits: { ...(c.speechEdits ?? {}), [action.unitId]: updatedEdit },
+      }));
+    }
+
+    case "CLEAR_SPEECH_EDITS": {
+      const current = state.project!.cuts.find((c) => c.id === state.activeCutId)?.speechEdits ?? {};
+      const { [action.unitId]: _removed, ...rest } = current;
+      void _removed;
+      return updateActiveCut(state, (c) => ({
+        ...c,
+        speechEdits: rest,
+      }));
+    }
+
     case "ADD_CUT": {
       const p = state.project!;
       const source = action.cloneFromId
@@ -94,6 +134,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         createdAt: now(),
         cutMap: source ? { ...source.cutMap } : {},
         lineCutMap: source?.lineCutMap ? { ...source.lineCutMap } : {},
+        speechEdits: source?.speechEdits ? { ...source.speechEdits } : {},
       };
       const newProject = {
         ...p,

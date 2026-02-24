@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Scene } from "@/types/play";
 import type { Actor, ActorAssignment } from "@/types/project";
 import type { ScriptUnitWithStatus } from "@/types/cut";
+import type { SpeechEdit, EditOp } from "@/types/edit";
 import SpeechBlock from "./SpeechBlock";
 import StageDirectionBlock from "./StageDirectionBlock";
 
@@ -14,10 +15,14 @@ interface Props {
   actors: Actor[];
   onToggle: ((unitId: string) => void) | null;
   onToggleLine?: (lineId: string) => void;
+  speechEdits?: Record<string, SpeechEdit>;
+  onAddEditOp?: (unitId: string, op: EditOp) => void;
+  onRemoveEditOp?: (unitId: string, lineId: string, start: number, end: number) => void;
+  onClearEdits?: (unitId: string) => void;
   filteredCharacterIds?: Set<string>;
 }
 
-export default function SceneBlock({ scene, units, assignments, actors, onToggle, onToggleLine, filteredCharacterIds }: Props) {
+export default function SceneBlock({ scene, units, assignments, actors, onToggle, onToggleLine, speechEdits, onAddEditOp, onRemoveEditOp, onClearEdits, filteredCharacterIds }: Props) {
   const [collapsed, setCollapsed] = useState(false);
 
   // Line count badge — respect line-level cuts
@@ -111,6 +116,10 @@ export default function SceneBlock({ scene, units, assignments, actors, onToggle
                   onToggle={onToggle ? () => onToggle(unit.id) : null}
                   onToggleLine={onToggleLine ?? null}
                   lineStatuses={lineStatuses}
+                  speechEdit={speechEdits?.[unit.id]}
+                  onAddEditOp={onAddEditOp}
+                  onRemoveEditOp={onRemoveEditOp}
+                  onClearEdits={onClearEdits}
                   isContinuation={continuationIds.has(unit.id)}
                 />
               );
