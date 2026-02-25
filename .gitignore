@@ -6,4 +6,3 @@ out/
 .env.*.local
 tsconfig.tsbuildinfo
 .DS_Store
-CLAUDE.md
