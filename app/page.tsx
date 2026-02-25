@@ -103,9 +103,9 @@ export default function HomePage() {
       <div className="flex gap-3 mb-8">
         <button
           onClick={handleImport}
-          className="px-4 py-2 rounded-lg border border-stone-300 bg-white text-stone-700 hover:bg-stone-50 text-sm font-medium"
+          className="px-4 py-2 rounded-lg border border-stone-400 bg-white text-stone-700 hover:bg-stone-50 text-sm font-semibold shadow-sm"
         >
-          Open existing project…
+          ↑ Open Project
         </button>
         {importError && (
           <span className="text-red-600 text-sm self-center">{importError}</span>

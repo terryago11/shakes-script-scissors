@@ -21,6 +21,8 @@ interface Props {
   onFilterActor?: (actorId: string | null) => void;
   stageTime?: StageTimeResult;
   settings?: ProjectSettings;
+  /** When true, lineCounts is scoped to a focused scene — show a label */
+  isFocused?: boolean;
 }
 
 function formatMinutes(minutes: number): string {
@@ -32,7 +34,7 @@ function formatMinutes(minutes: number): string {
 
 export default function LineCountPanel({
   play, lineCounts, actors, assignments, filter, onFilterCharacter, onFilterActor,
-  stageTime, settings,
+  stageTime, settings, isFocused,
 }: Props) {
   const { metric, setMetric } = useMetric();
   // Local tab state — "time" only available when stageTime is provided
@@ -66,7 +68,7 @@ export default function LineCountPanel({
 
   // Tab row (shared across both view states)
   const tabRow = (
-    <div className="flex gap-1 mb-5 p-0.5 bg-stone-100 rounded-md">
+    <div className="flex gap-1 mb-5 p-0.5 bg-stone-100 rounded-md" title={isFocused ? "Showing counts for focused scene only" : undefined}>
       <button
         onClick={() => handleTabClick("lines")}
         className={`flex-1 text-xs py-1 px-2 rounded transition-colors font-medium ${
@@ -135,6 +137,11 @@ export default function LineCountPanel({
     return (
       <div className="p-4">
         {tabRow}
+        {isFocused && (
+          <div className="mb-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+            Scene focus — counts scoped to this scene
+          </div>
+        )}
 
         {/* Running time total */}
         <div className="mb-5">
@@ -294,6 +301,11 @@ export default function LineCountPanel({
   return (
     <div className="p-4">
       {tabRow}
+      {isFocused && (
+        <div className="mb-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+          Scene focus — counts scoped to this scene
+        </div>
+      )}
 
       {/* Total */}
       <div className="mb-5">

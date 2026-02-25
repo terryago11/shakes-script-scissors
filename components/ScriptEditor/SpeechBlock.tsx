@@ -5,6 +5,7 @@ import type { LineWithStatus } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
 import { applyEditsToLine } from "@/lib/cuts/applyEdits";
 import { useMetric } from "@/lib/ui/MetricContext";
+import { useViewMode } from "@/lib/ui/ViewModeContext";
 
 interface Props {
   speech: Speech;
@@ -29,8 +30,12 @@ export default function SpeechBlock({
   isContinuation,
   cutModeActive,
 }: Props) {
+  const { viewMode } = useViewMode();
   const isCut = status === "cut";
   const readonly = onToggle === null;
+
+  // In clean mode, hide cut speeches entirely
+  if (isCut && viewMode === "clean") return null;
 
   const lineStatusMap = new Map<string, "kept" | "cut">();
   if (lineStatuses) {
@@ -133,10 +138,20 @@ export default function SpeechBlock({
         </div>
 
         {/* Lines — compact view with inline diff */}
-        <div className={`font-serif text-sm leading-relaxed ${isCut ? "text-red-400 opacity-60 line-through" : "text-stone-800"}`}>
+        <div className={`font-serif text-sm leading-relaxed ${
+          isCut
+            ? viewMode === "diff"
+              ? "text-red-500 line-through bg-red-50 rounded px-1"
+              : "text-red-400 opacity-60 line-through"
+            : "text-stone-800"
+        }`}>
           {speech.lines.map((line) => {
             const lineStatus = lineStatusMap.get(line.id) ?? "kept";
             const isLineCut = !isCut && lineStatus === "cut";
+
+            // In clean mode, skip cut lines entirely
+            if (isLineCut && viewMode === "clean") return null;
+
             const ops = speechEdit?.ops ?? [];
             const segments = (!isCut && !isLineCut && ops.length > 0)
               ? applyEditsToLine(line.id, line.text, ops)
@@ -148,13 +163,25 @@ export default function SpeechBlock({
                 data-line-id={line.id}
                 data-unit-id={speech.id}
                 data-cut={isCut ? "true" : undefined}
-                className={isLineCut ? "line-through text-red-400 opacity-60" : undefined}
+                className={isLineCut
+                  ? viewMode === "diff"
+                    ? "line-through text-red-500 bg-red-50 rounded px-0.5"
+                    : "line-through text-red-400 opacity-60"
+                  : undefined}
               >
                 {segments ? (
                   segments.map((seg, i) => {
                     if (seg.type === "kept") return <span key={i}>{seg.text}</span>;
-                    if (seg.type === "cut") return <del key={i} className="text-red-400 opacity-60">{seg.text}</del>;
-                    if (seg.type === "insert") return <ins key={i} className="text-green-600 no-underline underline decoration-green-400">{seg.text}</ins>;
+                    if (seg.type === "cut") {
+                      // In clean mode, skip cut word segments
+                      if (viewMode === "clean") return null;
+                      return viewMode === "diff"
+                        ? <del key={i} className="text-red-500 bg-red-50 rounded">{seg.text}</del>
+                        : <del key={i} className="text-red-400 opacity-60">{seg.text}</del>;
+                    }
+                    if (seg.type === "insert") return viewMode === "diff"
+                      ? <ins key={i} className="text-green-700 bg-green-50 no-underline rounded px-0.5">{seg.text}</ins>
+                      : <ins key={i} className="text-green-600 no-underline underline decoration-green-400">{seg.text}</ins>;
                   })
                 ) : (
                   line.text
