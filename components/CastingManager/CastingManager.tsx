@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import type { Play, StageDirection } from "@/types/play";
 import { useProject } from "@/lib/project/ProjectStore";
+import { computeQuickChanges } from "@/lib/cuts/QuickChangeEngine";
+import { characterIdToName } from "@/lib/folger/TeiParser";
 import CharacterCard from "./CharacterCard";
 
 interface Props {
@@ -70,6 +72,7 @@ export default function CastingManager({ playId }: Props) {
   const { project, activeCut, dispatch } = useProject();
   const [play, setPlay] = useState<Play | null>(null);
   const [newActorName, setNewActorName] = useState("");
+  const threshold = project?.settings?.quickChangeThresholdMinutes ?? 2.0;
 
   useEffect(() => {
     fetch(`/api/play/${playId}`)
@@ -111,6 +114,11 @@ export default function CastingManager({ playId }: Props) {
     activeCut?.cutMap ?? {},
     activeCut?.stageDirectionEdits
   );
+
+  // Quick-change warnings
+  const quickChangeResult = activeCut
+    ? computeQuickChanges(play, activeCut, project.assignments, project.settings)
+    : null;
 
   // For each character: count how many of its simultaneous partners share its assigned actor
   const conflictsPerChar = new Map<string, number>();
@@ -200,6 +208,79 @@ export default function CastingManager({ playId }: Props) {
           </div>
         )}
       </div>
+
+      {/* Quick-change warnings */}
+      {quickChangeResult && (
+        <div className="mb-8">
+          <div className="flex items-center gap-4 mb-3">
+            <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wider">
+              Quick-change Warnings
+            </h2>
+            <div className="flex items-center gap-1.5 text-xs text-stone-400 ml-auto">
+              <span>Flag gaps under</span>
+              <input
+                type="number"
+                min={0.5}
+                max={30}
+                step={0.5}
+                value={threshold}
+                onChange={(e) =>
+                  dispatch({
+                    type: "UPDATE_SETTINGS",
+                    settings: { quickChangeThresholdMinutes: Number(e.target.value) },
+                  })
+                }
+                className="w-14 border border-stone-200 rounded px-1.5 py-0.5 text-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-400 text-center"
+              />
+              <span>min</span>
+            </div>
+          </div>
+
+          {quickChangeResult.warnings.length === 0 ? (
+            <p className="text-sm text-stone-400">
+              No quick changes detected below {threshold} min.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {quickChangeResult.warnings.map((w, i) => {
+                const actor = project.actors.find((a) => a.id === w.actorId);
+                const exitChar = play.castList.find((c) => c.id === w.exitCharacterId);
+                const enterChar = play.castList.find((c) => c.id === w.enterCharacterId);
+                const exitName = exitChar?.name ?? characterIdToName(w.exitCharacterId);
+                const enterName = enterChar?.name ?? characterIdToName(w.enterCharacterId);
+                const mins = Math.floor(w.gapMinutes);
+                const secs = Math.round((w.gapMinutes - mins) * 60);
+                const gapLabel = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 px-4 py-2.5 rounded border border-amber-200 bg-amber-50 text-sm"
+                  >
+                    <span className="text-amber-500 shrink-0">⚡</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {actor && (
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: actor.color }}
+                        />
+                      )}
+                      <span className="font-medium text-stone-700 shrink-0">
+                        {actor?.name ?? w.actorId}
+                      </span>
+                    </div>
+                    <span className="text-stone-500 truncate min-w-0">
+                      {exitName} → {enterName}
+                    </span>
+                    <span className="ml-auto shrink-0 font-medium text-amber-700 tabular-nums">
+                      {gapLabel} gap
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Character assignments */}
       <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-3">

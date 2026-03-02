@@ -125,6 +125,7 @@ function computeSceneSpeakingTime(
     byCharacter,
     totalMinutes: lineCounts.words.total.afterCut / wpm,
     originalTotalMinutes: lineCounts.words.total.original / wpm,
+    pauseMinutes: 0,
   };
 }
 
@@ -406,6 +407,7 @@ export default function ScriptEditor({ playId }: Props) {
     filteredCharacterIds,
     cutModeActive,
     focusedSceneId,
+    pauses: activeCut.pauses,
     dragOverSceneId,
     onDragStartScene: handleDragStartScene,
     onDragOverScene: handleDragOverScene,

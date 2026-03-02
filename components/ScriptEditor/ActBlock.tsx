@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import type { Act, Character, Scene } from "@/types/play";
 import type { Actor, ActorAssignment } from "@/types/project";
 import type { ScriptUnitWithStatus, LineCounts } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
 import { useMetric } from "@/lib/ui/MetricContext";
 import SceneBlock from "./SceneBlock";
+import PauseIndicator from "./PauseIndicator";
 
 interface Props {
   act: Act;
@@ -25,6 +26,8 @@ interface Props {
   focusedSceneId: string | null;
   /** When true, render all content as original (no cuts/edits applied) — for diff side-by-side */
   showOriginal?: boolean;
+  /** Named pauses keyed by "after:{sceneId}" — shown between SceneBlocks */
+  pauses?: Record<string, { name: string; minutes: number }>;
   // Drag state/handlers lifted to ScriptEditor
   dragOverSceneId: string | null;
   onDragStartScene: (e: React.DragEvent, sceneId: string) => void;
@@ -37,7 +40,7 @@ interface Props {
 export default function ActBlock({
   act, scenes, unitsByScene, assignments, actors, castList, onToggle, speechEdits, onClearEdits,
   filteredCharacterIds, cutModeActive, lineCounts,
-  focusedSceneId, showOriginal,
+  focusedSceneId, showOriginal, pauses,
   dragOverSceneId, onDragStartScene, onDragOverScene, onDragLeaveScene, onDropScene, onDragEndScene,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
@@ -131,30 +134,37 @@ export default function ActBlock({
 
       {!collapsed && (
         <div className="space-y-6">
-          {displayScenes.map((scene) => (
-            <SceneBlock
-              key={`${scene.id}-${generation}`}
-              scene={scene}
-              units={unitsByScene.get(scene.id) || []}
-              assignments={assignments}
-              actors={actors}
-              castList={castList}
-              onToggle={showOriginal ? null : onToggle}
-              speechEdits={showOriginal ? undefined : speechEdits}
-              onClearEdits={showOriginal ? undefined : onClearEdits}
-              filteredCharacterIds={filteredCharacterIds}
-              cutModeActive={cutModeActive}
-              sceneCounts={showOriginal ? undefined : lineCounts?.byScene[scene.id]}
-              focusedSceneId={focusedSceneId}
-              showOriginal={showOriginal}
-              isDragOver={!showOriginal && dragOverSceneId === scene.id}
-              onDragStart={showOriginal ? undefined : (e) => onDragStartScene(e, scene.id)}
-              onDragOver={showOriginal ? undefined : (e) => onDragOverScene(e, scene.id)}
-              onDragLeave={showOriginal ? undefined : onDragLeaveScene}
-              onDrop={showOriginal ? undefined : (e) => onDropScene(e, scene.id)}
-              onDragEnd={showOriginal ? undefined : onDragEndScene}
-            />
-          ))}
+          {displayScenes.map((scene) => {
+            const pauseEntry = !showOriginal ? pauses?.[`after:${scene.id}`] : undefined;
+            return (
+              <React.Fragment key={`${scene.id}-${generation}`}>
+                <SceneBlock
+                  scene={scene}
+                  units={unitsByScene.get(scene.id) || []}
+                  assignments={assignments}
+                  actors={actors}
+                  castList={castList}
+                  onToggle={showOriginal ? null : onToggle}
+                  speechEdits={showOriginal ? undefined : speechEdits}
+                  onClearEdits={showOriginal ? undefined : onClearEdits}
+                  filteredCharacterIds={filteredCharacterIds}
+                  cutModeActive={cutModeActive}
+                  sceneCounts={showOriginal ? undefined : lineCounts?.byScene[scene.id]}
+                  focusedSceneId={focusedSceneId}
+                  showOriginal={showOriginal}
+                  isDragOver={!showOriginal && dragOverSceneId === scene.id}
+                  onDragStart={showOriginal ? undefined : (e) => onDragStartScene(e, scene.id)}
+                  onDragOver={showOriginal ? undefined : (e) => onDragOverScene(e, scene.id)}
+                  onDragLeave={showOriginal ? undefined : onDragLeaveScene}
+                  onDrop={showOriginal ? undefined : (e) => onDropScene(e, scene.id)}
+                  onDragEnd={showOriginal ? undefined : onDragEndScene}
+                />
+                {pauseEntry && (
+                  <PauseIndicator name={pauseEntry.name} minutes={pauseEntry.minutes} />
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
       )}
     </div>

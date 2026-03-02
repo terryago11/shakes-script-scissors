@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from "react";
-import type { Project, Actor, ActorAssignment, Cut } from "@/types/project";
+import type { Project, Actor, ActorAssignment, Cut, ProjectSettings } from "@/types/project";
 import type { SpeechEdit, EditOp } from "@/types/edit";
 import { generateId, defaultColors } from "./projectUtils";
 
@@ -33,7 +33,10 @@ type ProjectAction =
   | { type: "RENAME_PROJECT"; name: string }
   | { type: "SET_SCENE_ORDER"; sceneOrder: string[] }
   | { type: "SET_SD_CHARACTERS"; stageId: string; characters: string[] }
-  | { type: "REPLACE_PROJECT"; project: Project };
+  | { type: "REPLACE_PROJECT"; project: Project }
+  | { type: "SET_PAUSE"; afterSceneId: string; name: string; minutes: number }
+  | { type: "REMOVE_PAUSE"; afterSceneId: string }
+  | { type: "UPDATE_SETTINGS"; settings: Partial<ProjectSettings> };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
   if (!state.project && action.type !== "LOAD" && action.type !== "REPLACE_PROJECT") {
@@ -137,6 +140,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         speechEdits: source?.speechEdits ? { ...source.speechEdits } : {},
         sceneOrder: source?.sceneOrder ? [...source.sceneOrder] : undefined,
         stageDirectionEdits: source?.stageDirectionEdits ? { ...source.stageDirectionEdits } : undefined,
+        pauses: source?.pauses ? { ...source.pauses } : undefined,
       };
       const newProject = {
         ...p,
@@ -237,6 +241,35 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
       return {
         ...state,
         project: { ...p, assignments: newAssignments, updatedAt: now() },
+      };
+    }
+
+    case "SET_PAUSE":
+      return updateActiveCut(state, (c) => ({
+        ...c,
+        pauses: {
+          ...(c.pauses ?? {}),
+          [`after:${action.afterSceneId}`]: { name: action.name, minutes: action.minutes },
+        },
+      }));
+
+    case "REMOVE_PAUSE": {
+      const pauseKey = `after:${action.afterSceneId}`;
+      const existing = state.project!.cuts.find((c) => c.id === state.activeCutId)?.pauses ?? {};
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [pauseKey]: _removed, ...rest } = existing;
+      return updateActiveCut(state, (c) => ({ ...c, pauses: rest }));
+    }
+
+    case "UPDATE_SETTINGS": {
+      const p = state.project!;
+      return {
+        ...state,
+        project: {
+          ...p,
+          settings: { ...(p.settings ?? { wordsPerMinute: 135 }), ...action.settings },
+          updatedAt: now(),
+        },
       };
     }
 

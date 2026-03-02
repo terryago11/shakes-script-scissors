@@ -19,6 +19,11 @@ const CutSchema = z.object({
   name: z.string(),
   createdAt: z.string(),
   cutMap: z.record(z.string(), z.enum(["cut", "kept"])),
+  lineCutMap: z.record(z.string(), z.enum(["cut", "kept"])).optional(),
+  speechEdits: z.record(z.string(), z.unknown()).optional(),
+  sceneOrder: z.array(z.string()).optional(),
+  stageDirectionEdits: z.record(z.string(), z.array(z.string())).optional(),
+  pauses: z.record(z.string(), z.object({ name: z.string(), minutes: z.number() })).optional(),
 });
 
 const ProjectSchema = z.object({
@@ -26,6 +31,11 @@ const ProjectSchema = z.object({
   id: z.string(),
   playId: z.string(),
   playTitle: z.string(),
+  name: z.string().optional(),
+  settings: z.object({
+    wordsPerMinute: z.number(),
+    quickChangeThresholdMinutes: z.number().optional(),
+  }).optional(),
   actors: z.array(ActorSchema),
   assignments: z.array(AssignmentSchema),
   cuts: z.array(CutSchema).min(1),
