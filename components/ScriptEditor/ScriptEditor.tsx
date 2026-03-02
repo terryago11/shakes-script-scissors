@@ -2,15 +2,107 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Play, Act, Scene } from "@/types/play";
+import type { LineCounts, ScriptUnitWithStatus } from "@/types/cut";
+import type { Actor, ActorAssignment } from "@/types/project";
+import type { SpeechEdit } from "@/types/edit";
 import { useProject } from "@/lib/project/ProjectStore";
 import { computeCuts } from "@/lib/cuts/CutEngine";
 import { computeStageTime } from "@/lib/cuts/StageTimeEngine";
+import { applyEditsToLine } from "@/lib/cuts/applyEdits";
 import ActBlock from "./ActBlock";
 import LineCountPanel from "@/components/LineCounts/LineCountPanel";
 import { useSceneJump } from "@/lib/ui/SceneJumpContext";
 import { useCutMode } from "@/lib/ui/CutModeContext";
+import { useViewMode, type ViewMode } from "@/lib/ui/ViewModeContext";
 import type { EditOp } from "@/types/edit";
 import { resolveSelectionToOps } from "@/lib/cuts/resolveSelection";
+
+/** Compute line/word counts for a single scene's units (for focus mode). */
+function computeFocusedLineCounts(
+  units: ScriptUnitWithStatus[],
+  speechEdits: Record<string, SpeechEdit>,
+  assignments: ActorAssignment[],
+  actors: Actor[],
+): LineCounts {
+  function countWords(text: string) { return text.trim().split(/\s+/).filter(Boolean).length; }
+
+  const byCharacter: Record<string, { original: number; afterCut: number }> = {};
+  const wordsByCharacter: Record<string, { original: number; afterCut: number }> = {};
+  let totalOriginal = 0, totalAfterCut = 0;
+  let totalWordsOriginal = 0, totalWordsAfterCut = 0;
+
+  for (const { unit, status, lineStatuses } of units) {
+    if (unit.type !== "speech") continue;
+    const charId = unit.characterId;
+    if (!byCharacter[charId]) {
+      byCharacter[charId] = { original: 0, afterCut: 0 };
+      wordsByCharacter[charId] = { original: 0, afterCut: 0 };
+    }
+
+    const lineWords = unit.lines.reduce((s, l) => s + countWords(l.text), 0);
+    byCharacter[charId].original += unit.lineCount;
+    wordsByCharacter[charId].original += lineWords;
+    totalOriginal += unit.lineCount;
+    totalWordsOriginal += lineWords;
+
+    if (status === "cut") continue;
+
+    const lineStatusMap = new Map((lineStatuses ?? []).map((ls) => [ls.lineId, ls.status]));
+    const edit = speechEdits[unit.id];
+    for (const line of unit.lines) {
+      if ((lineStatusMap.get(line.id) ?? "kept") === "cut") continue;
+      byCharacter[charId].afterCut += 1;
+      totalAfterCut += 1;
+      const ops = edit?.ops ?? [];
+      if (ops.length > 0) {
+        const segs = applyEditsToLine(line.id, line.text, ops);
+        const keptText = segs.filter((s) => s.type !== "cut").map((s) => s.text).join("").trim();
+        const w = keptText.length > 0 ? countWords(keptText) : 0;
+        wordsByCharacter[charId].afterCut += w;
+        totalWordsAfterCut += w;
+      } else {
+        const w = countWords(line.text);
+        wordsByCharacter[charId].afterCut += w;
+        totalWordsAfterCut += w;
+      }
+    }
+  }
+
+  const charToActor: Record<string, string> = {};
+  for (const a of assignments) charToActor[a.characterId] = a.actorId;
+  const actorToChars: Record<string, string[]> = {};
+  for (const a of assignments) {
+    if (!actorToChars[a.actorId]) actorToChars[a.actorId] = [];
+    actorToChars[a.actorId].push(a.characterId);
+  }
+  const byActor: LineCounts["byActor"] = {};
+  for (const actor of actors) {
+    const chars = (actorToChars[actor.id] ?? []).filter((c) => (byCharacter[c]?.original ?? 0) > 0);
+    const original = chars.reduce((s, c) => s + byCharacter[c].original, 0);
+    const afterCut = chars.reduce((s, c) => s + byCharacter[c].afterCut, 0);
+    if (original > 0) byActor[actor.id] = { characters: chars, original, afterCut };
+  }
+  const wordsByActor: LineCounts["words"]["byActor"] = {};
+  for (const actor of actors) {
+    const chars = (actorToChars[actor.id] ?? []).filter((c) => (wordsByCharacter[c]?.original ?? 0) > 0);
+    const original = chars.reduce((s, c) => s + wordsByCharacter[c].original, 0);
+    const afterCut = chars.reduce((s, c) => s + wordsByCharacter[c].afterCut, 0);
+    if (original > 0) wordsByActor[actor.id] = { characters: chars, original, afterCut };
+  }
+
+  return {
+    total: { original: totalOriginal, afterCut: totalAfterCut },
+    byCharacter,
+    byActor,
+    byScene: {},
+    byAct: {},
+    words: {
+      total: { original: totalWordsOriginal, afterCut: totalWordsAfterCut },
+      byCharacter: wordsByCharacter,
+      byActor: wordsByActor,
+    },
+  };
+}
 
 interface Props {
   playId: string;
@@ -27,6 +119,7 @@ export default function ScriptEditor({ playId }: Props) {
   const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null);
   const { setScenes, setActiveSceneId } = useSceneJump();
   const { cutModeActive, setCutModeActive } = useCutMode();
+  const { viewMode, setViewMode } = useViewMode();
   const scriptColRef = useRef<HTMLDivElement>(null);
 
   // Esc key exits cut mode
@@ -106,6 +199,15 @@ export default function ScriptEditor({ playId }: Props) {
   );
 
   const stageTime = computeStageTime(play, activeCut, project.settings);
+
+  const focusedLineCounts: LineCounts | null = focusedSceneId
+    ? computeFocusedLineCounts(
+        unitsByScene.get(focusedSceneId) ?? [],
+        activeCut.speechEdits ?? {},
+        project.assignments,
+        project.actors,
+      )
+    : null;
 
   function handleToggle(unitId: string) {
     dispatch({ type: "TOGGLE_UNIT", unitId });
@@ -279,6 +381,32 @@ export default function ScriptEditor({ playId }: Props) {
         className={`flex-1 min-w-0 overflow-y-auto ${cutModeActive ? "cursor-crosshair select-text" : ""}`}
         onMouseUp={handleScriptMouseUp}
       >
+        {/* View mode toolbar */}
+        {!cutModeActive && (
+          <div className="no-print sticky top-14 z-20 bg-white border-b border-stone-100 px-4 py-1.5 flex items-center gap-1">
+            {(
+              [
+                { value: "standard" as ViewMode, label: "≡ Standard", title: "Show all cuts with strikethrough" },
+                { value: "clean"    as ViewMode, label: "✓ Clean",    title: "Hide cuts — show final script only" },
+                { value: "diff"     as ViewMode, label: "± Diff",     title: "Highlight cuts and insertions in color" },
+              ] as const
+            ).map(({ value, label, title }) => (
+              <button
+                key={value}
+                onClick={() => setViewMode(value)}
+                title={title}
+                className={`text-xs px-2.5 py-1 rounded transition-colors ${
+                  viewMode === value
+                    ? "bg-amber-100 text-amber-800 font-semibold"
+                    : "text-stone-400 hover:text-stone-700 hover:bg-stone-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Active filter badge */}
         {filterLabel && !cutModeActive && (
           <div className="no-print sticky top-14 z-10 bg-white border-b border-stone-100 px-4 py-2 flex items-center gap-2">
@@ -339,14 +467,15 @@ export default function ScriptEditor({ playId }: Props) {
       <div className="no-print w-72 shrink-0 border-l border-stone-200 bg-white sticky top-14 self-start h-[calc(100vh-3.5rem)] overflow-y-auto">
         <LineCountPanel
           play={play}
-          lineCounts={lineCounts}
+          lineCounts={focusedLineCounts ?? lineCounts}
           actors={project.actors}
           assignments={project.assignments}
           filter={filter}
           onFilterCharacter={handleFilterCharacter}
           onFilterActor={handleFilterActor}
-          stageTime={stageTime}
+          stageTime={focusedLineCounts ? undefined : stageTime}
           settings={project.settings}
+          isFocused={!!focusedSceneId}
         />
       </div>
     </div>

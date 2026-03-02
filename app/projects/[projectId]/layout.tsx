@@ -4,11 +4,12 @@ import { useEffect, use, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useProject, loadProjectFromStorage } from "@/lib/project/ProjectStore";
-import { exportProject, encodeProjectForUrl } from "@/lib/project/projectIO";
+import { exportProject } from "@/lib/project/projectIO";
 import CutSelector from "@/components/CutSelector/CutSelector";
 import { SceneJumpProvider, useSceneJump } from "@/lib/ui/SceneJumpContext";
 import { CutModeProvider, useCutMode } from "@/lib/ui/CutModeContext";
 import { MetricProvider } from "@/lib/ui/MetricContext";
+import { ViewModeProvider } from "@/lib/ui/ViewModeContext";
 
 export default function ProjectLayout({
   children,
@@ -43,8 +44,10 @@ export default function ProjectLayout({
     <SceneJumpProvider>
       <CutModeProvider>
         <MetricProvider>
-          <ProjectNav project={project} projectId={projectId} isScriptPage={isScriptPage} router={router} pathname={pathname} />
-          <div className="flex-1">{children}</div>
+          <ViewModeProvider>
+            <ProjectNav project={project} projectId={projectId} isScriptPage={isScriptPage} router={router} pathname={pathname} />
+            <div className="flex-1">{children}</div>
+          </ViewModeProvider>
         </MetricProvider>
       </CutModeProvider>
     </SceneJumpProvider>
@@ -69,7 +72,6 @@ function ProjectNav({
 }) {
   const { cutModeActive } = useCutMode();
   const [toolsOpen, setToolsOpen] = useState(false);
-  const [shareLabel, setShareLabel] = useState<"Share" | "Copied!" | "Too large!">("Share");
   const [clearConfirm, setClearConfirm] = useState(false);
   const toolsRef = useRef<HTMLDivElement>(null);
 
@@ -85,33 +87,6 @@ function ProjectNav({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [toolsOpen]);
-
-  async function handleShare() {
-    if (!project) return;
-    try {
-      const encoded = await encodeProjectForUrl(project);
-      const url = `${window.location.origin}/view?share=${encoded}`;
-      if (url.length > 30_000) {
-        setShareLabel("Too large!");
-        setTimeout(() => setShareLabel("Share"), 2500);
-        setToolsOpen(false);
-        return;
-      }
-      try {
-        await navigator.clipboard.writeText(url);
-        setShareLabel("Copied!");
-      } catch {
-        window.prompt("Copy this share link:", url);
-        setShareLabel("Share");
-        setToolsOpen(false);
-        return;
-      }
-      setTimeout(() => setShareLabel("Share"), 2500);
-      setToolsOpen(false);
-    } catch {
-      setShareLabel("Share");
-    }
-  }
 
   const navLinks = [
     { href: `/projects/${projectId}`, label: "Script" },
@@ -158,29 +133,25 @@ function ProjectNav({
 
         <CutSelector />
 
+        {/* Save Project — prominent nav button */}
+        <button
+          onClick={() => exportProject(project)}
+          className="ml-auto shrink-0 text-xs px-3 py-1.5 rounded border border-stone-300 bg-white text-stone-600 hover:bg-stone-50 hover:border-stone-400 transition-colors font-medium"
+          title="Save project as .sss.json file"
+        >
+          ↓ Save Project
+        </button>
+
         {/* Tools dropdown */}
-        <div ref={toolsRef} className="ml-auto relative shrink-0">
+        <div ref={toolsRef} className="relative shrink-0">
           <button
             onClick={() => setToolsOpen((o) => !o)}
             className="text-xs px-3 py-1.5 rounded border border-stone-300 text-stone-600 hover:bg-stone-50 transition-colors flex items-center gap-1"
           >
-            Tools {toolsOpen ? "▴" : "▾"}
+            ⋯
           </button>
           {toolsOpen && (
             <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-stone-200 rounded-lg shadow-lg py-1 z-50">
-              <button
-                onClick={handleShare}
-                className="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
-              >
-                {shareLabel === "Copied!" ? "✓ Copied!" : shareLabel === "Too large!" ? "⚠ Too large!" : "🔗 Share link"}
-              </button>
-              <button
-                onClick={() => { exportProject(project); setToolsOpen(false); }}
-                className="w-full text-left px-4 py-2 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
-              >
-                ↓ Export JSON
-              </button>
-              <div className="my-1 border-t border-stone-100" />
               <button
                 onClick={async () => {
                   await fetch("/api/auth/logout", { method: "POST" });

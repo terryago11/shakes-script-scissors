@@ -6,6 +6,7 @@ import type { Actor, ActorAssignment } from "@/types/project";
 import type { ScriptUnitWithStatus, SceneCounts } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
 import { useMetric } from "@/lib/ui/MetricContext";
+import { useViewMode } from "@/lib/ui/ViewModeContext";
 import SpeechBlock from "./SpeechBlock";
 import StageDirectionBlock from "./StageDirectionBlock";
 
@@ -42,6 +43,7 @@ export default function SceneBlock({
   // Default to collapsed so after act re-expand, scenes are collapsed and user can pick
   const [collapsed, setCollapsed] = useState(false);
   const { metric } = useMetric();
+  const { viewMode } = useViewMode();
 
   const charColor: Record<string, string> = {};
   for (const a of assignments) {
@@ -214,6 +216,7 @@ export default function SceneBlock({
               );
             } else {
               if (isFiltering) return null;
+              if (status === "cut" && viewMode === "clean") return null;
               return (
                 <StageDirectionBlock
                   key={unit.id}
