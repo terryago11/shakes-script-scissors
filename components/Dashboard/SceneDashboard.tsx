@@ -176,17 +176,34 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
 
   return (
     <div className="max-w-screen-xl mx-auto px-6 py-8">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
+      {/* Header row: title · metric toggle · running time */}
+      <div className="flex items-center justify-between mb-4 gap-6">
+        <div className="shrink-0">
           <h1 className="text-2xl font-bold text-stone-800 mb-1">Scene Dashboard</h1>
           <p className="text-stone-500 text-sm">
             {effectiveSceneOrder.length} scenes · {project.actors.length} actors
           </p>
         </div>
 
+        {/* Metric tabs — inline with header */}
+        <div className="flex gap-1 p-0.5 bg-stone-100 rounded-md">
+          {(["lines", "words", "time"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMetric(m)}
+              className={`text-xs py-1 px-3 rounded transition-colors font-medium capitalize ${
+                metric === m
+                  ? "bg-white text-stone-700 shadow-sm"
+                  : "text-stone-400 hover:text-stone-600"
+              }`}
+            >
+              {m === "time" ? "Time" : m === "lines" ? "Lines" : "Words"}
+            </button>
+          ))}
+        </div>
+
         {/* Running time summary */}
-        <div className="text-right">
+        <div className="text-right shrink-0">
           <div className="text-2xl font-bold text-stone-800 tabular-nums">
             {formatMinutes(stageTime.totalMinutes)}
           </div>
@@ -203,26 +220,8 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
         </div>
       </div>
 
-      {/* Controls row: metric tabs + subtabs */}
-      <div className="flex items-center justify-between mb-6 gap-4">
-        {/* Metric tabs */}
-        <div className="flex gap-1 p-0.5 bg-stone-100 rounded-md w-fit">
-          {(["lines", "words", "time"] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMetric(m)}
-              className={`text-xs py-1 px-3 rounded transition-colors font-medium capitalize ${
-                metric === m
-                  ? "bg-white text-stone-700 shadow-sm"
-                  : "text-stone-400 hover:text-stone-600"
-              }`}
-            >
-              {m === "time" ? "Time" : m === "lines" ? "Lines" : "Words"}
-            </button>
-          ))}
-        </div>
-
-        {/* Subtabs */}
+      {/* Subtabs row */}
+      <div className="flex mb-6">
         <div className="flex border border-stone-200 rounded-md overflow-hidden">
           {tabs.map(({ key, label }) => (
             <button

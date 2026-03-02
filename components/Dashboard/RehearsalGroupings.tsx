@@ -164,9 +164,9 @@ export default function RehearsalGroupings({
   const multiBlocks = blocks.filter((b) => b.sceneIds.length > 1);
 
   return (
-    <div className="space-y-10">
+    <div className="flex gap-10 items-start">
       {/* By Actor */}
-      <section>
+      <section className="flex-1 min-w-0">
         <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-4">
           By Actor
         </h2>
@@ -243,7 +243,7 @@ export default function RehearsalGroupings({
 
       {/* Rehearsal Blocks */}
       {multiBlocks.length > 0 && (
-        <section>
+        <section className="flex-1 min-w-0">
           <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-1">
             Suggested Rehearsal Blocks
           </h2>
