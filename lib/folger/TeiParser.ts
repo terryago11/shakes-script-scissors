@@ -230,10 +230,18 @@ function extractCastList(teiChildren: unknown[], playId: string): Character[] {
     const roleNode = findFirst(itemChildren, "role");
     const nameNode = roleNode ? findFirst(getChildren(roleNode), "name") : null;
     const rawName = nameNode
-      ? extractAllText(getChildren(nameNode)).trim()
+      ? extractAllText(getChildren(nameNode)).trim().replace(/\s+/g, " ")
       : id.replace(/^#/, "").replace(/_.*$/, "");
 
-    const name = normalizeCharacterName(rawName);
+    // Also derive a name from the ID stem — when the TEI <name> is less specific
+    // than what the ID encodes (e.g. "Officer" vs "OFFICERS.Jailer" → "Officer Jailer"),
+    // prefer the ID-based name.
+    const idStem = id.replace(/^#/, "").replace(/_.*$/, "");
+    const nameNodeName = normalizeCharacterName(rawName);
+    const idBasedName = normalizeCharacterName(idStem);
+    const name = nameNode && idBasedName.length > nameNodeName.length
+      ? idBasedName
+      : nameNodeName;
 
     if (!chars.find((c) => c.id === id)) {
       chars.push({ id, name });
@@ -281,10 +289,13 @@ function normalizeCharacterName(raw: string): string {
 
   // Only process dotted patterns here — split on dots first
   if (raw.includes(".")) {
-    const parts = raw.split(".");
+    const parts = raw.split(".").map((p) => p.trim());
 
     // Derive the singular group noun from parts[0] (always the group)
     const groupSingular = toTitleCase(decapitalizePlural(parts[0]));
+
+    // Single-letter group prefix (e.g. "X.Officer" in some DraCor data) — just use the rest
+    if (groupSingular.length === 1) return toTitleCase(parts.slice(1).join(" "));
 
     // Collect the remaining parts
     const rest = parts.slice(1);
@@ -321,15 +332,24 @@ function normalizeCharacterName(raw: string): string {
     // Groups that describe internal roles (not possession) always compound:
     //   PLAYERS.King → Player King (not "King's Player")
     // Groups that belong to someone use possessive: FOLLOWERS.LAERTES → Laertes' Follower
+    // Title/honorific groups always use compound (Title Name): DOCTOR.PINCH → Dr Pinch
     const noPossessiveGroups = new Set(["player", "players"]);
+    const titleGroups = new Set([
+      "doctor", "dr", "friar", "father", "sir", "master", "mistress",
+    ]);
     if (rest.length === 1) {
       const qualifier = rest[0];
       const groupLower = parts[0].toLowerCase();
-      if (isProperName(qualifier) && !noPossessiveGroups.has(groupLower)) {
+      // Single-letter qualifier (e.g. DraCor "X" = anonymous group member) → "A/An GroupNoun"
+      if (/^[A-Z]$/.test(qualifier)) {
+        const article = /^[aeiou]/i.test(groupSingular) ? "An" : "A";
+        return `${article} ${groupSingular}`;
+      }
+      if (isProperName(qualifier) && !noPossessiveGroups.has(groupLower) && !titleGroups.has(groupLower)) {
         // Proper name → possessive: "Laertes' Follower"
         return `${toTitleCase(qualifier)}' ${groupSingular}`;
       } else {
-        // Common noun or role-based group → compound: "Player Queen", "Attendant Guard"
+        // Common noun, title group, or role-based group → compound: "Player Queen", "Dr Pinch"
         return `${groupSingular} ${toTitleCase(qualifier)}`;
       }
     }
@@ -383,14 +403,25 @@ function isProperName(word: string): boolean {
     "court", "guard", "guards", "interpreter", "soldier", "soldiers",
     "attendant", "attendants", "lord", "lords", "lady", "servant",
     "captain", "officer", "messenger", "ambassador", "king", "queen",
-    "prince", "duke", "count", "earl",
+    "prince", "duke", "count", "earl", "jailer", "jailor",
   ]);
   return !commonNouns.has(word.toLowerCase());
 }
 
-/** Title-case every word. */
+/**
+ * Title-case a string, keeping small connecting words (of, the, a, and, …)
+ * lowercase unless they appear at the very start.
+ * e.g. "DROMIO OF SYRACUSE" → "Dromio of Syracuse"
+ */
+const SMALL_WORDS = new Set([
+  "of", "the", "a", "an", "and", "or", "but", "for",
+  "in", "on", "at", "to", "by", "from", "with",
+]);
 function toTitleCase(s: string): string {
-  return s.replace(/\b\w+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+  return s.replace(/\b\w+/g, (word, offset) => {
+    if (offset > 0 && SMALL_WORDS.has(word.toLowerCase())) return word.toLowerCase();
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  });
 }
 
 /** Remove trailing plural S/ES to get the stem for group names (e.g. "PLAYER" from "PLAYERS"). */
@@ -408,6 +439,17 @@ function splitCamelCase(s: string): string {
     .replace(/([A-Z]+)(?=[A-Z][a-z])/g, " $1")
     .trim();
   return toTitleCase(spaced);
+}
+
+/**
+ * Convert a raw TEI character ID (e.g. "#PLAYERS_Ham", "#SOLDIERS.FORTINBRAS_Ham")
+ * to a human-readable display name using the same normalization as the cast list.
+ * Useful when a character appears in stage directions but has no formal <castItem>.
+ */
+export function characterIdToName(id: string): string {
+  // Strip leading # and trailing _PlayId suffix (1-3 uppercase letters)
+  const stem = id.replace(/^#/, "").replace(/_[A-Z][a-zA-Z]+$/, "");
+  return normalizeCharacterName(stem);
 }
 
 // --- XML traversal helpers ---

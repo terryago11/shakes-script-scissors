@@ -6,6 +6,7 @@ import type { Actor, ActorAssignment, ProjectSettings } from "@/types/project";
 import type { LineCounts } from "@/types/cut";
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import { useMetric } from "@/lib/ui/MetricContext";
+import { characterIdToName } from "@/lib/folger/TeiParser";
 import CharacterRow from "./CharacterRow";
 import ActorRow from "./ActorRow";
 
@@ -42,7 +43,7 @@ export default function LineCountPanel({
 
   function handleTabClick(tab: "lines" | "words" | "time") {
     setPanelTab(tab);
-    if (tab === "lines" || tab === "words") setMetric(tab);
+    setMetric(tab);
   }
 
   const { total, byCharacter, byActor } = lineCounts;
@@ -184,7 +185,7 @@ export default function LineCountPanel({
                 const actorHasCuts = minutes < originalMinutes - 0.01;
                 const actorHasAdded = minutes > originalMinutes + 0.01;
                 const charNames = charIds
-                  .map((id) => play.castList.find((c) => c.id === id)?.name ?? id)
+                  .map((id) => play.castList.find((c) => c.id === id)?.name ?? characterIdToName(id))
                   .join(", ");
                 const cutPct = originalMinutes > 0.01
                   ? Math.round((1 - minutes / originalMinutes) * 100)
@@ -245,6 +246,7 @@ export default function LineCountPanel({
           <div className="space-y-2">
             {byCharList.map(({ characterId, minutes, originalMinutes }) => {
               const char = play.castList.find((c) => c.id === characterId);
+              const charName = char?.name ?? characterIdToName(characterId);
               const pctBar = (minutes / maxMinutesForBar) * 100;
               const origPctBar = (originalMinutes / maxMinutesForBar) * 100;
               const charHasCuts = minutes < originalMinutes - 0.01;
@@ -259,7 +261,7 @@ export default function LineCountPanel({
               return (
                 <div key={characterId}>
                   <div className="flex items-baseline justify-between text-xs mb-0.5">
-                    <span className="text-stone-600 truncate mr-2">{char?.name ?? characterId}</span>
+                    <span className="text-stone-600 truncate mr-2">{charName}</span>
                     <span className="text-stone-400 shrink-0 tabular-nums">
                       {formatMinutes(minutes)}
                       {(charHasCuts || charHasAdded) && (

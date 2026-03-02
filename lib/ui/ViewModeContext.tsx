@@ -9,10 +9,17 @@ const ViewModeContext = createContext<{
   setViewMode: (mode: ViewMode) => void;
 }>({ viewMode: "standard", setViewMode: () => {} });
 
-export function ViewModeProvider({ children }: { children: React.ReactNode }) {
+export function ViewModeProvider({
+  children,
+  forceValue,
+}: {
+  children: React.ReactNode;
+  /** When set, this value is used instead of internal state — useful for nested diff columns */
+  forceValue?: ViewMode;
+}) {
   const [viewMode, setViewMode] = useState<ViewMode>("standard");
   return (
-    <ViewModeContext.Provider value={{ viewMode, setViewMode }}>
+    <ViewModeContext.Provider value={{ viewMode: forceValue ?? viewMode, setViewMode }}>
       {children}
     </ViewModeContext.Provider>
   );

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useProject, listStoredProjectIds, loadProjectFromStorage, type ProjectSummary } from "@/lib/project/ProjectStore";
-import { importProjectFromFile } from "@/lib/project/projectIO";
+import { importProjectFromFile, exportProject } from "@/lib/project/projectIO";
 import type { PlayMeta } from "@/lib/folger/FolgerClient";
 
 export default function HomePage() {
@@ -52,7 +52,6 @@ export default function HomePage() {
   function handleSelectPlay(play: PlayMeta) {
     setPendingPlay(play);
     setProjectName(play.title);
-    // Focus the name input on next tick
     setTimeout(() => nameInputRef.current?.select(), 50);
   }
 
@@ -89,6 +88,12 @@ export default function HomePage() {
     setClearConfirm(false);
   }
 
+  function handleSaveProject(projectId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    const project = loadProjectFromStorage(projectId);
+    if (project) exportProject(project);
+  }
+
   return (
     <main className="max-w-4xl mx-auto px-6 py-12">
       <div className="mb-10">
@@ -116,17 +121,17 @@ export default function HomePage() {
         <section className="mb-10">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-stone-700">
-              Recent projects
+              Locally Cached Projects
             </h2>
-            {/* Clear all data — two-step confirm */}
+            {/* Clear local cache — two-step confirm */}
             {clearConfirm ? (
               <span className="flex items-center gap-2 text-sm">
-                <span className="text-stone-500">Clear all projects?</span>
+                <span className="text-stone-500">Delete all local data?</span>
                 <button
                   onClick={handleClearAll}
                   className="px-2 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200 font-medium"
                 >
-                  Yes, clear
+                  Yes, delete
                 </button>
                 <button
                   onClick={() => setClearConfirm(false)}
@@ -140,27 +145,39 @@ export default function HomePage() {
                 onClick={() => setClearConfirm(true)}
                 className="text-xs text-stone-400 hover:text-red-500 transition-colors"
               >
-                Clear all
+                Delete local cache
               </button>
             )}
           </div>
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {storedProjects.map((p) => (
               <li key={p.id}>
-                <button
-                  onClick={() => router.push(`/projects/${p.id}`)}
-                  className="w-full text-left px-4 py-3 rounded-lg border border-stone-200 bg-white hover:bg-amber-50 hover:border-amber-300 transition-colors"
-                >
-                  <div className="text-stone-800 text-sm font-medium">
-                    {p.name || p.playTitle}
-                  </div>
-                  {p.name && p.name !== p.playTitle && (
-                    <div className="text-stone-400 text-xs">{p.playTitle}</div>
-                  )}
-                  <div className="text-stone-400 text-xs mt-0.5">
-                    Last saved {new Date(p.updatedAt).toLocaleDateString()}
-                  </div>
-                </button>
+                <div className="flex rounded-lg border border-stone-200 bg-white overflow-hidden hover:border-amber-300 transition-colors group">
+                  {/* Main open area */}
+                  <button
+                    onClick={() => router.push(`/projects/${p.id}`)}
+                    className="flex-1 text-left px-4 py-3 hover:bg-amber-50 transition-colors"
+                  >
+                    <div className="text-stone-800 text-sm font-medium">
+                      {p.name || p.playTitle}
+                    </div>
+                    {p.name && p.name !== p.playTitle && (
+                      <div className="text-stone-400 text-xs">{p.playTitle}</div>
+                    )}
+                    <div className="text-stone-400 text-xs mt-0.5">
+                      Last saved {new Date(p.updatedAt).toLocaleDateString()}
+                    </div>
+                  </button>
+                  {/* Save button */}
+                  <button
+                    onClick={(e) => handleSaveProject(p.id, e)}
+                    className="shrink-0 px-3 border-l border-stone-200 text-stone-400 hover:bg-stone-50 hover:text-stone-600 transition-colors text-xs flex flex-col items-center justify-center gap-0.5"
+                    title="Save project file"
+                  >
+                    <span className="text-base leading-none">↓</span>
+                    <span>Save</span>
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

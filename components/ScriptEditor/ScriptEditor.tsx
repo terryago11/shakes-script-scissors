@@ -5,17 +5,22 @@ import type { Play, Act, Scene } from "@/types/play";
 import type { LineCounts, ScriptUnitWithStatus } from "@/types/cut";
 import type { Actor, ActorAssignment } from "@/types/project";
 import type { SpeechEdit } from "@/types/edit";
+import type { CharacterStageTime, StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import { useProject } from "@/lib/project/ProjectStore";
 import { computeCuts } from "@/lib/cuts/CutEngine";
 import { computeStageTime } from "@/lib/cuts/StageTimeEngine";
 import { applyEditsToLine } from "@/lib/cuts/applyEdits";
 import ActBlock from "./ActBlock";
+import DiffView from "./DiffView";
 import LineCountPanel from "@/components/LineCounts/LineCountPanel";
 import { useSceneJump } from "@/lib/ui/SceneJumpContext";
 import { useCutMode } from "@/lib/ui/CutModeContext";
-import { useViewMode, type ViewMode } from "@/lib/ui/ViewModeContext";
+import { useViewMode } from "@/lib/ui/ViewModeContext";
+import { useMetric } from "@/lib/ui/MetricContext";
 import type { EditOp } from "@/types/edit";
 import { resolveSelectionToOps } from "@/lib/cuts/resolveSelection";
+
+const DEFAULT_WPM = 135;
 
 /** Compute line/word counts for a single scene's units (for focus mode). */
 function computeFocusedLineCounts(
@@ -68,8 +73,6 @@ function computeFocusedLineCounts(
     }
   }
 
-  const charToActor: Record<string, string> = {};
-  for (const a of assignments) charToActor[a.characterId] = a.actorId;
   const actorToChars: Record<string, string[]> = {};
   for (const a of assignments) {
     if (!actorToChars[a.actorId]) actorToChars[a.actorId] = [];
@@ -104,6 +107,27 @@ function computeFocusedLineCounts(
   };
 }
 
+/** Estimate per-character speaking time from word counts for a focused scene. */
+function computeSceneSpeakingTime(
+  lineCounts: LineCounts,
+  wpm: number,
+): StageTimeResult {
+  const byCharacter: Record<string, CharacterStageTime> = {};
+  for (const [charId, counts] of Object.entries(lineCounts.words.byCharacter)) {
+    byCharacter[charId] = {
+      characterId: charId,
+      minutes: counts.afterCut / wpm,
+      originalMinutes: counts.original / wpm,
+      scenes: [],
+    };
+  }
+  return {
+    byCharacter,
+    totalMinutes: lineCounts.words.total.afterCut / wpm,
+    originalTotalMinutes: lineCounts.words.total.original / wpm,
+  };
+}
+
 interface Props {
   playId: string;
 }
@@ -115,12 +139,17 @@ export default function ScriptEditor({ playId }: Props) {
   const [error, setError] = useState<string | null>(null);
   type FilterState = { type: "character"; id: string } | { type: "actor"; id: string } | null;
   const [filter, setFilter] = useState<FilterState>(null);
-  const [focusedSceneId, setFocusedSceneId] = useState<string | null>(null);
   const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null);
-  const { setScenes, setActiveSceneId } = useSceneJump();
+  const { setScenes, setActiveSceneId, jumpingRef, focusedSceneId, setFocusedSceneId } = useSceneJump();
   const { cutModeActive, setCutModeActive } = useCutMode();
-  const { viewMode, setViewMode } = useViewMode();
+  const { viewMode } = useViewMode();
+  const { setWpm } = useMetric();
   const scriptColRef = useRef<HTMLDivElement>(null);
+
+  // Keep MetricContext WPM in sync with project settings
+  useEffect(() => {
+    setWpm(project?.settings?.wordsPerMinute ?? DEFAULT_WPM);
+  }, [project?.settings?.wordsPerMinute, setWpm]);
 
   // Esc key exits cut mode
   useEffect(() => {
@@ -143,14 +172,17 @@ export default function ScriptEditor({ playId }: Props) {
       .then((data: Play) => {
         setPlay(data);
         setLoading(false);
-        setScenes(
-          data.acts.flatMap((act) =>
-            act.scenes.map((scene) => ({
-              id: scene.id,
-              label: `${act.title} · ${scene.title}`,
-            }))
-          )
-        );
+        // Short labels: "1:1", "1:2", "2:1" …
+        const scenesList: { id: string; label: string }[] = [];
+        data.acts.forEach((act, ai) => {
+          act.scenes.forEach((scene, si) => {
+            scenesList.push({ id: scene.id, label: `${ai + 1}:${si + 1}` });
+          });
+        });
+        setScenes(scenesList);
+        if (scenesList.length > 0) {
+          setActiveSceneId(scenesList[0].id);
+        }
       })
       .catch((e) => {
         setError(String(e.message));
@@ -170,7 +202,7 @@ export default function ScriptEditor({ playId }: Props) {
           ratios.set(sceneId, entry.intersectionRatio);
         }
         const visible = sceneIds.filter((id) => (ratios.get(id) ?? 0) > 0);
-        if (visible.length > 0) setActiveSceneId(visible[0]);
+        if (visible.length > 0 && !jumpingRef.current) setActiveSceneId(visible[0]);
       },
       { rootMargin: "-56px 0px -40% 0px", threshold: [0, 0.1, 0.5, 1.0] }
     );
@@ -209,6 +241,11 @@ export default function ScriptEditor({ playId }: Props) {
       )
     : null;
 
+  // Time tab in focus mode: estimated speaking time from word counts
+  const focusedStageTime: StageTimeResult | null = focusedLineCounts
+    ? computeSceneSpeakingTime(focusedLineCounts, project.settings?.wordsPerMinute ?? DEFAULT_WPM)
+    : null;
+
   function handleToggle(unitId: string) {
     dispatch({ type: "TOGGLE_UNIT", unitId });
   }
@@ -225,7 +262,6 @@ export default function ScriptEditor({ playId }: Props) {
     const targets = resolveSelectionToOps(range, scriptColRef.current);
     if (targets.length === 0) return;
 
-    // Build speechId → lines for full-speech detection
     const speechLines = new Map<string, Array<{ id: string; text: string }>>();
     for (const act of play!.acts) {
       for (const scene of act.scenes) {
@@ -235,7 +271,6 @@ export default function ScriptEditor({ playId }: Props) {
       }
     }
 
-    // Group by unitId
     const byUnit = new Map<string, typeof targets>();
     for (const t of targets) {
       const arr = byUnit.get(t.unitId) ?? [];
@@ -243,7 +278,6 @@ export default function ScriptEditor({ playId }: Props) {
       byUnit.set(t.unitId, arr);
     }
 
-    // Fully-covered speeches → speech-level cut; partial → word-level edits
     const unitCuts: string[] = [];
     const wordOps: Array<{ unitId: string; op: EditOp }> = [];
 
@@ -298,7 +332,6 @@ export default function ScriptEditor({ playId }: Props) {
     return actor ? actor.name : filter.id;
   })();
 
-  // Compute effective scene order (custom or TEI default)
   const defaultSceneOrder = play.acts.flatMap((act) => act.scenes.map((s) => s.id));
   const effectiveSceneOrder = activeCut.sceneOrder ?? defaultSceneOrder;
 
@@ -306,7 +339,6 @@ export default function ScriptEditor({ playId }: Props) {
     dispatch({ type: "SET_SCENE_ORDER", sceneOrder: newOrder });
   }
 
-  // Drag handlers (lifted here so cross-act drops work)
   function handleDragStartScene(e: React.DragEvent, sceneId: string) {
     e.dataTransfer.setData("text/plain", sceneId);
     e.dataTransfer.effectAllowed = "move";
@@ -318,9 +350,7 @@ export default function ScriptEditor({ playId }: Props) {
     setDragOverSceneId(sceneId);
   }
 
-  function handleDragLeaveScene() {
-    setDragOverSceneId(null);
-  }
+  function handleDragLeaveScene() { setDragOverSceneId(null); }
 
   function handleDropScene(e: React.DragEvent, targetSceneId: string) {
     e.preventDefault();
@@ -334,11 +364,8 @@ export default function ScriptEditor({ playId }: Props) {
     handleSceneReorder(newOrder);
   }
 
-  function handleDragEndScene() {
-    setDragOverSceneId(null);
-  }
+  function handleDragEndScene() { setDragOverSceneId(null); }
 
-  // Build scene lookup maps for cross-act reordering
   const sceneMap = new Map<string, Scene>();
   const sceneActMap = new Map<string, Act>();
   for (const act of play.acts) {
@@ -348,7 +375,6 @@ export default function ScriptEditor({ playId }: Props) {
     }
   }
 
-  // Group consecutive same-act scenes in global display order
   type OrderedGroup = { act: Act; scenes: Scene[] };
   const orderedGroups: OrderedGroup[] = [];
   for (const sceneId of effectiveSceneOrder) {
@@ -363,7 +389,6 @@ export default function ScriptEditor({ playId }: Props) {
     }
   }
 
-  // Find the focused scene's title for the banner
   const focusedSceneTitle = (() => {
     if (!focusedSceneId) return null;
     for (const act of play.acts) {
@@ -373,6 +398,22 @@ export default function ScriptEditor({ playId }: Props) {
     return null;
   })();
 
+  const sharedActBlockProps = {
+    unitsByScene,
+    assignments: project.assignments,
+    actors: project.actors,
+    castList: play.castList,
+    filteredCharacterIds,
+    cutModeActive,
+    focusedSceneId,
+    dragOverSceneId,
+    onDragStartScene: handleDragStartScene,
+    onDragOverScene: handleDragOverScene,
+    onDragLeaveScene: handleDragLeaveScene,
+    onDropScene: handleDropScene,
+    onDragEndScene: handleDragEndScene,
+  };
+
   return (
     <div className="max-w-screen-xl mx-auto flex gap-0">
       {/* Script column */}
@@ -381,103 +422,87 @@ export default function ScriptEditor({ playId }: Props) {
         className={`flex-1 min-w-0 overflow-y-auto ${cutModeActive ? "cursor-crosshair select-text" : ""}`}
         onMouseUp={handleScriptMouseUp}
       >
-        {/* View mode toolbar */}
-        {!cutModeActive && (
-          <div className="no-print sticky top-14 z-20 bg-white border-b border-stone-100 px-4 py-1.5 flex items-center gap-1">
-            {(
-              [
-                { value: "standard" as ViewMode, label: "≡ Standard", title: "Show all cuts with strikethrough" },
-                { value: "clean"    as ViewMode, label: "✓ Clean",    title: "Hide cuts — show final script only" },
-                { value: "diff"     as ViewMode, label: "± Diff",     title: "Highlight cuts and insertions in color" },
-              ] as const
-            ).map(({ value, label, title }) => (
-              <button
-                key={value}
-                onClick={() => setViewMode(value)}
-                title={title}
-                className={`text-xs px-2.5 py-1 rounded transition-colors ${
-                  viewMode === value
-                    ? "bg-amber-100 text-amber-800 font-semibold"
-                    : "text-stone-400 hover:text-stone-700 hover:bg-stone-50"
-                }`}
-              >
-                {label}
-              </button>
+        {/* Focus banner + filter badge */}
+        {!cutModeActive && (focusedSceneId || filterLabel) && (
+          <div className="no-print sticky top-14 z-20 bg-white">
+            {focusedSceneId && (
+              <div className="bg-amber-50 border-b border-amber-200 px-4 py-1.5 flex items-center gap-3">
+                <span className="text-sm text-amber-700 font-medium">
+                  {focusedSceneTitle ?? "Focused scene"}
+                </span>
+                <button
+                  onClick={() => setFocusedSceneId(null)}
+                  className="ml-auto text-xs px-2.5 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 font-medium transition-colors shrink-0"
+                >
+                  ✕ Exit focus
+                </button>
+              </div>
+            )}
+            {filterLabel && (
+              <div className="px-4 py-2 border-b border-stone-100 flex items-center gap-2">
+                <div className="flex items-center gap-1.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 px-2 py-1 rounded">
+                  <span>Showing: <strong>{filterLabel}</strong></span>
+                  <button onClick={() => setFilter(null)} className="text-amber-500 hover:text-amber-700 font-medium ml-1">✕</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Diff mode: true paired-row DiffView */}
+        {viewMode === "diff" ? (
+          <DiffView
+            orderedGroups={orderedGroups}
+            unitsByScene={unitsByScene}
+            speechEdits={activeCut.speechEdits}
+            assignments={project.assignments}
+            actors={project.actors}
+            castList={play.castList}
+            filteredCharacterIds={filteredCharacterIds}
+            focusedSceneId={focusedSceneId}
+            onToggle={handleToggle}
+            onClearEdits={handleClearEdits}
+            cutModeActive={cutModeActive}
+          />
+        ) : (
+          <div className={`px-4 pb-6 ${
+            !cutModeActive && focusedSceneId && filterLabel ? "pt-24"
+            : !cutModeActive && (focusedSceneId || filterLabel) ? "pt-16"
+            : "pt-6"
+          }`}>
+            {orderedGroups.map((group) => (
+              <ActBlock
+                key={`${group.act.id}-${group.scenes[0].id}`}
+                act={group.act}
+                scenes={group.scenes}
+                onToggle={handleToggle}
+                speechEdits={activeCut.speechEdits}
+                onClearEdits={handleClearEdits}
+                lineCounts={lineCounts}
+                {...sharedActBlockProps}
+              />
             ))}
           </div>
         )}
+      </div>
 
-        {/* Active filter badge */}
-        {filterLabel && !cutModeActive && (
-          <div className="no-print sticky top-14 z-10 bg-white border-b border-stone-100 px-4 py-2 flex items-center gap-2">
-            <div className="flex items-center gap-1.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 px-2 py-1 rounded">
-              <span>Showing: <strong>{filterLabel}</strong></span>
-              <button onClick={() => setFilter(null)} className="text-amber-500 hover:text-amber-700 font-medium ml-1" title="Clear filter">
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Scene focus banner */}
-        {focusedSceneId && (
-          <div className="no-print sticky top-14 z-10 bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-3 text-sm">
-            <span className="text-amber-700 font-medium">
-              {focusedSceneTitle ?? "Focused scene"}
-            </span>
-            <button
-              onClick={() => setFocusedSceneId(null)}
-              className="ml-auto text-amber-600 hover:text-amber-800 text-xs underline"
-            >
-              Show full play
-            </button>
-          </div>
-        )}
-
-        <div className="px-4 py-6">
-          {orderedGroups.map((group) => (
-            <ActBlock
-              key={`${group.act.id}-${group.scenes[0].id}`}
-              act={group.act}
-              scenes={group.scenes}
-              unitsByScene={unitsByScene}
-              assignments={project.assignments}
-              actors={project.actors}
-              castList={play.castList}
-              onToggle={handleToggle}
-              speechEdits={activeCut.speechEdits}
-              onClearEdits={handleClearEdits}
-              filteredCharacterIds={filteredCharacterIds}
-              cutModeActive={cutModeActive}
-              lineCounts={lineCounts}
-              focusedSceneId={focusedSceneId}
-              onFocusScene={setFocusedSceneId}
-              dragOverSceneId={dragOverSceneId}
-              onDragStartScene={handleDragStartScene}
-              onDragOverScene={handleDragOverScene}
-              onDragLeaveScene={handleDragLeaveScene}
-              onDropScene={handleDropScene}
-              onDragEndScene={handleDragEndScene}
-            />
-          ))}
+      {/* Line count panel — hidden in diff mode */}
+      {viewMode !== "diff" && (
+        <div className="no-print w-72 shrink-0 border-l border-stone-200 bg-white sticky top-14 self-start h-[calc(100vh-3.5rem)] overflow-y-auto">
+          <LineCountPanel
+            play={play}
+            lineCounts={focusedLineCounts ?? lineCounts}
+            actors={project.actors}
+            assignments={project.assignments}
+            filter={filter}
+            onFilterCharacter={handleFilterCharacter}
+            onFilterActor={handleFilterActor}
+            stageTime={focusedStageTime ?? stageTime}
+            settings={project.settings}
+            isFocused={!!focusedSceneId}
+          />
         </div>
-      </div>
-
-      {/* Line count panel */}
-      <div className="no-print w-72 shrink-0 border-l border-stone-200 bg-white sticky top-14 self-start h-[calc(100vh-3.5rem)] overflow-y-auto">
-        <LineCountPanel
-          play={play}
-          lineCounts={focusedLineCounts ?? lineCounts}
-          actors={project.actors}
-          assignments={project.assignments}
-          filter={filter}
-          onFilterCharacter={handleFilterCharacter}
-          onFilterActor={handleFilterActor}
-          stageTime={focusedLineCounts ? undefined : stageTime}
-          settings={project.settings}
-          isFocused={!!focusedSceneId}
-        />
-      </div>
+      )}
     </div>
   );
 }

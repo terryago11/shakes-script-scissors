@@ -22,9 +22,10 @@ interface Props {
   filteredCharacterIds?: Set<string>;
   cutModeActive?: boolean;
   sceneCounts?: SceneCounts;
-  // Scene focus
+  // Scene focus (used by ActBlock to filter visible scenes)
   focusedSceneId: string | null;
-  onFocusScene: (sceneId: string) => void;
+  /** When true, render all content as original (no cuts/edits applied) — for diff side-by-side */
+  showOriginal?: boolean;
   // Drag-and-drop reorder
   isDragOver?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
@@ -37,12 +38,18 @@ interface Props {
 export default function SceneBlock({
   scene, units, assignments, actors, castList, onToggle, speechEdits, onClearEdits,
   filteredCharacterIds, cutModeActive, sceneCounts,
-  focusedSceneId, onFocusScene,
+  focusedSceneId, showOriginal,
   isDragOver, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
 }: Props) {
   // Default to collapsed so after act re-expand, scenes are collapsed and user can pick
   const [collapsed, setCollapsed] = useState(false);
-  const { metric } = useMetric();
+  const { metric, wpm } = useMetric();
+
+  function fmtMins(m: number): string {
+    const r = Math.round(m);
+    if (r < 60) return `${r}m`;
+    return `${Math.floor(r / 60)}h ${r % 60}m`;
+  }
   const { viewMode } = useViewMode();
 
   const charColor: Record<string, string> = {};
@@ -60,7 +67,12 @@ export default function SceneBlock({
 
   // Counts — prefer sceneCounts (from CutEngine) for word-mode accuracy
   const counts = sceneCounts
-    ? metric === "lines" ? sceneCounts.lines : sceneCounts.words
+    ? metric === "lines" ? sceneCounts.lines
+    : metric === "words" ? sceneCounts.words
+    : null
+    : null;
+  const timeMins = metric === "time" && sceneCounts?.words
+    ? { afterCut: sceneCounts.words.afterCut / wpm, original: sceneCounts.words.original / wpm }
     : null;
 
   // Fallback: compute line counts from units (always available)
@@ -76,26 +88,27 @@ export default function SceneBlock({
     }, 0);
 
   const displayOriginal = counts ? counts.original : fallbackTotal;
-  const displayKept = counts ? counts.afterCut : fallbackKept;
+  const displayKept = showOriginal ? displayOriginal : (counts ? counts.afterCut : fallbackKept);
   const pctCut = displayOriginal > 0
     ? Math.round((1 - displayKept / displayOriginal) * 100)
     : 0;
-  const isFullyCut = displayOriginal > 0 && displayKept === 0;
+  const isFullyCut = !showOriginal && displayOriginal > 0 && displayKept === 0;
 
-  // Continuation detection
+  // Continuation detection — when showOriginal, treat all units as kept
   const continuationIds = new Set<string>();
-  let lastKeptCharId: string | null = null;
+  let lastSpeakerId: string | null = null;
   for (const { unit, status } of units) {
     if (unit.type === "speech") {
-      if (status === "kept") {
-        if (lastKeptCharId === unit.characterId) continuationIds.add(unit.id);
-        lastKeptCharId = unit.characterId;
+      const isKept = showOriginal ? true : status === "kept";
+      if (isKept) {
+        if (lastSpeakerId === unit.characterId) continuationIds.add(unit.id);
+        lastSpeakerId = unit.characterId;
       }
     }
   }
 
   // Whether any unit in the scene has cuts (speech-level or word-level)
-  const hasAnyCuts = units.some(({ unit, status }) =>
+  const hasAnyCuts = !showOriginal && units.some(({ unit, status }) =>
     status === "cut" ||
     (unit.type === "speech" && speechEdits?.[unit.id]?.ops.length)
   );
@@ -121,7 +134,7 @@ export default function SceneBlock({
       )}
       <div
         id={`scene-${scene.id}`}
-        draggable={!cutModeActive}
+        draggable={!showOriginal && !cutModeActive}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -134,7 +147,7 @@ export default function SceneBlock({
       {/* Header row: drag handle + collapse button + restore-all + focus (separate so buttons don't nest) */}
       <div className={`group flex items-center rounded-lg ${isFullyCut ? "opacity-50" : ""}`}>
         {/* Drag handle */}
-        {!cutModeActive && (
+        {!showOriginal && !cutModeActive && (
           <div
             className="opacity-0 group-hover:opacity-100 pl-2 py-3 cursor-grab text-stone-300 hover:text-stone-500 select-none shrink-0 transition-opacity"
             title="Drag to reorder scene"
@@ -155,32 +168,36 @@ export default function SceneBlock({
               fully cut
             </span>
           )}
-          <span className="ml-auto text-xs text-stone-400 tabular-nums flex items-center gap-1.5">
-            {displayKept === displayOriginal ? (
-              <span>{displayOriginal.toLocaleString()}</span>
-            ) : (
-              <>
-                <span className="text-amber-600 font-medium">{displayKept.toLocaleString()}</span>
-                <span className="text-stone-300">/ {displayOriginal.toLocaleString()}</span>
-              </>
-            )}
-            {pctCut > 0 && (
-              <span className="text-amber-500 font-medium">−{pctCut}%</span>
-            )}
-            <span className="text-stone-300">{metric}</span>
-          </span>
+          {!showOriginal && (
+            <span className="ml-auto text-xs text-stone-400 tabular-nums flex items-center gap-1.5">
+              {timeMins ? (
+                <>
+                  <span className={timeMins.afterCut < timeMins.original - 0.01 ? "text-amber-600 font-medium" : ""}>
+                    {fmtMins(timeMins.afterCut)}
+                  </span>
+                  {timeMins.afterCut < timeMins.original - 0.01 && (
+                    <span className="text-stone-300">/ {fmtMins(timeMins.original)}</span>
+                  )}
+                </>
+              ) : (
+                <>
+                  {displayKept === displayOriginal ? (
+                    <span>{displayOriginal.toLocaleString()}</span>
+                  ) : (
+                    <>
+                      <span className="text-amber-600 font-medium">{displayKept.toLocaleString()}</span>
+                      <span className="text-stone-300">/ {displayOriginal.toLocaleString()}</span>
+                    </>
+                  )}
+                  {pctCut > 0 && (
+                    <span className="text-amber-500 font-medium">−{pctCut}%</span>
+                  )}
+                  <span className="text-stone-300">{metric}</span>
+                </>
+              )}
+            </span>
+          )}
         </button>
-
-        {/* Focus this scene */}
-        {!focusedSceneId && !cutModeActive && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onFocusScene(scene.id); }}
-            className="opacity-0 group-hover:opacity-100 mr-1 text-xs px-2 py-0.5 rounded border border-stone-200 text-stone-400 hover:bg-stone-100 hover:text-stone-600 transition-all shrink-0"
-            title="Show only this scene"
-          >
-            Focus
-          </button>
-        )}
 
         {/* Restore all — only when there are cuts, shown on group hover */}
         {hasAnyCuts && onToggle && !cutModeActive && (
@@ -204,25 +221,26 @@ export default function SceneBlock({
                 <SpeechBlock
                   key={unit.id}
                   speech={unit}
-                  status={status}
+                  status={showOriginal ? "kept" : status}
                   actorColor={charColor[unit.characterId]}
-                  onToggle={onToggle ? () => onToggle(unit.id) : null}
-                  lineStatuses={lineStatuses}
-                  speechEdit={speechEdits?.[unit.id]}
-                  onClearEdits={onClearEdits}
+                  onToggle={showOriginal ? null : (onToggle ? () => onToggle(unit.id) : null)}
+                  lineStatuses={showOriginal ? undefined : lineStatuses}
+                  speechEdit={showOriginal ? undefined : speechEdits?.[unit.id]}
+                  onClearEdits={showOriginal ? undefined : onClearEdits}
                   isContinuation={continuationIds.has(unit.id)}
-                  cutModeActive={cutModeActive}
+                  cutModeActive={showOriginal ? false : cutModeActive}
                 />
               );
             } else {
               if (isFiltering) return null;
-              if (status === "cut" && viewMode === "clean") return null;
+              // In clean mode, hide cut SDs — but not when showOriginal (we want all in original column)
+              if (status === "cut" && viewMode === "clean" && !showOriginal) return null;
               return (
                 <StageDirectionBlock
                   key={unit.id}
                   stage={unit}
-                  status={status}
-                  onToggle={onToggle ? () => onToggle(unit.id) : null}
+                  status={showOriginal ? "kept" : status}
+                  onToggle={showOriginal ? null : (onToggle ? () => onToggle(unit.id) : null)}
                   castList={castList}
                 />
               );

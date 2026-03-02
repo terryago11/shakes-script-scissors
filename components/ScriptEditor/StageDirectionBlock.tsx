@@ -37,7 +37,15 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList 
     : [];
 
   function charName(id: string): string {
-    return castList.find((c) => c.id === id)?.name ?? id.replace(/^#/, "");
+    const found = castList.find((c) => c.id === id);
+    if (found) return found.name;
+    // Fallback: strip leading # and _PlayId suffix, then title-case each segment.
+    // e.g. "#ATTENDANTS_Err" → "Attendants", "#LORDS.COURT_Ham" → "Lords Court"
+    const stem = id.replace(/^#/, "").replace(/_[A-Za-z]+$/, "");
+    return stem
+      .split(".")
+      .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+      .join(" ");
   }
 
   function removeChar(charId: string) {

@@ -6,11 +6,14 @@ A tool for directors and dramaturgs to cut Shakespeare scripts for production.
 
 ShakesScriptScissors lets you work through any of the 37 Folger Shakespeare texts and build a production cut interactively:
 
-- **Cut speeches and lines** — mark what's out; the tool tracks before/after line counts automatically
+- **Cut speeches and lines** — mark what's out; the tool tracks before/after counts (lines, words, minutes) automatically
+- **Three view modes** — Standard (strikethrough), Clean (cuts hidden, final script only), or Diff (side-by-side comparison with original)
 - **Multiple versions** — keep several cuts side by side (e.g. "Workshop draft", "Final cut") and clone between them
-- **Assign actors to roles** — set up your company and handle double-casting
-- **Export cue scripts** — generate a personal script for each actor showing only their lines and the cues they need to listen for
-- **Share cuts** — export your cut as a `.sss.json` file to hand off to collaborators, or share a read-only link
+- **Assign actors to roles** — set up your company and handle double-casting; conflict warnings flag characters ever on stage simultaneously
+- **Running time** — stage-time tracking from entrance/exit stage directions shows per-character and total show duration, cut vs. original
+- **Scene focus** — zoom in on one scene; line/word/time counts update to reflect that scene only
+- **Export cue scripts** — generate a personal script for each actor showing only their lines plus the last few words before each entrance, exit, and speech
+- **Save / Open Project** — download your cut as a `.sss.json` file and reopen it later; share with collaborators or import on another machine
 
 **The tool currently runs locally** — there's no website to visit yet. Ask a developer on your team to set it up (see the Setup section below). Once it's running, you just open a browser and use it like any other web app. Your work is saved automatically in the browser and can be exported as a file for safekeeping.
 

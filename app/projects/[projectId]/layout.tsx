@@ -9,7 +9,7 @@ import CutSelector from "@/components/CutSelector/CutSelector";
 import { SceneJumpProvider, useSceneJump } from "@/lib/ui/SceneJumpContext";
 import { CutModeProvider, useCutMode } from "@/lib/ui/CutModeContext";
 import { MetricProvider } from "@/lib/ui/MetricContext";
-import { ViewModeProvider } from "@/lib/ui/ViewModeContext";
+import { ViewModeProvider, useViewMode, type ViewMode } from "@/lib/ui/ViewModeContext";
 
 export default function ProjectLayout({
   children,
@@ -54,7 +54,6 @@ export default function ProjectLayout({
   );
 }
 
-/** Extracted nav so it can use the CutMode + SceneJump contexts */
 function ProjectNav({
   project,
   projectId,
@@ -71,41 +70,41 @@ function ProjectNav({
   pathname: string;
 }) {
   const { cutModeActive } = useCutMode();
-  const [toolsOpen, setToolsOpen] = useState(false);
-  const [clearConfirm, setClearConfirm] = useState(false);
-  const toolsRef = useRef<HTMLDivElement>(null);
 
-  // Close tools dropdown when clicking outside
-  useEffect(() => {
-    if (!toolsOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) {
-        setToolsOpen(false);
-        setClearConfirm(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [toolsOpen]);
-
-  const navLinks = [
-    { href: `/projects/${projectId}`, label: "Script" },
+  const otherNavLinks = [
     { href: `/projects/${projectId}/casting`, label: "Casting" },
     { href: `/projects/${projectId}/export`, label: "Cue Scripts" },
   ];
 
   return (
-    <header className="no-print border-b border-stone-200 bg-white sticky top-0 z-50 min-h-screen-0">
+    <header className="no-print border-b border-stone-200 bg-white sticky top-0 z-50">
       <div className="max-w-screen-xl mx-auto px-4 h-14 flex items-center gap-3">
         <Link href="/" className="text-stone-400 hover:text-stone-700 text-sm shrink-0">
           ✂ ShakesScriptScissors
         </Link>
-        <span className="text-stone-700 font-semibold text-sm truncate max-w-xs shrink-0" title={project.name ? project.playTitle : undefined}>
-          {project.name || project.playTitle}
-        </span>
+        <div className="flex flex-col justify-center shrink-0 max-w-xs" title={project.name ? project.playTitle : undefined}>
+          <span className="text-stone-700 font-semibold text-sm truncate leading-tight">
+            {project.name || project.playTitle}
+          </span>
+          {project.name && project.playTitle && project.name !== project.playTitle && (
+            <span className="text-stone-400 text-xs italic truncate leading-tight">
+              {project.playTitle}
+            </span>
+          )}
+        </div>
 
         <nav className="flex gap-1 shrink-0">
-          {navLinks.map((link) => {
+          {isScriptPage ? (
+            <NavScriptMenu projectId={projectId} isActive />
+          ) : (
+            <Link
+              href={`/projects/${projectId}`}
+              className="px-3 py-1.5 rounded text-sm font-medium transition-colors text-stone-500 hover:text-stone-800 hover:bg-stone-100"
+            >
+              Script
+            </Link>
+          )}
+          {otherNavLinks.map((link) => {
             const isActive = pathname === link.href;
             return (
               <Link
@@ -123,7 +122,7 @@ function ProjectNav({
           })}
         </nav>
 
-        {/* Cut mode button + scene jumper — script page only */}
+        {/* Script-page controls */}
         {isScriptPage && (
           <>
             <NavCutModeButton />
@@ -133,7 +132,7 @@ function ProjectNav({
 
         <CutSelector />
 
-        {/* Save Project — prominent nav button */}
+        {/* Save Project */}
         <button
           onClick={() => exportProject(project)}
           className="ml-auto shrink-0 text-xs px-3 py-1.5 rounded border border-stone-300 bg-white text-stone-600 hover:bg-stone-50 hover:border-stone-400 transition-colors font-medium"
@@ -141,64 +140,9 @@ function ProjectNav({
         >
           ↓ Save Project
         </button>
-
-        {/* Tools dropdown */}
-        <div ref={toolsRef} className="relative shrink-0">
-          <button
-            onClick={() => setToolsOpen((o) => !o)}
-            className="text-xs px-3 py-1.5 rounded border border-stone-300 text-stone-600 hover:bg-stone-50 transition-colors flex items-center gap-1"
-          >
-            ⋯
-          </button>
-          {toolsOpen && (
-            <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-stone-200 rounded-lg shadow-lg py-1 z-50">
-              <button
-                onClick={async () => {
-                  await fetch("/api/auth/logout", { method: "POST" });
-                  router.push("/login");
-                }}
-                className="w-full text-left px-4 py-2 text-sm text-stone-400 hover:bg-stone-50 hover:text-stone-600 transition-colors"
-              >
-                Sign out
-              </button>
-              <div className="my-1 border-t border-stone-100" />
-              {clearConfirm ? (
-                <div className="px-4 py-2">
-                  <p className="text-xs text-stone-500 mb-2">Clear all local projects?</p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        Object.keys(localStorage)
-                          .filter((k) => k.startsWith("sss_"))
-                          .forEach((k) => localStorage.removeItem(k));
-                        router.push("/");
-                      }}
-                      className="flex-1 px-2 py-1 text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 rounded transition-colors"
-                    >
-                      Yes, clear
-                    </button>
-                    <button
-                      onClick={() => setClearConfirm(false)}
-                      className="flex-1 px-2 py-1 text-xs bg-stone-100 text-stone-500 hover:bg-stone-200 rounded transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setClearConfirm(true)}
-                  className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-stone-50 hover:text-red-600 transition-colors"
-                >
-                  Clear all projects…
-                </button>
-              )}
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* Cut mode active: red bar replaces the nav visually */}
+      {/* Cut mode overlay */}
       {cutModeActive && (
         <div className="absolute inset-0 bg-red-600 flex items-center px-6 gap-4">
           <span className="text-white font-semibold text-sm">✂ Cut mode</span>
@@ -210,7 +154,70 @@ function ProjectNav({
   );
 }
 
-/** Cut mode toggle button in the nav */
+/** Script nav item: link + view-mode dropdown + focus toggle */
+function NavScriptMenu({ projectId, isActive }: { projectId: string; isActive: boolean }) {
+  const { viewMode, setViewMode } = useViewMode();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const modeOptions: { value: ViewMode; icon: string; label: string; desc: string }[] = [
+    { value: "standard", icon: "≡", label: "Standard", desc: "Strikethrough cuts" },
+    { value: "clean",    icon: "✓", label: "Clean",    desc: "Hide cuts — final script only" },
+    { value: "diff",     icon: "⊞", label: "Side by side", desc: "Modified left · Original right" },
+  ];
+
+  const currentIcon = modeOptions.find((m) => m.value === viewMode)?.icon ?? "≡";
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-1.5 ${
+          isActive ? "bg-amber-100 text-amber-800" : "text-stone-500 hover:text-stone-800 hover:bg-stone-100"
+        }`}
+      >
+        Script
+        <span className="text-xs opacity-70">{currentIcon}</span>
+        <span className="text-xs opacity-40">▾</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 w-52 bg-white border border-stone-200 rounded-lg shadow-lg py-1 z-50">
+          <div className="px-3 pt-1.5 pb-1 text-xs text-stone-400 uppercase tracking-wider font-semibold">
+            View mode
+          </div>
+          {modeOptions.map(({ value, icon, label, desc }) => (
+            <button
+              key={value}
+              onClick={() => { setViewMode(value); setOpen(false); }}
+              className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-start gap-2 ${
+                viewMode === value ? "text-amber-800 bg-amber-50" : "text-stone-600 hover:bg-stone-50"
+              }`}
+            >
+              <span className="mt-0.5 w-4 shrink-0 text-center text-xs">{icon}</span>
+              <span className="flex flex-col min-w-0">
+                <span className={viewMode === value ? "font-semibold" : "font-medium"}>{label}</span>
+                <span className="text-xs text-stone-400 font-normal">{desc}</span>
+              </span>
+              {viewMode === value && (
+                <span className="ml-auto shrink-0 text-amber-500 text-xs mt-0.5">●</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NavCutModeButton() {
   const { cutModeActive, setCutModeActive } = useCutMode();
   if (cutModeActive) return null;
@@ -225,7 +232,6 @@ function NavCutModeButton() {
   );
 }
 
-/** Exit button rendered inside the cut mode overlay */
 function NavCutModeExitButton() {
   const { setCutModeActive } = useCutMode();
   return (
@@ -238,20 +244,59 @@ function NavCutModeExitButton() {
   );
 }
 
-/** Jump-to-scene select in the nav bar */
+/** Condensed scene jump select — labels like "1:1", "2:3" */
 function NavJumpSelect() {
-  const { scenes, activeSceneId, jumpToScene } = useSceneJump();
+  const { scenes, activeSceneId, setActiveSceneId, jumpToScene, focusedSceneId, setFocusedSceneId } = useSceneJump();
   if (scenes.length === 0) return null;
+
+  const isFocused = !!focusedSceneId;
+
+  function handleFocusToggle() {
+    if (isFocused) {
+      setFocusedSceneId(null);
+    } else if (activeSceneId) {
+      setFocusedSceneId(activeSceneId);
+    }
+  }
+
+  const focusedLabel = isFocused
+    ? scenes.find((s) => s.id === focusedSceneId)?.label ?? "?"
+    : null;
+
   return (
-    <select
-      value={activeSceneId}
-      onChange={(e) => { const val = e.target.value; if (val) jumpToScene(val); }}
-      className="text-xs px-2 py-1.5 border border-stone-200 rounded bg-white text-stone-600 hover:border-stone-300 focus:outline-none focus:ring-1 focus:ring-amber-400 max-w-[14rem]"
-    >
-      <option value="">— scene —</option>
-      {scenes.map((s) => (
-        <option key={s.id} value={s.id}>{s.label}</option>
-      ))}
-    </select>
+    <div className="flex items-center gap-1 shrink-0">
+      {isFocused ? (
+        /* Locked label — no dropdown while a scene is focused */
+        <span
+          className="text-xs font-medium tabular-nums px-2 py-1.5 rounded border border-amber-300 bg-amber-50 text-amber-700 w-16 text-center select-none"
+          title="Scene jumper locked in focus mode"
+        >
+          {focusedLabel}
+        </span>
+      ) : (
+        <select
+          value={activeSceneId}
+          onChange={(e) => { const val = e.target.value; if (val) { setActiveSceneId(val); jumpToScene(val); } }}
+          className="text-xs px-2 py-1.5 border border-stone-200 rounded bg-white text-stone-600 hover:border-stone-300 focus:outline-none focus:ring-1 focus:ring-amber-400 w-16"
+        >
+          <option value="">—</option>
+          {scenes.map((s) => (
+            <option key={s.id} value={s.id}>{s.label}</option>
+          ))}
+        </select>
+      )}
+      {/* Eye icon — focus/unfocus current scene */}
+      <button
+        onClick={handleFocusToggle}
+        title={isFocused ? "Exit focus" : "Focus current scene"}
+        className={`text-sm px-1.5 py-1 rounded border transition-colors ${
+          isFocused
+            ? "bg-amber-100 border-amber-300 text-amber-700 hover:bg-amber-200"
+            : "border-stone-200 text-stone-400 hover:border-stone-300 hover:text-stone-600"
+        }`}
+      >
+        {isFocused ? "◉" : "○"}
+      </button>
+    </div>
   );
 }

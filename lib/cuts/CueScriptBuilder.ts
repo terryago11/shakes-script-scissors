@@ -2,6 +2,7 @@ import type { Play, Speech, StageDirection } from "@/types/play";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import type { CueScript, CueEntry } from "@/types/cut";
 import { getAllUnitsInOrder } from "./CutEngine";
+import { getEffectiveCharacters } from "./StageTimeEngine";
 import { applyEditsToLine, segmentsToText } from "./applyEdits";
 
 /**
@@ -13,6 +14,8 @@ import { applyEditsToLine, segmentsToText } from "./applyEdits";
  *   - Stage: stage directions that mention the actor's characters
  *
  * Speeches marked as "cut" in the cutMap are excluded.
+ * Stage directions use effective characters (respects stageDirectionEdits).
+ * Entrance and exit SDs include a cue entry showing what was being said when the actor enters/exits.
  */
 export function buildCueScript(
   play: Play,
@@ -26,6 +29,7 @@ export function buildCueScript(
   );
   const lineCutMap = cut.lineCutMap ?? {};
   const speechEdits = cut.speechEdits ?? {};
+  const stageDirectionEdits = cut.stageDirectionEdits ?? {};
 
   const allUnits = getAllUnitsInOrder(play);
   const entries: CueEntry[] = [];
@@ -94,9 +98,26 @@ export function buildCueScript(
       }
     } else if (unit.type === "stage") {
       const stage = unit as StageDirection;
-      // Include stage directions that mention any of the actor's characters
-      const relevant = stage.characters.some((c) => actorCharIds.has(c));
+      // Use effective characters (respects stageDirectionEdits) to check relevance
+      const effectiveChars = getEffectiveCharacters(stage, stageDirectionEdits);
+      const relevant = effectiveChars.some((c) => actorCharIds.has(c));
       if (relevant) {
+        // For entrance and exit SDs, emit a cue first so the actor knows when to enter/exit
+        if (stage.stageType === "entrance" || stage.stageType === "exit") {
+          if (pendingCue !== null) {
+            entries.push({ type: "cue", text: pendingCue, cueSpeakerName: pendingCueSpeakerName ?? undefined });
+            pendingCue = null;
+            pendingCueSpeakerName = null;
+          } else if (lastOtherSpeechText !== null) {
+            entries.push({ type: "cue", text: extractCue(lastOtherSpeechText), cueSpeakerName: lastOtherSpeakerName ?? undefined });
+          }
+          if (stage.stageType === "entrance") {
+            inActorBlock = true;
+          } else {
+            // exit: actor leaves stage
+            inActorBlock = false;
+          }
+        }
         entries.push({ type: "stage", text: stage.text });
       }
     }

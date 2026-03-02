@@ -139,7 +139,6 @@ function ViewPageInner() {
               castList={play.castList}
               onToggle={null}
               focusedSceneId={null}
-              onFocusScene={() => {}}
               dragOverSceneId={null}
               onDragStartScene={() => {}}
               onDragOverScene={() => {}}

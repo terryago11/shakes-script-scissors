@@ -31,7 +31,7 @@ Node must be loaded via nvm: `export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:
 | `lib/cuts/CueScriptBuilder.ts` | Builds per-actor cue scripts from cut play |
 | `lib/project/ProjectStore.tsx` | React context + localStorage persistence; all project mutations |
 | `lib/project/projectUtils.ts` | `generateId()`, `defaultColors` (reds + greens excluded — reserved for UI indicators) |
-| `lib/project/projectIO.ts` | JSON export (file download) and import (file picker + Zod validation) |
+| `lib/project/projectIO.ts` | JSON export (file download) and import (file picker + Zod validation); `exportProject` / `importProject` |
 | `app/api/play/[playId]/route.ts` | GET: fetch + parse + cache a play; returns `Play` JSON |
 | `app/api/plays/route.ts` | GET: returns `PLAYS` listing |
 
@@ -44,11 +44,13 @@ Node must be loaded via nvm: `export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:
 - `Line`: `id`, `ftln` (Folger through-line number), `text`
 
 ### `Project` (stored as JSON in localStorage)
+- `name?: string` — optional display name (e.g. "2026 Production"); distinct from `playTitle`
 - `cuts[]`: each cut has:
   - `cutMap: Record<unitId, "cut"|"kept">` — speech-level cuts
   - `lineCutMap?: Record<lineId, "cut"|"kept">` — individual line cuts within speeches
   - `stageDirectionEdits?: Record<sdId, string[]>` — full override of character list per SD
   - `sceneOrder?: string[]` — custom scene ordering (for reordering scenes)
+  - `speechEdits?: Record<unitId, SpeechEdit>` — word-level track-changes edits
 - `actors[]`: name + color hex
 - `assignments[]`: `characterId` → `actorId` (double-casting: one actor → many characters)
 - `settings?: { wordsPerMinute: number }` — used for stage time calculation
@@ -76,21 +78,25 @@ The DraCor TEI format uses:
 ## Component Layout
 
 ```
-app/projects/[projectId]/
-  layout.tsx      ← nav bar, CutSelector, Export JSON button
-  page.tsx        ← ScriptEditor (main cutting view)
-  casting/        ← CastingManager (actor-character assignments + conflict detection)
-  export/         ← ExportMenu + CueScriptDocument (print cue scripts)
+app/
+  page.tsx                ← home page; "Open Project" file import + cached-project list
+  projects/[projectId]/
+    layout.tsx            ← nav bar (Save Project, view-mode dropdown, scene jumper), CutSelector
+    page.tsx              ← ScriptEditor (main cutting view)
+    casting/              ← CastingManager (actor-character assignments + conflict detection)
+    export/               ← ExportMenu + CueScriptDocument (print cue scripts)
+  view/page.tsx           ← read-only shared view (loads project from URL hash)
 
 components/
   ScriptEditor/
-    ScriptEditor.tsx        ← orchestrates play, computes cuts + stage time
-    ActBlock.tsx            ← collapsible act with drag-reorder
-    SceneBlock.tsx          ← collapsible scene, focus mode
+    ScriptEditor.tsx        ← orchestrates play, computes cuts + stage time; view-mode switch
+    ActBlock.tsx            ← collapsible act with drag-reorder; filters by character/focus
+    SceneBlock.tsx          ← collapsible scene, focus mode, restore-all button
     SpeechBlock.tsx         ← speech unit, line-level cuts, word-level edits
     StageDirectionBlock.tsx ← SD display; entrance/exit show character chips (add/remove)
+    DiffView.tsx            ← side-by-side diff: modified (left) vs original (right)
   LineCounts/
-    LineCountPanel.tsx      ← Lines / Words / Time tabs
+    LineCountPanel.tsx      ← Lines / Words / Time tabs; focus-mode scoped counts
     CharacterRow.tsx        ← single character row with bar chart
     ActorRow.tsx            ← single actor row with bar chart
   CastingManager/
@@ -127,9 +133,24 @@ On-stage tracking uses **entrance/exit SDs only** — no fallback from speech pr
 | Green | Addition (character added to SD, stage time exceeds original) |
 | Actor colors | Blue, amber, violet, teal, fuchsia, slate, orange, cyan — **no reds or greens** |
 
+## View Modes (`lib/ui/ViewModeContext.tsx`)
+
+Three modes toggled from the Script nav dropdown:
+- **Standard** (`"standard"`) — cuts shown with strikethrough (default)
+- **Clean** (`"clean"`) — cut speeches/SDs hidden; final script only
+- **Diff** (`"diff"`) — side-by-side: modified left, original right (`DiffView.tsx`)
+
+## MetricContext (`lib/ui/MetricContext.tsx`)
+
+Global context providing `metric: "lines" | "words" | "time"` and `wpm: number` (synced from `project.settings.wordsPerMinute`). Act and scene headers read from this to display the correct unit. Switching to the Time tab in `LineCountPanel` sets `metric = "time"`, which causes all act/scene headers to show minutes instead of counts.
+
+## Character ID Normalization (`lib/folger/TeiParser.ts`)
+
+`characterIdToName(id: string): string` — exported utility that converts a raw TEI character ID (e.g. `#PLAYERS_Ham`, `#SOLDIERS.FORTINBRAS_Ham`) to a readable name using the same normalization as the cast list. Used as a fallback in `LineCountPanel` when a character appears in stage directions but has no formal `<castItem>` entry.
+
 ## Cue Script Format
 
-For each actor: their lines preceded by the last 2-3 words of the previous speech (the "cue"). Stage directions mentioning their characters are included in brackets. Printed directly from the browser via `window.print()` with Tailwind `print:` styles.
+For each actor: their lines preceded by the last 2–3 words of the previous speech (the "cue"). Stage directions mentioning their characters are included. Both **entrance and exit** SDs emit a cue entry so the actor knows exactly when to enter or exit. Stage direction character lists respect `stageDirectionEdits`. Printed directly from the browser via `window.print()` with Tailwind `print:` styles.
 
 ---
 
@@ -141,12 +162,12 @@ For each actor: their lines preceded by the last 2-3 words of the previous speec
 - **Group 3**: Word-level track-changes edits within lines; line-level cuts within speeches
 - **Group 4**: Scene drag-reorder (cross-act); drop indicators; read-only `/view` page
 - **Group 5**: Stage time engine; SD character add/remove; doubling conflict detection with pre-warnings; Time tab in LineCountPanel (running time, by-actor, by-character with cut/original, red/green/amber bars)
+- **Group 6**: README user-facing section; gitignore cleanup
+- **Group 7**: Save/Open Project UI; 3-mode view toggle (Standard / Clean / Diff); focus-mode scene counts in LineCountPanel; character filter hides empty acts; Time metric in act/scene headers; cue script entrance + exit SD cues; play title subtitle in nav; `characterIdToName` fallback for unrecognized stage-direction characters
 
-### Not Started
-- **Export enhancements**: PDF export of cue scripts; page-break controls; font/size settings
-- **Multi-play support**: Load and cross-reference multiple plays in one project (e.g. for adaptation work)
-- **Collaboration / sync**: Real-time or async multi-user editing (currently single-browser only)
-- **SD "All" expansion**: Automatic resolution of "All exit" / "All but X exit" using the current on-stage set, instead of relying on `@who` attributes that DraCor sometimes omits
-- **Stage time audit view**: Per-scene timeline showing who is on stage when, flagging scenes where SD data seems incomplete (character has lines but no entrance SD)
-- **Cut integrity checks**: Warn when a cut leaves a scene's entrance/exit SDs in an inconsistent state (e.g. character enters but never exits, or exits without entering)
-- **Settings panel**: Words-per-minute input, default cut mode, display preferences
+### Not Started (Phase 3+)
+- **Group 8**: Scene Dashboard (`/dashboard`); Insert Pause; quick-change doubling warning
+- **Group 9**: Script integrity (no-exit warning, all-cut grey-out, reassign speech)
+- **Group 10**: Global character rename (`characterAliases`); suggest minimum cast
+- **Group 11**: Self-contained HTML export; PDF export of cue scripts
+- **Stretch**: Insert text; Google Drive backup; SD "All" expansion; Settings panel (WPM UI)

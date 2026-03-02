@@ -23,7 +23,8 @@ interface Props {
   cutModeActive?: boolean;
   lineCounts?: LineCounts;
   focusedSceneId: string | null;
-  onFocusScene: (sceneId: string) => void;
+  /** When true, render all content as original (no cuts/edits applied) — for diff side-by-side */
+  showOriginal?: boolean;
   // Drag state/handlers lifted to ScriptEditor
   dragOverSceneId: string | null;
   onDragStartScene: (e: React.DragEvent, sceneId: string) => void;
@@ -36,18 +37,34 @@ interface Props {
 export default function ActBlock({
   act, scenes, unitsByScene, assignments, actors, castList, onToggle, speechEdits, onClearEdits,
   filteredCharacterIds, cutModeActive, lineCounts,
-  focusedSceneId, onFocusScene,
+  focusedSceneId, showOriginal,
   dragOverSceneId, onDragStartScene, onDragOverScene, onDragLeaveScene, onDropScene, onDragEndScene,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   // Generation increments each time act collapses → SceneBlocks remount in collapsed state
   const [generation, setGeneration] = useState(0);
-  const { metric } = useMetric();
+  const { metric, wpm } = useMetric();
 
-  // If a scene is focused and it's not in this group, hide the entire act block
-  if (focusedSceneId && !scenes.some((s) => s.id === focusedSceneId)) {
-    return null;
+  function fmtMins(m: number): string {
+    const r = Math.round(m);
+    if (r < 60) return `${r}m`;
+    return `${Math.floor(r / 60)}h ${r % 60}m`;
   }
+
+  // Filter scenes: focus mode wins; then filter by character if active
+  const displayScenes = focusedSceneId
+    ? scenes.filter((s) => s.id === focusedSceneId)
+    : filteredCharacterIds && filteredCharacterIds.size > 0
+      ? scenes.filter((s) => {
+          const sceneUnits = unitsByScene.get(s.id) ?? [];
+          return sceneUnits.some(
+            (u) => u.unit.type === "speech" && filteredCharacterIds.has(u.unit.characterId)
+          );
+        })
+      : scenes;
+
+  // Hide act entirely if no scenes to show
+  if (displayScenes.length === 0) return null;
 
   function handleToggle() {
     if (!collapsed) {
@@ -58,7 +75,12 @@ export default function ActBlock({
 
   const actCounts = lineCounts?.byAct[act.id];
   const counts = actCounts
-    ? metric === "lines" ? actCounts.lines : actCounts.words
+    ? metric === "lines" ? actCounts.lines
+    : metric === "words" ? actCounts.words
+    : null
+    : null;
+  const timeMins = metric === "time" && actCounts?.words
+    ? { afterCut: actCounts.words.afterCut / wpm, original: actCounts.words.original / wpm }
     : null;
   const pctCut = counts && counts.original > 0
     ? Math.round((1 - counts.afterCut / counts.original) * 100)
@@ -76,27 +98,40 @@ export default function ActBlock({
         <h2 className="text-lg font-bold text-stone-700 uppercase tracking-wide">
           {act.title}
         </h2>
-        {counts && (
+        {(counts || timeMins) && !showOriginal && (
           <span className="ml-2 text-xs text-stone-400 tabular-nums font-normal normal-case tracking-normal flex items-center gap-1">
-            {counts.original !== counts.afterCut ? (
+            {timeMins ? (
               <>
-                <span className="text-amber-600 font-medium">{counts.afterCut.toLocaleString()}</span>
-                <span className="text-stone-300">/ {counts.original.toLocaleString()}</span>
+                <span className={timeMins.afterCut < timeMins.original - 0.01 ? "text-amber-600 font-medium" : ""}>
+                  {fmtMins(timeMins.afterCut)}
+                </span>
+                {timeMins.afterCut < timeMins.original - 0.01 && (
+                  <span className="text-stone-300">/ {fmtMins(timeMins.original)}</span>
+                )}
               </>
             ) : (
-              <span>{counts.afterCut.toLocaleString()}</span>
+              <>
+                {counts!.original !== counts!.afterCut ? (
+                  <>
+                    <span className="text-amber-600 font-medium">{counts!.afterCut.toLocaleString()}</span>
+                    <span className="text-stone-300">/ {counts!.original.toLocaleString()}</span>
+                  </>
+                ) : (
+                  <span>{counts!.afterCut.toLocaleString()}</span>
+                )}
+                {pctCut > 0 && (
+                  <span className="text-amber-500 font-medium">−{pctCut}%</span>
+                )}
+                <span className="text-stone-300">{metric}</span>
+              </>
             )}
-            {pctCut > 0 && (
-              <span className="text-amber-500 font-medium">−{pctCut}%</span>
-            )}
-            <span className="text-stone-300">{metric}</span>
           </span>
         )}
       </button>
 
       {!collapsed && (
         <div className="space-y-6">
-          {scenes.map((scene) => (
+          {displayScenes.map((scene) => (
             <SceneBlock
               key={`${scene.id}-${generation}`}
               scene={scene}
@@ -104,20 +139,20 @@ export default function ActBlock({
               assignments={assignments}
               actors={actors}
               castList={castList}
-              onToggle={onToggle}
-              speechEdits={speechEdits}
-              onClearEdits={onClearEdits}
+              onToggle={showOriginal ? null : onToggle}
+              speechEdits={showOriginal ? undefined : speechEdits}
+              onClearEdits={showOriginal ? undefined : onClearEdits}
               filteredCharacterIds={filteredCharacterIds}
               cutModeActive={cutModeActive}
-              sceneCounts={lineCounts?.byScene[scene.id]}
+              sceneCounts={showOriginal ? undefined : lineCounts?.byScene[scene.id]}
               focusedSceneId={focusedSceneId}
-              onFocusScene={onFocusScene}
-              isDragOver={dragOverSceneId === scene.id}
-              onDragStart={(e) => onDragStartScene(e, scene.id)}
-              onDragOver={(e) => onDragOverScene(e, scene.id)}
-              onDragLeave={onDragLeaveScene}
-              onDrop={(e) => onDropScene(e, scene.id)}
-              onDragEnd={onDragEndScene}
+              showOriginal={showOriginal}
+              isDragOver={!showOriginal && dragOverSceneId === scene.id}
+              onDragStart={showOriginal ? undefined : (e) => onDragStartScene(e, scene.id)}
+              onDragOver={showOriginal ? undefined : (e) => onDragOverScene(e, scene.id)}
+              onDragLeave={showOriginal ? undefined : onDragLeaveScene}
+              onDrop={showOriginal ? undefined : (e) => onDropScene(e, scene.id)}
+              onDragEnd={showOriginal ? undefined : onDragEndScene}
             />
           ))}
         </div>
