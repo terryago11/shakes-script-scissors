@@ -28,20 +28,12 @@ interface Props {
   showOriginal?: boolean;
   /** Named pauses keyed by "after:{sceneId}" — shown between SceneBlocks */
   pauses?: Record<string, { name: string; minutes: number }>;
-  // Drag state/handlers lifted to ScriptEditor
-  dragOverSceneId: string | null;
-  onDragStartScene: (e: React.DragEvent, sceneId: string) => void;
-  onDragOverScene: (e: React.DragEvent, sceneId: string) => void;
-  onDragLeaveScene: () => void;
-  onDropScene: (e: React.DragEvent, sceneId: string) => void;
-  onDragEndScene: () => void;
 }
 
 export default function ActBlock({
   act, scenes, unitsByScene, assignments, actors, castList, onToggle, speechEdits, onClearEdits,
   filteredCharacterIds, cutModeActive, lineCounts,
   focusedSceneId, showOriginal, pauses,
-  dragOverSceneId, onDragStartScene, onDragOverScene, onDragLeaveScene, onDropScene, onDragEndScene,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   // Generation increments each time act collapses → SceneBlocks remount in collapsed state
@@ -152,12 +144,6 @@ export default function ActBlock({
                   sceneCounts={showOriginal ? undefined : lineCounts?.byScene[scene.id]}
                   focusedSceneId={focusedSceneId}
                   showOriginal={showOriginal}
-                  isDragOver={!showOriginal && dragOverSceneId === scene.id}
-                  onDragStart={showOriginal ? undefined : (e) => onDragStartScene(e, scene.id)}
-                  onDragOver={showOriginal ? undefined : (e) => onDragOverScene(e, scene.id)}
-                  onDragLeave={showOriginal ? undefined : onDragLeaveScene}
-                  onDrop={showOriginal ? undefined : (e) => onDropScene(e, scene.id)}
-                  onDragEnd={showOriginal ? undefined : onDragEndScene}
                 />
                 {pauseEntry && (
                   <PauseIndicator name={pauseEntry.name} minutes={pauseEntry.minutes} />

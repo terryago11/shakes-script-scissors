@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import type { Play, Act, Scene } from "@/types/play";
 import type { Project, Cut, Actor, ActorAssignment } from "@/types/project";
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
@@ -9,7 +9,9 @@ import { computeStageTime } from "@/lib/cuts/StageTimeEngine";
 import { useProject } from "@/lib/project/ProjectStore";
 import { useMetric } from "@/lib/ui/MetricContext";
 import DashboardMatrix from "./DashboardMatrix";
+import type { CharSceneData } from "./DashboardMatrix";
 import SceneList from "./SceneList";
+import RehearsalGroupings from "./RehearsalGroupings";
 
 const DEFAULT_WPM = 135;
 
@@ -19,7 +21,70 @@ interface Props {
   activeCut: Cut;
 }
 
-/** Invert stageTime.byCharacter[charId].scenes through assignments → actor × scene matrix */
+type Tab = "scenes" | "matrix" | "rehearsal";
+
+/** Count words in a string (matches CutEngine logic) */
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+/** Build character × scene matrix with line and word counts */
+function buildCharSceneMatrix(
+  play: Play,
+  cut: Cut,
+  effectiveSceneOrder: string[],
+): Map<string, Map<string, CharSceneData>> {
+  const matrix = new Map<string, Map<string, CharSceneData>>();
+
+  const sceneById = new Map<string, Scene>();
+  for (const act of play.acts) {
+    for (const scene of act.scenes) sceneById.set(scene.id, scene);
+  }
+
+  for (const sceneId of effectiveSceneOrder) {
+    const scene = sceneById.get(sceneId);
+    if (!scene) continue;
+
+    for (const unit of scene.units) {
+      if (unit.type !== "speech") continue;
+      const charId = unit.characterId;
+
+      if (!matrix.has(charId)) matrix.set(charId, new Map());
+      const charMap = matrix.get(charId)!;
+      const existing = charMap.get(sceneId) ?? {
+        linesOrig: 0,
+        linesAfterCut: 0,
+        wordsOrig: 0,
+        wordsAfterCut: 0,
+      };
+
+      const origLines = unit.lineCount;
+      const origWords = unit.lines.reduce((sum, l) => sum + countWords(l.text), 0);
+
+      const isKept = (cut.cutMap[unit.id] ?? "kept") === "kept";
+      let keptLines = 0;
+      let keptWords = 0;
+      if (isKept) {
+        for (const line of unit.lines) {
+          if (cut.lineCutMap?.[line.id] === "cut") continue;
+          keptLines++;
+          keptWords += countWords(line.text);
+        }
+      }
+
+      charMap.set(sceneId, {
+        linesOrig: existing.linesOrig + origLines,
+        linesAfterCut: existing.linesAfterCut + keptLines,
+        wordsOrig: existing.wordsOrig + origWords,
+        wordsAfterCut: existing.wordsAfterCut + keptWords,
+      });
+    }
+  }
+
+  return matrix;
+}
+
+/** Build actor × scene time matrix — used by SceneList for actor presence strips */
 function buildActorSceneMatrix(
   stageTime: StageTimeResult,
   actors: Actor[],
@@ -46,54 +111,6 @@ function buildActorSceneMatrix(
   return matrix;
 }
 
-/** Walk play speeches per scene and sum line counts per actor */
-function buildActorSceneLineMatrix(
-  play: Play,
-  cut: Cut,
-  assignments: ActorAssignment[],
-  effectiveSceneOrder: string[],
-): Map<string, Map<string, { original: number; afterCut: number }>> {
-  const charToActor = new Map(assignments.map((a) => [a.characterId, a.actorId]));
-  const matrix = new Map<string, Map<string, { original: number; afterCut: number }>>();
-
-  const sceneById = new Map<string, Scene>();
-  for (const act of play.acts) {
-    for (const scene of act.scenes) sceneById.set(scene.id, scene);
-  }
-
-  for (const sceneId of effectiveSceneOrder) {
-    const scene = sceneById.get(sceneId);
-    if (!scene) continue;
-
-    for (const unit of scene.units) {
-      if (unit.type !== "speech") continue;
-      const actorId = charToActor.get(unit.characterId);
-      if (!actorId) continue;
-
-      if (!matrix.has(actorId)) matrix.set(actorId, new Map());
-      const actorMap = matrix.get(actorId)!;
-      const existing = actorMap.get(sceneId) ?? { original: 0, afterCut: 0 };
-
-      const isKept = (cut.cutMap[unit.id] ?? "kept") === "kept";
-      let keptLines = 0;
-      if (isKept) {
-        keptLines = unit.lineCount;
-        if (cut.lineCutMap) {
-          const cutCount = unit.lines.filter((l) => cut.lineCutMap![l.id] === "cut").length;
-          keptLines = Math.max(0, unit.lineCount - cutCount);
-        }
-      }
-
-      actorMap.set(sceneId, {
-        original: existing.original + unit.lineCount,
-        afterCut: existing.afterCut + keptLines,
-      });
-    }
-  }
-
-  return matrix;
-}
-
 function formatMinutes(m: number): string {
   if (m < 60) return `${Math.round(m)} min`;
   const h = Math.floor(m / 60);
@@ -104,6 +121,7 @@ function formatMinutes(m: number): string {
 export default function SceneDashboard({ play, project, activeCut }: Props) {
   const { dispatch } = useProject();
   const { metric, setMetric, wpm, setWpm } = useMetric();
+  const [tab, setTab] = useState<Tab>("scenes");
 
   useEffect(() => {
     setWpm(project.settings?.wordsPerMinute ?? DEFAULT_WPM);
@@ -123,9 +141,16 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
 
   const { lineCounts } = computeCuts(play, activeCut, project.assignments, project.actors);
   const stageTime = computeStageTime(play, activeCut, project.settings);
-
+  const charSceneMatrix = buildCharSceneMatrix(play, activeCut, effectiveSceneOrder);
   const actorSceneMatrix = buildActorSceneMatrix(stageTime, project.actors, project.assignments);
-  const actorSceneLineMatrix = buildActorSceneLineMatrix(play, activeCut, project.assignments, effectiveSceneOrder);
+
+  // Fully-cut scenes: had lines originally but afterCut = 0
+  const cutSceneIds = new Set<string>(
+    effectiveSceneOrder.filter((id) => {
+      const sc = lineCounts.byScene[id];
+      return sc && sc.lines.original > 0 && sc.lines.afterCut === 0;
+    })
+  );
 
   function handleSetPause(afterSceneId: string, name: string, minutes: number) {
     dispatch({ type: "SET_PAUSE", afterSceneId, name, minutes });
@@ -135,9 +160,19 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
     dispatch({ type: "REMOVE_PAUSE", afterSceneId });
   }
 
+  function handleSetSceneOrder(newOrder: string[]) {
+    dispatch({ type: "SET_SCENE_ORDER", sceneOrder: newOrder });
+  }
+
   const hasPauses = activeCut.pauses && Object.keys(activeCut.pauses).length > 0;
   const pauseTotal = stageTime.pauseMinutes;
   const hasCuts = stageTime.totalMinutes < stageTime.originalTotalMinutes - 0.01;
+
+  const tabs: Array<{ key: Tab; label: string }> = [
+    { key: "scenes", label: "Scenes & Pauses" },
+    { key: "matrix", label: "Matrix" },
+    { key: "rehearsal", label: "Rehearsal" },
+  ];
 
   return (
     <div className="max-w-screen-xl mx-auto px-6 py-8">
@@ -168,46 +203,46 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
         </div>
       </div>
 
-      {/* Metric tabs */}
-      <div className="flex gap-1 mb-6 p-0.5 bg-stone-100 rounded-md w-fit">
-        {(["lines", "words", "time"] as const).map((m) => (
-          <button
-            key={m}
-            onClick={() => setMetric(m)}
-            className={`text-xs py-1 px-3 rounded transition-colors font-medium capitalize ${
-              metric === m
-                ? "bg-white text-stone-700 shadow-sm"
-                : "text-stone-400 hover:text-stone-600"
-            }`}
-          >
-            {m === "time" ? "Time" : m === "lines" ? "Lines" : "Words"}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex gap-8 items-start">
-        {/* Matrix — takes most of the width */}
-        <div className="flex-1 min-w-0">
-          <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3">
-            Scene × Actor
-          </div>
-          <DashboardMatrix
-            effectiveSceneOrder={effectiveSceneOrder}
-            sceneById={sceneById}
-            sceneActMap={sceneActMap}
-            actors={project.actors}
-            actorSceneMatrix={actorSceneMatrix}
-            actorSceneLineMatrix={actorSceneLineMatrix}
-            pauses={activeCut.pauses}
-            metric={metric}
-          />
+      {/* Controls row: metric tabs + subtabs */}
+      <div className="flex items-center justify-between mb-6 gap-4">
+        {/* Metric tabs */}
+        <div className="flex gap-1 p-0.5 bg-stone-100 rounded-md w-fit">
+          {(["lines", "words", "time"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMetric(m)}
+              className={`text-xs py-1 px-3 rounded transition-colors font-medium capitalize ${
+                metric === m
+                  ? "bg-white text-stone-700 shadow-sm"
+                  : "text-stone-400 hover:text-stone-600"
+              }`}
+            >
+              {m === "time" ? "Time" : m === "lines" ? "Lines" : "Words"}
+            </button>
+          ))}
         </div>
 
-        {/* Scene list with bars + pause editor — right column */}
-        <div className="w-80 shrink-0">
-          <div className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-3">
-            Scenes
-          </div>
+        {/* Subtabs */}
+        <div className="flex border border-stone-200 rounded-md overflow-hidden">
+          {tabs.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`text-xs py-1.5 px-4 transition-colors font-medium border-r border-stone-200 last:border-r-0 ${
+                tab === key
+                  ? "bg-stone-700 text-white"
+                  : "bg-white text-stone-500 hover:bg-stone-50 hover:text-stone-700"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab: Scenes & Pauses */}
+      {tab === "scenes" && (
+        <div className="max-w-xl">
           <SceneList
             effectiveSceneOrder={effectiveSceneOrder}
             sceneById={sceneById}
@@ -219,11 +254,46 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
             pauses={activeCut.pauses}
             onSetPause={handleSetPause}
             onRemovePause={handleRemovePause}
+            onSetSceneOrder={handleSetSceneOrder}
             metric={metric}
             wpm={wpm}
           />
         </div>
-      </div>
+      )}
+
+      {/* Tab: Matrix */}
+      {tab === "matrix" && (
+        <DashboardMatrix
+          effectiveSceneOrder={effectiveSceneOrder}
+          sceneById={sceneById}
+          sceneActMap={sceneActMap}
+          characters={play.castList}
+          actors={project.actors}
+          assignments={project.assignments}
+          charSceneMatrix={charSceneMatrix}
+          stageTimeByChar={stageTime.byCharacter}
+          pauses={activeCut.pauses}
+          metric={metric}
+          cutSceneIds={cutSceneIds}
+        />
+      )}
+
+      {/* Tab: Rehearsal */}
+      {tab === "rehearsal" && (
+        <RehearsalGroupings
+          play={play}
+          effectiveSceneOrder={effectiveSceneOrder}
+          sceneById={sceneById}
+          sceneActMap={sceneActMap}
+          actors={project.actors}
+          assignments={project.assignments}
+          charSceneMatrix={charSceneMatrix}
+          stageTimeByChar={stageTime.byCharacter}
+          lineCounts={lineCounts}
+          metric={metric}
+          wpm={wpm}
+        />
+      )}
     </div>
   );
 }

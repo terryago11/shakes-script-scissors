@@ -140,7 +140,6 @@ export default function ScriptEditor({ playId }: Props) {
   const [error, setError] = useState<string | null>(null);
   type FilterState = { type: "character"; id: string } | { type: "actor"; id: string } | null;
   const [filter, setFilter] = useState<FilterState>(null);
-  const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null);
   const { setScenes, setActiveSceneId, jumpingRef, focusedSceneId, setFocusedSceneId } = useSceneJump();
   const { cutModeActive, setCutModeActive } = useCutMode();
   const { viewMode } = useViewMode();
@@ -336,37 +335,6 @@ export default function ScriptEditor({ playId }: Props) {
   const defaultSceneOrder = play.acts.flatMap((act) => act.scenes.map((s) => s.id));
   const effectiveSceneOrder = activeCut.sceneOrder ?? defaultSceneOrder;
 
-  function handleSceneReorder(newOrder: string[]) {
-    dispatch({ type: "SET_SCENE_ORDER", sceneOrder: newOrder });
-  }
-
-  function handleDragStartScene(e: React.DragEvent, sceneId: string) {
-    e.dataTransfer.setData("text/plain", sceneId);
-    e.dataTransfer.effectAllowed = "move";
-  }
-
-  function handleDragOverScene(e: React.DragEvent, sceneId: string) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOverSceneId(sceneId);
-  }
-
-  function handleDragLeaveScene() { setDragOverSceneId(null); }
-
-  function handleDropScene(e: React.DragEvent, targetSceneId: string) {
-    e.preventDefault();
-    setDragOverSceneId(null);
-    const draggedId = e.dataTransfer.getData("text/plain");
-    if (!draggedId || draggedId === targetSceneId) return;
-    const newOrder = effectiveSceneOrder.filter((id) => id !== draggedId);
-    const targetIndex = newOrder.indexOf(targetSceneId);
-    if (targetIndex === -1) return;
-    newOrder.splice(targetIndex, 0, draggedId);
-    handleSceneReorder(newOrder);
-  }
-
-  function handleDragEndScene() { setDragOverSceneId(null); }
-
   const sceneMap = new Map<string, Scene>();
   const sceneActMap = new Map<string, Act>();
   for (const act of play.acts) {
@@ -408,12 +376,6 @@ export default function ScriptEditor({ playId }: Props) {
     cutModeActive,
     focusedSceneId,
     pauses: activeCut.pauses,
-    dragOverSceneId,
-    onDragStartScene: handleDragStartScene,
-    onDragOverScene: handleDragOverScene,
-    onDragLeaveScene: handleDragLeaveScene,
-    onDropScene: handleDropScene,
-    onDragEndScene: handleDragEndScene,
   };
 
   return (

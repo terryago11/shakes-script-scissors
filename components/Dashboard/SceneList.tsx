@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { Act, Scene } from "@/types/play";
 import type { LineCounts } from "@/types/cut";
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
@@ -17,6 +18,7 @@ interface Props {
   pauses?: Record<string, { name: string; minutes: number }>;
   onSetPause: (afterSceneId: string, name: string, minutes: number) => void;
   onRemovePause: (afterSceneId: string) => void;
+  onSetSceneOrder?: (newOrder: string[]) => void;
   metric: "lines" | "words" | "time";
   wpm: number;
 }
@@ -38,9 +40,12 @@ export default function SceneList({
   pauses,
   onSetPause,
   onRemovePause,
+  onSetSceneOrder,
   metric,
   wpm,
 }: Props) {
+  const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null);
+
   // Find max value for bar scaling across all scenes
   let maxVal = 1;
   for (const sceneId of effectiveSceneOrder) {
@@ -52,8 +57,47 @@ export default function SceneList({
     if (orig > maxVal) maxVal = orig;
   }
 
+  function handleDragStart(e: React.DragEvent, sceneId: string) {
+    e.dataTransfer.setData("text/plain", sceneId);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(e: React.DragEvent, sceneId: string) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverSceneId(sceneId);
+  }
+
+  function handleDragLeave() {
+    setDragOverSceneId(null);
+  }
+
+  function handleDrop(e: React.DragEvent, targetSceneId: string) {
+    e.preventDefault();
+    setDragOverSceneId(null);
+    if (!onSetSceneOrder) return;
+    const draggedId = e.dataTransfer.getData("text/plain");
+    if (!draggedId || draggedId === targetSceneId) return;
+    const newOrder = effectiveSceneOrder.filter((id) => id !== draggedId);
+    const targetIndex = newOrder.indexOf(targetSceneId);
+    if (targetIndex === -1) return;
+    newOrder.splice(targetIndex, 0, draggedId);
+    onSetSceneOrder(newOrder);
+  }
+
+  function handleDragEnd() {
+    setDragOverSceneId(null);
+  }
+
+  const canReorder = !!onSetSceneOrder;
+
   return (
     <div className="space-y-0">
+      {canReorder && (
+        <p className="text-xs text-stone-400 mb-3 flex items-center gap-1">
+          <span>⠿</span> Drag scenes to reorder
+        </p>
+      )}
       {effectiveSceneOrder.map((sceneId, idx) => {
         const scene = sceneById.get(sceneId);
         const act = sceneActMap.get(sceneId);
@@ -81,11 +125,33 @@ export default function SceneList({
           return cell && (cell.minutes > 0 || cell.originalMinutes > 0);
         });
 
+        const isDragOver = dragOverSceneId === sceneId;
+
         return (
           <div key={sceneId}>
-            <div className="py-3 border-b border-stone-100">
-              {/* Act label + scene title */}
+            <div
+              className={`relative py-3 border-b border-stone-100 transition-colors group ${
+                canReorder ? "cursor-grab" : ""
+              } ${isDragOver ? "bg-amber-50" : "hover:bg-stone-50/60"}`}
+              draggable={canReorder}
+              onDragStart={canReorder ? (e) => handleDragStart(e, sceneId) : undefined}
+              onDragOver={canReorder ? (e) => handleDragOver(e, sceneId) : undefined}
+              onDragLeave={canReorder ? handleDragLeave : undefined}
+              onDrop={canReorder ? (e) => handleDrop(e, sceneId) : undefined}
+              onDragEnd={canReorder ? handleDragEnd : undefined}
+            >
+              {/* Drop indicator */}
+              {isDragOver && (
+                <div className="pointer-events-none absolute -top-0.5 left-0 right-0 h-0.5 bg-amber-400 rounded-full" />
+              )}
+
+              {/* Act label + scene title + drag handle */}
               <div className="flex items-baseline gap-2 mb-1.5">
+                {canReorder && (
+                  <span className="opacity-0 group-hover:opacity-100 text-stone-300 text-xs select-none shrink-0 transition-opacity cursor-grab">
+                    ⠿
+                  </span>
+                )}
                 <span className="text-xs text-stone-400 shrink-0">{act.title}</span>
                 <span className="text-sm font-medium text-stone-700 truncate">{scene.title}</span>
                 <span className="ml-auto text-xs tabular-nums text-stone-500 shrink-0">
