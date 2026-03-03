@@ -59,8 +59,9 @@ function buildCharDetails(
   const existingType = missingType === "exit" ? "entrance" : "exit";
   return characterIds.map((charId) => {
     const charName =
-      play.castList.find((c) => c.id === charId)?.name ??
-      characterIdToName(charId);
+      play.castList.find((c) => c.id === charId)?.name ||
+      characterIdToName(charId) ||
+      charId; // final fallback: show raw ID when name can't be resolved
 
     const appearances: Array<{ actTitle: string; sceneTitle: string }> = [];
     const seenScenes = new Set<string>();

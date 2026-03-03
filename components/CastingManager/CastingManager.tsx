@@ -246,7 +246,7 @@ export default function CastingManager({ playId }: Props) {
               return (
                 <div
                   key={actor.id}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-stone-200 bg-white text-sm"
+                  className="group/chip flex items-center gap-2 px-3 py-1.5 rounded-full border border-stone-200 bg-white text-sm"
                 >
                   <label
                     className="w-3 h-3 rounded-full cursor-pointer shrink-0 hover:ring-2 hover:ring-offset-1 hover:ring-stone-400 transition-shadow"
@@ -286,14 +286,15 @@ export default function CastingManager({ playId }: Props) {
                     />
                   ) : (
                     <span
-                      className="text-stone-700 cursor-text hover:text-stone-900"
+                      className="group/name flex items-center gap-1 cursor-text"
                       title="Click to rename"
                       onClick={() => {
                         setEditingActorId(actor.id);
                         setEditingActorName(actor.name);
                       }}
                     >
-                      {actor.name}
+                      <span className="text-stone-700 hover:text-stone-900">{actor.name}</span>
+                      <span className="text-stone-300 opacity-0 group-hover/name:opacity-100 transition-opacity text-xs select-none" aria-hidden>✎</span>
                     </span>
                   )}
                   <button

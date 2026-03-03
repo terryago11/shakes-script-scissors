@@ -77,6 +77,34 @@ export default function DiffView({
                 if (!hasMatch) return null;
               }
 
+              // Line offsets for running counter:
+              // Left (cut) counts only KEPT lines; right (original) counts ALL lines.
+              const cutSpeechStartLines = (() => {
+                const map = new Map<string, number>();
+                let running = 0;
+                for (const { unit, status, lineStatuses } of units) {
+                  if (unit.type !== "speech") continue;
+                  map.set(unit.id, running);
+                  if (status === "kept") {
+                    running += lineStatuses
+                      ? lineStatuses.filter((ls) => ls.status === "kept").length
+                      : unit.lineCount;
+                  }
+                }
+                return map;
+              })();
+
+              const origSpeechStartLines = (() => {
+                const map = new Map<string, number>();
+                let running = 0;
+                for (const { unit } of units) {
+                  if (unit.type !== "speech") continue;
+                  map.set(unit.id, running);
+                  running += unit.lineCount;
+                }
+                return map;
+              })();
+
               // Continuation detection for left (modified) column
               const continuationIds = new Set<string>();
               let lastSpeakerId: string | null = null;
@@ -144,6 +172,7 @@ export default function DiffView({
                                 onClearEdits={onClearEdits}
                                 isContinuation={continuationIds.has(unit.id)}
                                 cutModeActive={cutModeActive}
+                                speechLineOffset={cutSpeechStartLines.get(unit.id)}
                               />
                             </div>
 
@@ -167,6 +196,7 @@ export default function DiffView({
                                   onClearEdits={undefined}
                                   isContinuation={origContinuationIds.has(unit.id)}
                                   cutModeActive={false}
+                                  speechLineOffset={origSpeechStartLines.get(unit.id)}
                                 />
                               </div>
                             </ViewModeProvider>

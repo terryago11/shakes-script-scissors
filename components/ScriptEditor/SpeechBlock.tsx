@@ -113,13 +113,17 @@ export default function SpeechBlock({
 
   const canReassign = !readonly && !cutModeActive && !!onReassign && !!castList && castList.length > 0;
 
-  // Running line counter: every 5 kept lines, show the scene-relative line number
+  // Running line counter: every 5 lines, show scene-relative line number.
+  // Standard mode counts ALL lines (cut or kept) so numbers match the full original text.
+  // Clean/diff modes count only KEPT lines in the current cut.
+  const countAllLines = viewMode === "standard";
   const lineNumMap = new Map<string, number | null>();
   if (speechLineOffset != null) {
     let keptCount = 0;
     for (const line of speech.lines) {
       const ls = lineStatusMap.get(line.id) ?? "kept";
-      if (!isCut && ls === "kept") {
+      const shouldCount = countAllLines ? true : (!isCut && ls === "kept");
+      if (shouldCount) {
         keptCount++;
         const lineNum = speechLineOffset + keptCount;
         lineNumMap.set(line.id, lineNum % 5 === 0 ? lineNum : null);
@@ -279,7 +283,7 @@ export default function SpeechBlock({
               >
                 <span className="flex-1">{lineContent}</span>
                 {lineNum != null && (
-                  <span className="text-sm text-stone-400 tabular-nums select-none shrink-0 font-normal not-italic leading-none">
+                  <span className="text-sm text-stone-700 tabular-nums select-none shrink-0 font-normal not-italic leading-none">
                     {lineNum}
                   </span>
                 )}
