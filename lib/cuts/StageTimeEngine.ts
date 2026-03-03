@@ -190,7 +190,8 @@ export function computeStageTime(
             }
           }
         } else if (unit.type === "speech") {
-          if ((cut.cutMap[unit.id] ?? "kept") === "kept") {
+          // Skip speeches with empty/invalid characterId (data quality gaps in TEI)
+          if ((cut.cutMap[unit.id] ?? "kept") === "kept" && unit.characterId) {
             speakingKeptChars.add(unit.characterId);
           }
         }

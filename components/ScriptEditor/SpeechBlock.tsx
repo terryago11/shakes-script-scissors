@@ -113,6 +113,17 @@ export default function SpeechBlock({
 
   const canReassign = !readonly && !cutModeActive && !!onReassign && !!castList && castList.length > 0;
 
+  // Shared name-rendering pieces — used in both the clickable and non-clickable char name
+  const nameClass = isCut
+    ? "text-red-400 opacity-60 line-through"
+    : reassignedChar
+      ? "text-red-400 line-through"
+      : isContinuation ? "text-stone-300" : "text-stone-600";
+  const nameColorStyle = isCut || isContinuation || reassignedChar ? undefined : actorColor || undefined;
+  const nameContent = isContinuation && !isCut
+    ? <span className="font-normal italic normal-case tracking-normal text-stone-300">{speech.characterName.toLowerCase()} cont.</span>
+    : <>{speech.characterName}</>;
+
   // Running line counter: every 5 lines, show scene-relative line number.
   // Standard mode counts ALL lines (cut or kept) so numbers match the full original text.
   // Clean/diff modes count only KEPT lines in the current cut.
@@ -142,22 +153,55 @@ export default function SpeechBlock({
       />
 
       <div className="flex-1 min-w-0">
-        {/* Character name header — name, line count, and restore all on the left */}
+        {/* Character name header */}
         <div className="flex items-center gap-1.5 mb-1 min-w-0">
-          <span
-            className={`text-xs font-bold uppercase tracking-wider shrink-0 ${
-              isCut
-                ? "text-red-400 opacity-60 line-through"
-                : reassignedChar
-                  ? "text-red-400 line-through"
-                  : isContinuation ? "text-stone-300" : "text-stone-600"
-            }`}
-            style={{ color: isCut || isContinuation || reassignedChar ? undefined : actorColor || undefined }}
-          >
-            {isContinuation && !isCut
-              ? <span className="font-normal italic normal-case tracking-normal text-stone-300">{speech.characterName.toLowerCase()} cont.</span>
-              : speech.characterName}
-          </span>
+
+          {/* Character name — hover shows border + tiny icon above; click opens reassign */}
+          {canReassign && !isCut ? (
+            showReassign ? (
+              <select
+                autoFocus
+                size={1}
+                onBlur={() => setShowReassign(false)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  onReassign!(speech.id, val === "__original__" ? null : val);
+                  setShowReassign(false);
+                }}
+                defaultValue={speechReassignment ?? "__original__"}
+                className="text-xs border border-amber-300 rounded px-1 py-0.5 bg-white text-stone-700 focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option value="__original__">— Original ({speech.characterName}) —</option>
+                {castList!.map((char) => {
+                  const noEntrance = charsWithEntrance ? !charsWithEntrance.has(char.id) : false;
+                  return (
+                    <option key={char.id} value={char.id}>
+                      {noEntrance ? "⚠ " : ""}{char.name}
+                    </option>
+                  );
+                })}
+              </select>
+            ) : (
+              <span
+                className="group/charname relative shrink-0 cursor-pointer rounded px-0.5 -mx-0.5 border border-transparent hover:border-stone-300 hover:bg-stone-50 transition-colors"
+                onClick={(e) => { e.stopPropagation(); setShowReassign(true); }}
+                title="Click to reassign this speech to another character"
+              >
+                {/* Tiny icon floats above the name on hover */}
+                <span className="absolute -top-3 inset-x-0 flex justify-center opacity-0 group-hover/charname:opacity-100 transition-opacity pointer-events-none">
+                  <span className="text-[9px] text-stone-400 leading-none">⇄</span>
+                </span>
+                <span className={`text-xs font-bold uppercase tracking-wider ${nameClass}`} style={{ color: nameColorStyle }}>
+                  {nameContent}
+                </span>
+              </span>
+            )
+          ) : (
+            <span className={`text-xs font-bold uppercase tracking-wider shrink-0 ${nameClass}`} style={{ color: nameColorStyle }}>
+              {nameContent}
+            </span>
+          )}
 
           {/* Reassignment indicator — green insertion style */}
           {reassignedChar && !isCut && (
@@ -176,7 +220,7 @@ export default function SpeechBlock({
             </span>
           )}
 
-          {/* Restore button — right next to name, shown on hover when any part is cut */}
+          {/* Restore button — shown on hover when any part is cut */}
           {!readonly && !cutModeActive && (isCut || hasWordEdits || hasLineCuts) && (
             <button
               onClick={(e) => {
@@ -188,46 +232,6 @@ export default function SpeechBlock({
             >
               ↩ restore
             </button>
-          )}
-
-          {/* Reassign button / inline select */}
-          {canReassign && !isCut && (
-            showReassign ? (
-              <select
-                autoFocus
-                size={1}
-                onBlur={() => setShowReassign(false)}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  onReassign!(speech.id, val === "__original__" ? null : val);
-                  setShowReassign(false);
-                }}
-                defaultValue={speechReassignment ?? "__original__"}
-                className="opacity-0 group-hover:opacity-100 text-xs border border-amber-300 rounded px-1 py-0.5 bg-white text-stone-700 focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <option value="__original__">— Original ({speech.characterName}) —</option>
-                {castList!.map((char) => {
-                  const noEntrance = charsWithEntrance ? !charsWithEntrance.has(char.id) : false;
-                  return (
-                    <option key={char.id} value={char.id}>
-                      {noEntrance ? "⚠ " : ""}{char.name}
-                    </option>
-                  );
-                })}
-              </select>
-            ) : (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowReassign(true);
-                }}
-                className="opacity-0 group-hover:opacity-100 text-xs px-1.5 py-0.5 rounded border border-stone-200 bg-white text-stone-400 hover:text-stone-600 hover:border-stone-300 transition-all shrink-0"
-                title="Reassign this speech to another character"
-              >
-                ⇄
-              </button>
-            )
           )}
         </div>
 
