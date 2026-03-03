@@ -1,6 +1,7 @@
 "use client";
 
-import type { Speech } from "@/types/play";
+import { useState } from "react";
+import type { Character, Speech } from "@/types/play";
 import type { LineWithStatus } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
 import { applyEditsToLine } from "@/lib/cuts/applyEdits";
@@ -17,6 +18,13 @@ interface Props {
   onClearEdits?: (unitId: string) => void;
   isContinuation?: boolean;
   cutModeActive?: boolean;
+  /** Cast list for the reassign dropdown */
+  castList?: Character[];
+  /** Current reassignment for this speech (null = original character) */
+  speechReassignment?: string | null;
+  /** Characters with at least one kept entrance SD — others get ⚠ in dropdown */
+  charsWithEntrance?: Set<string>;
+  onReassign?: (unitId: string, characterId: string | null) => void;
 }
 
 export default function SpeechBlock({
@@ -29,10 +37,15 @@ export default function SpeechBlock({
   onClearEdits,
   isContinuation,
   cutModeActive,
+  castList,
+  speechReassignment,
+  charsWithEntrance,
+  onReassign,
 }: Props) {
   const { viewMode } = useViewMode();
   const isCut = status === "cut";
   const readonly = onToggle === null;
+  const [showReassign, setShowReassign] = useState(false);
 
   // In clean mode, hide cut speeches entirely
   if (isCut && viewMode === "clean") return null;
@@ -90,6 +103,13 @@ export default function SpeechBlock({
   const displayKept = metric === "lines" ? keptLines : keptWords;
   const metricLabel = metric === "lines" ? "L" : "W";
 
+  // Reassignment label
+  const reassignedChar = speechReassignment
+    ? castList?.find((c) => c.id === speechReassignment)
+    : null;
+
+  const canReassign = !readonly && !cutModeActive && !!onReassign && !!castList && castList.length > 0;
+
   return (
     <div className="group flex gap-3 py-2 px-2 rounded">
       {/* Actor color bar */}
@@ -111,6 +131,13 @@ export default function SpeechBlock({
               ? <span className="font-normal italic normal-case tracking-normal text-stone-300">{speech.characterName.toLowerCase()} cont.</span>
               : speech.characterName}
           </span>
+
+          {/* Reassignment indicator */}
+          {reassignedChar && !isCut && (
+            <span className="text-xs text-amber-600 italic font-normal normal-case tracking-normal shrink-0">
+              → {reassignedChar.name}
+            </span>
+          )}
 
           {!isContinuation && (
             <span className="text-xs font-normal text-stone-400 normal-case tracking-normal shrink-0">
@@ -134,6 +161,46 @@ export default function SpeechBlock({
             >
               ↩ restore
             </button>
+          )}
+
+          {/* Reassign button / inline select */}
+          {canReassign && !isCut && (
+            showReassign ? (
+              <select
+                autoFocus
+                size={1}
+                onBlur={() => setShowReassign(false)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  onReassign!(speech.id, val === "__original__" ? null : val);
+                  setShowReassign(false);
+                }}
+                defaultValue={speechReassignment ?? "__original__"}
+                className="opacity-0 group-hover:opacity-100 text-xs border border-amber-300 rounded px-1 py-0.5 bg-white text-stone-700 focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option value="__original__">— Original ({speech.characterName}) —</option>
+                {castList!.map((char) => {
+                  const noEntrance = charsWithEntrance ? !charsWithEntrance.has(char.id) : false;
+                  return (
+                    <option key={char.id} value={char.id}>
+                      {noEntrance ? "⚠ " : ""}{char.name}
+                    </option>
+                  );
+                })}
+              </select>
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowReassign(true);
+                }}
+                className="opacity-0 group-hover:opacity-100 text-xs px-1.5 py-0.5 rounded border border-stone-200 bg-white text-stone-400 hover:text-stone-600 hover:border-stone-300 transition-all shrink-0"
+                title="Reassign this speech to another character"
+              >
+                ⇄
+              </button>
+            )
           )}
         </div>
 

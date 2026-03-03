@@ -8,7 +8,7 @@ import type { SpeechEdit } from "@/types/edit";
 import type { CharacterStageTime, StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import { useProject } from "@/lib/project/ProjectStore";
 import { computeCuts } from "@/lib/cuts/CutEngine";
-import { computeStageTime } from "@/lib/cuts/StageTimeEngine";
+import { computeStageTime, getEffectiveCharacters } from "@/lib/cuts/StageTimeEngine";
 import { applyEditsToLine } from "@/lib/cuts/applyEdits";
 import ActBlock from "./ActBlock";
 import DiffView from "./DiffView";
@@ -126,6 +126,7 @@ function computeSceneSpeakingTime(
     totalMinutes: lineCounts.words.total.afterCut / wpm,
     originalTotalMinutes: lineCounts.words.total.original / wpm,
     pauseMinutes: 0,
+    warnings: [],
   };
 }
 
@@ -254,6 +255,10 @@ export default function ScriptEditor({ playId }: Props) {
     dispatch({ type: "CLEAR_SPEECH_EDITS", unitId });
   }
 
+  function handleReassign(unitId: string, characterId: string | null) {
+    dispatch({ type: "REASSIGN_SPEECH", unitId, characterId });
+  }
+
   function handleScriptMouseUp() {
     if (!cutModeActive || !scriptColRef.current) return;
     const sel = window.getSelection();
@@ -367,6 +372,21 @@ export default function ScriptEditor({ playId }: Props) {
     return null;
   })();
 
+  // Characters that appear in at least one kept entrance SD (used for reassign warnings)
+  const charsWithEntrance = new Set<string>();
+  for (const act of play.acts) {
+    for (const scene of act.scenes) {
+      for (const unit of scene.units) {
+        if (unit.type === "stage" && unit.stageType === "entrance") {
+          if ((activeCut.cutMap[unit.id] ?? "kept") === "kept") {
+            const effChars = getEffectiveCharacters(unit, activeCut.stageDirectionEdits);
+            for (const charId of effChars) charsWithEntrance.add(charId);
+          }
+        }
+      }
+    }
+  }
+
   const sharedActBlockProps = {
     unitsByScene,
     assignments: project.assignments,
@@ -376,6 +396,9 @@ export default function ScriptEditor({ playId }: Props) {
     cutModeActive,
     focusedSceneId,
     pauses: activeCut.pauses,
+    speechReassignments: activeCut.speechReassignments ?? {},
+    charsWithEntrance,
+    onReassign: handleReassign,
   };
 
   return (

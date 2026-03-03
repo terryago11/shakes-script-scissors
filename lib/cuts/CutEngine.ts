@@ -52,6 +52,7 @@ export function computeCuts(
   let totalWordsAfterCut = 0;
 
   const speechEdits = cut.speechEdits ?? {};
+  const speechReassignments = cut.speechReassignments ?? {};
 
   // Per-scene and per-act aggregates
   const byScene: Record<string, SceneCounts> = {};
@@ -68,11 +69,24 @@ export function computeCuts(
         const status: "kept" | "cut" = cut.cutMap[unit.id] === "cut" ? "cut" : "kept";
 
         if (unit.type === "speech") {
+          // afterCut lines/words are attributed to the reassigned character (if any);
+          // original counts always stay with the speech's original character.
+          const effectiveCharId = speechReassignments[unit.id] ?? unit.characterId;
+
           if (!byCharacter[unit.characterId]) {
             byCharacter[unit.characterId] = { original: 0, afterCut: 0 };
           }
           if (!wordsByCharacter[unit.characterId]) {
             wordsByCharacter[unit.characterId] = { original: 0, afterCut: 0 };
+          }
+          // Ensure the reassigned target is also initialized
+          if (effectiveCharId !== unit.characterId) {
+            if (!byCharacter[effectiveCharId]) {
+              byCharacter[effectiveCharId] = { original: 0, afterCut: 0 };
+            }
+            if (!wordsByCharacter[effectiveCharId]) {
+              wordsByCharacter[effectiveCharId] = { original: 0, afterCut: 0 };
+            }
           }
 
           // Build per-line statuses (only if this speech is kept)
@@ -130,12 +144,13 @@ export function computeCuts(
               }
             }
 
-            byCharacter[unit.characterId].afterCut += effectiveKeptLines;
+            // afterCut attributed to effective character (reassigned target if set)
+            byCharacter[effectiveCharId].afterCut += effectiveKeptLines;
             totalAfterCut += effectiveKeptLines;
             byScene[scene.id].lines.afterCut += effectiveKeptLines;
             byAct[act.id].lines.afterCut += effectiveKeptLines;
 
-            wordsByCharacter[unit.characterId].afterCut += keptWords;
+            wordsByCharacter[effectiveCharId].afterCut += keptWords;
             totalWordsAfterCut += keptWords;
             byScene[scene.id].words.afterCut += keptWords;
             byAct[act.id].words.afterCut += keptWords;

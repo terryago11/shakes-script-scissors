@@ -99,14 +99,26 @@ export default function CastingManager({ playId }: Props) {
 
   // Only show characters that have at least one line
   const speakingCharIds = new Set<string>();
+  const allSpeeches: Array<{ id: string; characterId: string }> = [];
   for (const act of play.acts) {
     for (const scene of act.scenes) {
       for (const unit of scene.units) {
-        if (unit.type === "speech") speakingCharIds.add(unit.characterId);
+        if (unit.type === "speech") {
+          speakingCharIds.add(unit.characterId);
+          allSpeeches.push({ id: unit.id, characterId: unit.characterId });
+        }
       }
     }
   }
   const speakingChars = play.castList.filter((c) => speakingCharIds.has(c.id));
+
+  // Fully-cut characters: all their speeches are marked "cut" in the active cut
+  const fullyCutCharIds = new Set<string>(
+    [...speakingCharIds].filter((charId) => {
+      const speeches = allSpeeches.filter((s) => s.characterId === charId);
+      return speeches.length > 0 && speeches.every((s) => activeCut?.cutMap[s.id] === "cut");
+    })
+  );
 
   // Build simultaneous map (chars that are ever on stage at the same moment in the cut)
   const simultaneousMap = computeSimultaneousMap(
@@ -298,6 +310,7 @@ export default function CastingManager({ playId }: Props) {
             }
             conflictCount={conflictsPerChar.get(char.id) ?? 0}
             conflictingActorIds={getConflictingActorIds(char.id)}
+            isFullyCut={fullyCutCharIds.has(char.id)}
           />
         ))}
       </div>

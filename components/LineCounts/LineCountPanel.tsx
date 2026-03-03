@@ -10,6 +10,43 @@ import { characterIdToName } from "@/lib/folger/TeiParser";
 import CharacterRow from "./CharacterRow";
 import ActorRow from "./ActorRow";
 
+function NoExitWarnings({
+  warnings,
+  play,
+}: {
+  warnings: Array<{ characterId: string; type: "no-exit" }>;
+  play: Play;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="mb-4 rounded border border-amber-200 bg-amber-50 text-xs">
+      <button
+        onClick={() => setExpanded((e) => !e)}
+        className="w-full flex items-center gap-1.5 px-2 py-1.5 text-amber-700 font-medium text-left"
+      >
+        <span>⚠</span>
+        <span>{warnings.length} character{warnings.length > 1 ? "s" : ""} with no exit SD</span>
+        <span className="ml-auto text-amber-400">{expanded ? "▲" : "▼"}</span>
+      </button>
+      {expanded && (
+        <div className="px-2 pb-2 space-y-0.5 border-t border-amber-200 pt-1.5">
+          {warnings.map((w) => {
+            const name = play.castList.find((c) => c.id === w.characterId)?.name ?? characterIdToName(w.characterId);
+            return (
+              <div key={w.characterId} className="text-amber-800">
+                {name}
+              </div>
+            );
+          })}
+          <div className="text-amber-500 mt-1.5 leading-snug">
+            These characters accumulate stage time but have no exit stage direction — check SD data.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type FilterState = { type: "character"; id: string } | { type: "actor"; id: string } | null;
 
 interface Props {
@@ -101,6 +138,7 @@ export default function LineCountPanel({
 
   // ── Time tab ────────────────────────────────────────────────────────────────
   if (panelTab === "time" && stageTime) {
+    const noExitWarnings = stageTime.warnings.filter((w) => w.type === "no-exit");
     const byCharList = Object.values(stageTime.byCharacter)
       .sort((a, b) => b.minutes - a.minutes);
     // Use the max of cut or original for bar scaling (cut can exceed original if chars were added)
@@ -142,6 +180,11 @@ export default function LineCountPanel({
           <div className="mb-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
             Scene focus — counts scoped to this scene
           </div>
+        )}
+
+        {/* No-exit warnings */}
+        {!isFocused && noExitWarnings.length > 0 && (
+          <NoExitWarnings warnings={noExitWarnings} play={play} />
         )}
 
         {/* Running time total */}

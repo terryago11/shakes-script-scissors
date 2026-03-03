@@ -28,6 +28,8 @@ export interface StageTimeResult {
   originalTotalMinutes: number;
   /** Total minutes added by pauses (already included in totalMinutes) */
   pauseMinutes: number;
+  /** Characters with kept speeches but no exit SD anywhere in the play */
+  warnings: Array<{ characterId: string; type: "no-exit" }>;
 }
 
 /** Returns the effective character list for an SD, applying any overrides from the cut. */
@@ -168,5 +170,32 @@ export function computeStageTime(
   }
   totalMinutes += pauseMinutes;
 
-  return { byCharacter, totalMinutes, originalTotalMinutes, pauseMinutes };
+  // ── No-exit warning detection ────────────────────────────────────────────
+  // Walk ALL scenes in the play (not just effectiveSceneOrder) so we catch every exit SD.
+  // A warning fires if a character has at least one kept speech but appears in no exit SD.
+  const exitedAnywhereChars = new Set<string>();
+  const speakingKeptChars = new Set<string>();
+  for (const act of play.acts) {
+    for (const scene of act.scenes) {
+      for (const unit of scene.units) {
+        if (unit.type === "stage" && unit.stageType === "exit") {
+          for (const charId of getEffectiveCharacters(unit, edits)) {
+            exitedAnywhereChars.add(charId);
+          }
+        } else if (unit.type === "speech") {
+          if ((cut.cutMap[unit.id] ?? "kept") === "kept") {
+            speakingKeptChars.add(unit.characterId);
+          }
+        }
+      }
+    }
+  }
+  const warnings: StageTimeResult["warnings"] = [];
+  for (const charId of speakingKeptChars) {
+    if (!exitedAnywhereChars.has(charId)) {
+      warnings.push({ characterId: charId, type: "no-exit" });
+    }
+  }
+
+  return { byCharacter, totalMinutes, originalTotalMinutes, pauseMinutes, warnings };
 }

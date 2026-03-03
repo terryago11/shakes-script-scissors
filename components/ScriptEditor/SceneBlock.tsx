@@ -26,12 +26,18 @@ interface Props {
   focusedSceneId: string | null;
   /** When true, render all content as original (no cuts/edits applied) — for diff side-by-side */
   showOriginal?: boolean;
+  /** unitId → characterId reassignments */
+  speechReassignments?: Record<string, string>;
+  /** Character IDs that appear in at least one kept entrance SD */
+  charsWithEntrance?: Set<string>;
+  onReassign?: (unitId: string, characterId: string | null) => void;
 }
 
 export default function SceneBlock({
   scene, units, assignments, actors, castList, onToggle, speechEdits, onClearEdits,
   filteredCharacterIds, cutModeActive, sceneCounts,
   focusedSceneId, showOriginal,
+  speechReassignments, charsWithEntrance, onReassign,
 }: Props) {
   // Default to collapsed so after act re-expand, scenes are collapsed and user can pick
   const [collapsed, setCollapsed] = useState(false);
@@ -202,6 +208,10 @@ export default function SceneBlock({
                   onClearEdits={showOriginal ? undefined : onClearEdits}
                   isContinuation={continuationIds.has(unit.id)}
                   cutModeActive={showOriginal ? false : cutModeActive}
+                  castList={castList}
+                  speechReassignment={showOriginal ? undefined : (speechReassignments?.[unit.id] ?? null)}
+                  charsWithEntrance={charsWithEntrance}
+                  onReassign={showOriginal ? undefined : onReassign}
                 />
               );
             } else {
