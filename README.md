@@ -11,11 +11,15 @@ ShakesScriptScissors lets you work through any of the 37 Folger Shakespeare text
 - **Word-level edits** — make track-changes edits within individual lines for fine-grained alterations
 - **Three view modes** — Standard (strikethrough), Clean (cuts hidden, final script only), or Diff (side-by-side comparison with original)
 - **Multiple cut versions** — keep several cuts side by side (e.g. "Workshop draft", "Final cut") and switch between them from the nav bar
+- **Speech reassignment** — hover a character's name in the script to reassign that speech to a different character; the original name shows in red strikethrough and the new name in green; hit ↩ restore to undo
+- **Running line counter** — every 5 lines a right-aligned scene-relative line number appears, so you can quickly orient yourself in the script; in Standard view it counts all lines, in Clean view it counts only kept lines
 
 ### Casting
 - **Assign actors to roles** — set up your company and handle double-casting; each actor gets a colour that carries through all views
 - **Conflict warnings** — characters ever simultaneously on stage are flagged; actor dropdowns show a ⚠ pre-warning before you create a clash
 - **Stage direction editor** — add or remove characters from individual entrance/exit stage directions to fix gaps in the TEI data
+- **Character counts in casting** — each character card shows their current cut line count, word count, and stage time at a glance
+- **Actor management** — click an actor's name to rename it inline; delete shows a confirmation with how many characters are assigned
 
 ### Metrics
 - **Running time** — stage-time tracking from entrance/exit stage directions shows per-character and total show duration, cut vs. original; configurable words-per-minute rate
@@ -26,6 +30,7 @@ ShakesScriptScissors lets you work through any of the 37 Folger Shakespeare text
 - **Scenes & Pauses** — see all scenes in order with their cut counts; drag to reorder scenes; insert named pauses (intermission, breaks) between scenes with a duration that adds to total running time
 - **Matrix** — character × scene grid showing who speaks (or is on stage) in each scene; columns group by actor; click a column to filter; row and column totals; toggle between Table and Chart views
 - **Rehearsal planner** — per-actor scene breakdown and suggested rehearsal blocks (consecutive scenes sharing cast members)
+- **Integrity** — flags characters with kept speeches but no entrance or exit stage direction; cards show which scenes they speak in and where any known complementary SD occurs (approximate line number); split into Missing Exit and Missing Entrance columns so you can fix each independently
 
 ### Export
 - **Export cue scripts** — generate a personal script for each actor showing only their lines plus the last few words before each entrance, exit, and speech (printed directly from the browser)
