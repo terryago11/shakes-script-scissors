@@ -84,13 +84,14 @@ app/
     layout.tsx            ← nav bar (Save Project, view-mode dropdown, scene jumper), CutSelector
     page.tsx              ← ScriptEditor (main cutting view)
     casting/              ← CastingManager (actor-character assignments + conflict detection)
+    dashboard/            ← SceneDashboard (3-tab view: Scenes & Pauses, Matrix, Rehearsal)
     export/               ← ExportMenu + CueScriptDocument (print cue scripts)
   view/page.tsx           ← read-only shared view (loads project from URL hash)
 
 components/
   ScriptEditor/
     ScriptEditor.tsx        ← orchestrates play, computes cuts + stage time; view-mode switch
-    ActBlock.tsx            ← collapsible act with drag-reorder; filters by character/focus
+    ActBlock.tsx            ← collapsible act; filters by character/focus
     SceneBlock.tsx          ← collapsible scene, focus mode, restore-all button
     SpeechBlock.tsx         ← speech unit, line-level cuts, word-level edits
     StageDirectionBlock.tsx ← SD display; entrance/exit show character chips (add/remove)
@@ -102,6 +103,11 @@ components/
   CastingManager/
     CastingManager.tsx      ← builds simultaneous-pairs map, computes conflict warnings
     CharacterCard.tsx       ← actor dropdown with ⚠ prefix for conflicting actors
+  Dashboard/
+    SceneDashboard.tsx      ← orchestrator; builds charSceneMatrix + stageTime; metric/tab state
+    SceneList.tsx           ← drag-reorder scene list; pause insertion between scenes
+    DashboardMatrix.tsx     ← character × scene matrix; actor-grouped headers; totals; Table/Chart
+    RehearsalGroupings.tsx  ← By Actor scene breakdown + Suggested Rehearsal Blocks (side-by-side)
 ```
 
 ## Stage Time Engine (`lib/cuts/StageTimeEngine.ts`)
@@ -148,6 +154,30 @@ Global context providing `metric: "lines" | "words" | "time"` and `wpm: number` 
 
 `characterIdToName(id: string): string` — exported utility that converts a raw TEI character ID (e.g. `#PLAYERS_Ham`, `#SOLDIERS.FORTINBRAS_Ham`) to a readable name using the same normalization as the cast list. Used as a fallback in `LineCountPanel` when a character appears in stage directions but has no formal `<castItem>` entry.
 
+## Scene Dashboard (`app/projects/[projectId]/dashboard/`)
+
+Three-tab overview page for production planning. All counts reflect the **cut** (not original) unless noted.
+
+### Tab 1 — Scenes & Pauses (`SceneList.tsx`)
+- Lists scenes in `effectiveSceneOrder` with line / word / running-time count for each scene
+- **Drag-reorder**: grab handle (`⠿`) to move scenes; amber drop-indicator bar; dispatches `SET_SCENE_ORDER`
+- **Insert Pause**: click ⏸ between any two scenes to add a named intermission/break with a duration in minutes; pauses appear in the scene list and are included in total running time
+
+### Tab 2 — Matrix (`DashboardMatrix.tsx`)
+- Character × scene grid showing cut-only values (`linesAfterCut`, `wordsAfterCut`, stage-time `minutes`)
+- **Actor-grouped column headers**: cast characters grouped under a spanning actor name row (left-aligned, actor-colored); uncast characters in their own group
+- **Column click** → filter visible rows to scenes where that character appears; click again to clear
+- **Row total** column (right edge) and **column total** footer row; grand total in bottom-right
+- Fully-cut scenes (all speeches removed) are dimmed at 30% opacity
+- **Table / Chart toggle**: Chart view renders horizontal bars per character sorted by total descending, with actor name column always fixed-width so counts stay aligned
+
+### Tab 3 — Rehearsal (`RehearsalGroupings.tsx`)
+Two sections rendered side-by-side:
+- **By Actor**: for each actor, list of scenes they appear in (via any of their characters) with cut-only line/word/time values and totals
+- **Suggested Rehearsal Blocks**: consecutive scenes sharing at least one actor are grouped into a single "block" (multi-scene blocks only); shows scene range, duration, actor chips, and per-scene breakdown
+
+`SceneDashboard.tsx` orchestrates both tabs: builds `charSceneMatrix` (via `buildCharSceneMatrix` helper) and `actorSceneMatrix` (for SceneList actor presence chips), calls `computeStageTime` and `computeCuts`, derives `cutSceneIds`.
+
 ## Cue Script Format
 
 For each actor: their lines preceded by the last 2–3 words of the previous speech (the "cue"). Stage directions mentioning their characters are included. Both **entrance and exit** SDs emit a cue entry so the actor knows exactly when to enter or exit. Stage direction character lists respect `stageDirectionEdits`. Printed directly from the browser via `window.print()` with Tailwind `print:` styles.
@@ -164,9 +194,9 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
 - **Group 5**: Stage time engine; SD character add/remove; doubling conflict detection with pre-warnings; Time tab in LineCountPanel (running time, by-actor, by-character with cut/original, red/green/amber bars)
 - **Group 6**: README user-facing section; gitignore cleanup
 - **Group 7**: Save/Open Project UI; 3-mode view toggle (Standard / Clean / Diff); focus-mode scene counts in LineCountPanel; character filter hides empty acts; Time metric in act/scene headers; cue script entrance + exit SD cues; play title subtitle in nav; `characterIdToName` fallback for unrecognized stage-direction characters
+- **Group 8**: Scene Dashboard (`/dashboard`) with 3 subtabs — Scenes & Pauses (drag-reorder, pause insertion), Matrix (character × scene line/word/time counts, actor-grouped headers, column filter, row + column totals, Table/Chart toggle with sorted bar chart), Rehearsal (By Actor breakdown + Suggested Rehearsal Blocks side-by-side); scene reorder moved exclusively to Dashboard; metric toggle (Lines/Words/Time) in dashboard header
 
 ### Not Started (Phase 3+)
-- **Group 8**: Scene Dashboard (`/dashboard`); Insert Pause; quick-change doubling warning
 - **Group 9**: Script integrity (no-exit warning, all-cut grey-out, reassign speech)
 - **Group 10**: Global character rename (`characterAliases`); suggest minimum cast
 - **Group 11**: Self-contained HTML export; PDF export of cue scripts
