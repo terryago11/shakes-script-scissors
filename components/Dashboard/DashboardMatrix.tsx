@@ -243,10 +243,10 @@ export default function DashboardMatrix({
                 >
                   {formatValue(total)}
                 </div>
-                {/* Actor name */}
-                {actor && (
-                  <div className="text-xs text-stone-400 shrink-0 w-24 truncate">{actor.name}</div>
-                )}
+                {/* Actor name — always fixed-width so counts stay in the same column */}
+                <div className="text-xs text-stone-400 shrink-0 w-24 truncate">
+                  {actor ? actor.name : ""}
+                </div>
               </div>
             );
           })}
