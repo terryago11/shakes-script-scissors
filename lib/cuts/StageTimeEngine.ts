@@ -28,8 +28,8 @@ export interface StageTimeResult {
   originalTotalMinutes: number;
   /** Total minutes added by pauses (already included in totalMinutes) */
   pauseMinutes: number;
-  /** Characters with kept speeches but no exit SD anywhere in the play */
-  warnings: Array<{ characterId: string; type: "no-exit" }>;
+  /** Characters with kept speeches but no matching entrance or exit SD */
+  warnings: Array<{ characterId: string; type: "no-exit" | "no-entrance" }>;
 }
 
 /** Returns the effective character list for an SD, applying any overrides from the cut. */
@@ -170,17 +170,24 @@ export function computeStageTime(
   }
   totalMinutes += pauseMinutes;
 
-  // ── No-exit warning detection ────────────────────────────────────────────
-  // Walk ALL scenes in the play (not just effectiveSceneOrder) so we catch every exit SD.
-  // A warning fires if a character has at least one kept speech but appears in no exit SD.
+  // ── No-exit / no-entrance warning detection ──────────────────────────────
+  // Walk ALL scenes in the play (not just effectiveSceneOrder) so we catch every SD.
+  // A warning fires if a character has at least one kept speech but no matching entrance/exit SD.
   const exitedAnywhereChars = new Set<string>();
+  const enteredAnywhereChars = new Set<string>();
   const speakingKeptChars = new Set<string>();
   for (const act of play.acts) {
     for (const scene of act.scenes) {
       for (const unit of scene.units) {
-        if (unit.type === "stage" && unit.stageType === "exit") {
-          for (const charId of getEffectiveCharacters(unit, edits)) {
-            exitedAnywhereChars.add(charId);
+        if (unit.type === "stage") {
+          if (unit.stageType === "exit") {
+            for (const charId of getEffectiveCharacters(unit, edits)) {
+              exitedAnywhereChars.add(charId);
+            }
+          } else if (unit.stageType === "entrance") {
+            for (const charId of getEffectiveCharacters(unit, edits)) {
+              enteredAnywhereChars.add(charId);
+            }
           }
         } else if (unit.type === "speech") {
           if ((cut.cutMap[unit.id] ?? "kept") === "kept") {
@@ -194,6 +201,9 @@ export function computeStageTime(
   for (const charId of speakingKeptChars) {
     if (!exitedAnywhereChars.has(charId)) {
       warnings.push({ characterId: charId, type: "no-exit" });
+    }
+    if (!enteredAnywhereChars.has(charId)) {
+      warnings.push({ characterId: charId, type: "no-entrance" });
     }
   }
 

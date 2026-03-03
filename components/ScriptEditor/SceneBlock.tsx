@@ -125,6 +125,24 @@ export default function SceneBlock({
     }
   }
 
+  // Pre-compute per-speech scene-relative line offsets for the running counter.
+  // Resets to 0 at the start of each scene; counts only kept lines.
+  const speechStartLines = (() => {
+    if (showOriginal) return new Map<string, number>();
+    const map = new Map<string, number>();
+    let running = 0;
+    for (const { unit, status, lineStatuses } of units) {
+      if (unit.type !== "speech") continue;
+      map.set(unit.id, running);
+      if (status === "kept") {
+        running += lineStatuses
+          ? lineStatuses.filter((ls) => ls.status === "kept").length
+          : unit.lineCount;
+      }
+    }
+    return map;
+  })();
+
   return (
     <div
       id={`scene-${scene.id}`}
@@ -212,6 +230,7 @@ export default function SceneBlock({
                   speechReassignment={showOriginal ? undefined : (speechReassignments?.[unit.id] ?? null)}
                   charsWithEntrance={charsWithEntrance}
                   onReassign={showOriginal ? undefined : onReassign}
+                  speechLineOffset={showOriginal ? undefined : speechStartLines.get(unit.id)}
                 />
               );
             } else {

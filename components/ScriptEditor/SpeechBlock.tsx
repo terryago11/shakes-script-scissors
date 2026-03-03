@@ -25,6 +25,8 @@ interface Props {
   /** Characters with at least one kept entrance SD — others get ⚠ in dropdown */
   charsWithEntrance?: Set<string>;
   onReassign?: (unitId: string, characterId: string | null) => void;
+  /** Scene-relative line offset for this speech (for running line counter every 5 lines) */
+  speechLineOffset?: number;
 }
 
 export default function SpeechBlock({
@@ -41,6 +43,7 @@ export default function SpeechBlock({
   speechReassignment,
   charsWithEntrance,
   onReassign,
+  speechLineOffset,
 }: Props) {
   const { viewMode } = useViewMode();
   const isCut = status === "cut";
@@ -109,6 +112,22 @@ export default function SpeechBlock({
     : null;
 
   const canReassign = !readonly && !cutModeActive && !!onReassign && !!castList && castList.length > 0;
+
+  // Running line counter: every 5 kept lines, show the scene-relative line number
+  const lineNumMap = new Map<string, number | null>();
+  if (speechLineOffset != null) {
+    let keptCount = 0;
+    for (const line of speech.lines) {
+      const ls = lineStatusMap.get(line.id) ?? "kept";
+      if (!isCut && ls === "kept") {
+        keptCount++;
+        const lineNum = speechLineOffset + keptCount;
+        lineNumMap.set(line.id, lineNum % 5 === 0 ? lineNum : null);
+      } else {
+        lineNumMap.set(line.id, null);
+      }
+    }
+  }
 
   return (
     <div className="group flex gap-3 py-2 px-2 rounded">
@@ -228,34 +247,41 @@ export default function SpeechBlock({
               ? applyEditsToLine(line.id, line.text, ops)
               : null;
 
+            const lineNum = lineNumMap.get(line.id) ?? null;
+            const lineContent = segments ? (
+              segments.map((seg, i) => {
+                if (seg.type === "kept") return <span key={i}>{seg.text}</span>;
+                if (seg.type === "cut") {
+                  if (viewMode === "clean") return null;
+                  return viewMode === "diff"
+                    ? <del key={i} className="text-red-500 bg-red-50 rounded">{seg.text}</del>
+                    : <del key={i} className="text-red-400 opacity-60">{seg.text}</del>;
+                }
+                if (seg.type === "insert") return viewMode === "diff"
+                  ? <ins key={i} className="text-green-700 bg-green-50 no-underline rounded px-0.5">{seg.text}</ins>
+                  : <ins key={i} className="text-green-600 no-underline underline decoration-green-400">{seg.text}</ins>;
+              })
+            ) : (
+              line.text
+            );
+
             return (
               <div
                 key={line.id}
                 data-line-id={line.id}
                 data-unit-id={speech.id}
                 data-cut={isCut ? "true" : undefined}
-                className={isLineCut
+                className={`flex items-baseline gap-1 ${isLineCut
                   ? viewMode === "diff"
                     ? "line-through text-red-500 bg-red-50 rounded px-0.5"
                     : "line-through text-red-400 opacity-60"
-                  : undefined}
+                  : ""}`}
               >
-                {segments ? (
-                  segments.map((seg, i) => {
-                    if (seg.type === "kept") return <span key={i}>{seg.text}</span>;
-                    if (seg.type === "cut") {
-                      // In clean mode, skip cut word segments
-                      if (viewMode === "clean") return null;
-                      return viewMode === "diff"
-                        ? <del key={i} className="text-red-500 bg-red-50 rounded">{seg.text}</del>
-                        : <del key={i} className="text-red-400 opacity-60">{seg.text}</del>;
-                    }
-                    if (seg.type === "insert") return viewMode === "diff"
-                      ? <ins key={i} className="text-green-700 bg-green-50 no-underline rounded px-0.5">{seg.text}</ins>
-                      : <ins key={i} className="text-green-600 no-underline underline decoration-green-400">{seg.text}</ins>;
-                  })
-                ) : (
-                  line.text
+                <span className="flex-1">{lineContent}</span>
+                {lineNum != null && (
+                  <span className="text-xs text-stone-300 tabular-nums select-none shrink-0 font-normal not-italic">
+                    {lineNum}
+                  </span>
                 )}
               </div>
             );

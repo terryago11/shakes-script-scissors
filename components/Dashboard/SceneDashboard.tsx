@@ -179,7 +179,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
   const pauseTotal = stageTime.pauseMinutes;
   const hasCuts = stageTime.totalMinutes < stageTime.originalTotalMinutes - 0.01;
 
-  const integrityWarnings = stageTime.warnings.filter((w) => w.type === "no-exit");
+  const integrityWarnings = stageTime.warnings;
 
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: "scenes", label: "Scenes & Pauses" },

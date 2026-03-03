@@ -30,14 +30,14 @@ export default function CharacterRow({ character, counts, isFiltered, onClick }:
           {character.name}
         </span>
         <span className="text-xs tabular-nums text-right shrink-0">
-          <span className={hasAdded ? "text-green-600 font-medium" : hasCut ? "text-stone-500" : "text-stone-500"}>
+          <span className={hasAdded ? "text-green-600 font-medium" : hasCut ? "text-red-500 font-medium" : "text-stone-500"}>
             {afterCut.toLocaleString()}
           </span>
           {(hasCut || hasAdded) && (
             <span className="text-stone-300"> / {original.toLocaleString()}</span>
           )}
           {hasCut && pctCut > 0 && (
-            <span className="text-stone-400"> −{pctCut}%</span>
+            <span className="text-red-400"> −{pctCut}%</span>
           )}
           {hasAdded && pctAdd > 0 && (
             <span className="text-green-500"> +{pctAdd}%</span>
@@ -47,7 +47,7 @@ export default function CharacterRow({ character, counts, isFiltered, onClick }:
       {/* Bar — full width below the name row */}
       <div className="h-1 bg-stone-100 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full ${hasAdded ? "bg-green-400" : isFiltered ? "bg-amber-400" : "bg-stone-400"}`}
+          className={`h-full rounded-full ${hasAdded ? "bg-green-400" : isFiltered ? "bg-amber-400" : hasCut ? "bg-red-300" : "bg-stone-400"}`}
           style={{ width: `${pctBar}%` }}
         />
       </div>
