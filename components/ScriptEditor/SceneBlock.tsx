@@ -215,7 +215,11 @@ export default function SceneBlock({
                 />
               );
             } else {
-              if (isFiltering) return null;
+              if (isFiltering) {
+                // Show entrance/exit SDs that mention a filtered character; hide all others
+                const hasFilteredChar = filteredCharacterIds && unit.characters.some((id) => filteredCharacterIds.has(id));
+                if (!hasFilteredChar) return null;
+              }
               // In clean mode, hide cut SDs — but not when showOriginal (we want all in original column)
               if (status === "cut" && viewMode === "clean" && !showOriginal) return null;
               return (

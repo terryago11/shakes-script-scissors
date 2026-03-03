@@ -123,19 +123,23 @@ export default function SpeechBlock({
         <div className="flex items-center gap-1.5 mb-1 min-w-0">
           <span
             className={`text-xs font-bold uppercase tracking-wider shrink-0 ${
-              isCut ? "text-red-400 opacity-60 line-through" : isContinuation ? "text-stone-300" : "text-stone-600"
+              isCut
+                ? "text-red-400 opacity-60 line-through"
+                : reassignedChar
+                  ? "text-red-400 line-through"
+                  : isContinuation ? "text-stone-300" : "text-stone-600"
             }`}
-            style={{ color: isCut || isContinuation ? undefined : actorColor || undefined }}
+            style={{ color: isCut || isContinuation || reassignedChar ? undefined : actorColor || undefined }}
           >
             {isContinuation && !isCut
               ? <span className="font-normal italic normal-case tracking-normal text-stone-300">{speech.characterName.toLowerCase()} cont.</span>
               : speech.characterName}
           </span>
 
-          {/* Reassignment indicator */}
+          {/* Reassignment indicator — green insertion style */}
           {reassignedChar && !isCut && (
-            <span className="text-xs text-amber-600 italic font-normal normal-case tracking-normal shrink-0">
-              → {reassignedChar.name}
+            <span className="text-xs text-green-700 font-bold uppercase tracking-wider shrink-0">
+              {reassignedChar.name}
             </span>
           )}
 

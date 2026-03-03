@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import type { Play, StageDirection } from "@/types/play";
 import { useProject } from "@/lib/project/ProjectStore";
 import { computeQuickChanges } from "@/lib/cuts/QuickChangeEngine";
+import { computeCuts } from "@/lib/cuts/CutEngine";
+import { computeStageTime } from "@/lib/cuts/StageTimeEngine";
 import { characterIdToName } from "@/lib/folger/TeiParser";
 import CharacterCard from "./CharacterCard";
 
@@ -100,25 +102,41 @@ export default function CastingManager({ playId }: Props) {
   // Only show characters that have at least one line
   const speakingCharIds = new Set<string>();
   const allSpeeches: Array<{ id: string; characterId: string }> = [];
+  // Collect entrance/exit SDs per character (using effective character list)
+  const sdsByChar = new Map<string, Array<{ id: string }>>();
   for (const act of play.acts) {
     for (const scene of act.scenes) {
       for (const unit of scene.units) {
         if (unit.type === "speech") {
           speakingCharIds.add(unit.characterId);
           allSpeeches.push({ id: unit.id, characterId: unit.characterId });
+        } else if (unit.type === "stage" && (unit.stageType === "entrance" || unit.stageType === "exit")) {
+          for (const charId of getEffectiveChars(unit, activeCut?.stageDirectionEdits)) {
+            if (!sdsByChar.has(charId)) sdsByChar.set(charId, []);
+            sdsByChar.get(charId)!.push({ id: unit.id });
+          }
         }
       }
     }
   }
   const speakingChars = play.castList.filter((c) => speakingCharIds.has(c.id));
 
-  // Fully-cut characters: all their speeches are marked "cut" in the active cut
+  // Fully-cut: all speeches AND all entrance/exit SDs for the character must be cut
   const fullyCutCharIds = new Set<string>(
     [...speakingCharIds].filter((charId) => {
       const speeches = allSpeeches.filter((s) => s.characterId === charId);
-      return speeches.length > 0 && speeches.every((s) => activeCut?.cutMap[s.id] === "cut");
+      const sds = sdsByChar.get(charId) ?? [];
+      const allSpeechesCut = speeches.length > 0 && speeches.every((s) => activeCut?.cutMap[s.id] === "cut");
+      const allSdsCut = sds.every((sd) => activeCut?.cutMap[sd.id] === "cut");
+      return allSpeechesCut && allSdsCut;
     })
   );
+
+  // Compute line/word/time counts for each character in this cut
+  const { lineCounts } = activeCut
+    ? computeCuts(play, activeCut, project.assignments, project.actors)
+    : { lineCounts: { byCharacter: {}, words: { byCharacter: {} } } as never };
+  const stageTime = activeCut ? computeStageTime(play, activeCut, project.settings) : null;
 
   // Build simultaneous map (chars that are ever on stage at the same moment in the cut)
   const simultaneousMap = computeSimultaneousMap(
@@ -311,6 +329,9 @@ export default function CastingManager({ playId }: Props) {
             conflictCount={conflictsPerChar.get(char.id) ?? 0}
             conflictingActorIds={getConflictingActorIds(char.id)}
             isFullyCut={fullyCutCharIds.has(char.id)}
+            lineCounts={lineCounts?.byCharacter[char.id] ?? { original: 0, afterCut: 0 }}
+            wordCounts={lineCounts?.words.byCharacter[char.id] ?? { original: 0, afterCut: 0 }}
+            stageMinutes={stageTime?.byCharacter[char.id]?.minutes}
           />
         ))}
       </div>

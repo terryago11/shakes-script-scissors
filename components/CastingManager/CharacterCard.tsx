@@ -11,6 +11,18 @@ interface Props {
   conflictingActorIds?: Set<string>;
   /** When true, all speeches for this character are cut — grey out and disable assignment */
   isFullyCut?: boolean;
+  /** Cut-only line count */
+  lineCounts?: { original: number; afterCut: number };
+  /** Cut-only word count */
+  wordCounts?: { original: number; afterCut: number };
+  /** Cut-only stage minutes */
+  stageMinutes?: number;
+}
+
+function fmtMins(m: number): string {
+  const r = Math.round(m);
+  if (r < 60) return `${r}m`;
+  return `${Math.floor(r / 60)}h ${r % 60}m`;
 }
 
 export default function CharacterCard({
@@ -21,6 +33,9 @@ export default function CharacterCard({
   conflictCount,
   conflictingActorIds,
   isFullyCut,
+  lineCounts,
+  wordCounts,
+  stageMinutes,
 }: Props) {
   const assignedActor = actors.find((a) => a.id === assignedActorId) || null;
   const assignmentConflicts =
@@ -57,6 +72,19 @@ export default function CharacterCard({
         </div>
         {assignedActor && (
           <div className="text-xs text-stone-400">{assignedActor.name}</div>
+        )}
+        {(lineCounts || wordCounts || stageMinutes != null) && !isFullyCut && (
+          <div className="text-xs text-stone-400 tabular-nums mt-0.5 flex gap-2">
+            {lineCounts && lineCounts.afterCut > 0 && (
+              <span>{lineCounts.afterCut.toLocaleString()} lines</span>
+            )}
+            {wordCounts && wordCounts.afterCut > 0 && (
+              <span>{wordCounts.afterCut.toLocaleString()} words</span>
+            )}
+            {stageMinutes != null && stageMinutes > 0.01 && (
+              <span>{fmtMins(stageMinutes)}</span>
+            )}
+          </div>
         )}
       </div>
 
