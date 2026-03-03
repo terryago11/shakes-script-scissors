@@ -74,6 +74,9 @@ export default function CastingManager({ playId }: Props) {
   const { project, activeCut, dispatch } = useProject();
   const [play, setPlay] = useState<Play | null>(null);
   const [newActorName, setNewActorName] = useState("");
+  const [editingActorId, setEditingActorId] = useState<string | null>(null);
+  const [editingActorName, setEditingActorName] = useState("");
+  const [confirmDeleteActorId, setConfirmDeleteActorId] = useState<string | null>(null);
   const threshold = project?.settings?.quickChangeThresholdMinutes ?? 2.0;
 
   useEffect(() => {
@@ -206,35 +209,109 @@ export default function CastingManager({ playId }: Props) {
 
         {project.actors.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {project.actors.map((actor) => (
-              <div
-                key={actor.id}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-stone-200 bg-white text-sm"
-              >
-                <label
-                  className="w-3 h-3 rounded-full cursor-pointer shrink-0 hover:ring-2 hover:ring-offset-1 hover:ring-stone-400 transition-shadow"
-                  style={{ backgroundColor: actor.color }}
-                  title="Click to change color"
+            {project.actors.map((actor) => {
+              const isEditing = editingActorId === actor.id;
+              const isConfirmingDelete = confirmDeleteActorId === actor.id;
+              const assignedCount = project.assignments.filter((a) => a.actorId === actor.id).length;
+
+              if (isConfirmingDelete) {
+                return (
+                  <div
+                    key={actor.id}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-red-300 bg-red-50 text-sm"
+                  >
+                    <span className="text-red-700 text-xs">
+                      Remove {actor.name}
+                      {assignedCount > 0 ? ` (${assignedCount} assigned char${assignedCount > 1 ? "s" : ""})` : ""}?
+                    </span>
+                    <button
+                      onClick={() => {
+                        dispatch({ type: "DELETE_ACTOR", actorId: actor.id });
+                        setConfirmDeleteActorId(null);
+                      }}
+                      className="text-xs text-red-600 font-medium hover:text-red-800"
+                    >
+                      Yes
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteActorId(null)}
+                      className="text-xs text-stone-400 hover:text-stone-600"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  key={actor.id}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-stone-200 bg-white text-sm"
                 >
-                  <input
-                    type="color"
-                    value={actor.color}
-                    onChange={(e) =>
-                      dispatch({ type: "UPDATE_ACTOR", actorId: actor.id, name: actor.name, color: e.target.value })
-                    }
-                    className="sr-only"
-                  />
-                </label>
-                <span className="text-stone-700">{actor.name}</span>
-                <button
-                  onClick={() => dispatch({ type: "DELETE_ACTOR", actorId: actor.id })}
-                  className="text-stone-300 hover:text-red-400 ml-1 text-xs"
-                  title="Remove actor"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
+                  <label
+                    className="w-3 h-3 rounded-full cursor-pointer shrink-0 hover:ring-2 hover:ring-offset-1 hover:ring-stone-400 transition-shadow"
+                    style={{ backgroundColor: actor.color }}
+                    title="Click to change color"
+                  >
+                    <input
+                      type="color"
+                      value={actor.color}
+                      onChange={(e) =>
+                        dispatch({ type: "UPDATE_ACTOR", actorId: actor.id, name: actor.name, color: e.target.value })
+                      }
+                      className="sr-only"
+                    />
+                  </label>
+                  {isEditing ? (
+                    <input
+                      autoFocus
+                      type="text"
+                      value={editingActorName}
+                      onChange={(e) => setEditingActorName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && editingActorName.trim()) {
+                          dispatch({ type: "UPDATE_ACTOR", actorId: actor.id, name: editingActorName.trim(), color: actor.color });
+                          setEditingActorId(null);
+                        } else if (e.key === "Escape") {
+                          setEditingActorId(null);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (editingActorName.trim()) {
+                          dispatch({ type: "UPDATE_ACTOR", actorId: actor.id, name: editingActorName.trim(), color: actor.color });
+                        }
+                        setEditingActorId(null);
+                      }}
+                      className="text-stone-700 bg-transparent border-b border-stone-400 focus:outline-none focus:border-amber-500 w-24 text-sm"
+                    />
+                  ) : (
+                    <span
+                      className="text-stone-700 cursor-text hover:text-stone-900"
+                      title="Click to rename"
+                      onClick={() => {
+                        setEditingActorId(actor.id);
+                        setEditingActorName(actor.name);
+                      }}
+                    >
+                      {actor.name}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (assignedCount > 0) {
+                        setConfirmDeleteActorId(actor.id);
+                      } else {
+                        dispatch({ type: "DELETE_ACTOR", actorId: actor.id });
+                      }
+                    }}
+                    className="text-stone-300 hover:text-red-400 ml-1 text-xs"
+                    title="Remove actor"
+                  >
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

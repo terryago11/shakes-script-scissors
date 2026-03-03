@@ -279,7 +279,7 @@ export default function SpeechBlock({
               >
                 <span className="flex-1">{lineContent}</span>
                 {lineNum != null && (
-                  <span className="text-xs text-stone-300 tabular-nums select-none shrink-0 font-normal not-italic">
+                  <span className="text-sm text-stone-400 tabular-nums select-none shrink-0 font-normal not-italic leading-none">
                     {lineNum}
                   </span>
                 )}
