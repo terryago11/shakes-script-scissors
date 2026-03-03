@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import type { Play, StageDirection } from "@/types/play";
 import { useProject } from "@/lib/project/ProjectStore";
 import { computeQuickChanges } from "@/lib/cuts/QuickChangeEngine";
+import { computeCuts } from "@/lib/cuts/CutEngine";
+import { computeStageTime } from "@/lib/cuts/StageTimeEngine";
 import { characterIdToName } from "@/lib/folger/TeiParser";
 import CharacterCard from "./CharacterCard";
 
@@ -72,6 +74,9 @@ export default function CastingManager({ playId }: Props) {
   const { project, activeCut, dispatch } = useProject();
   const [play, setPlay] = useState<Play | null>(null);
   const [newActorName, setNewActorName] = useState("");
+  const [editingActorId, setEditingActorId] = useState<string | null>(null);
+  const [editingActorName, setEditingActorName] = useState("");
+  const [confirmDeleteActorId, setConfirmDeleteActorId] = useState<string | null>(null);
   const threshold = project?.settings?.quickChangeThresholdMinutes ?? 2.0;
 
   useEffect(() => {
@@ -99,14 +104,42 @@ export default function CastingManager({ playId }: Props) {
 
   // Only show characters that have at least one line
   const speakingCharIds = new Set<string>();
+  const allSpeeches: Array<{ id: string; characterId: string }> = [];
+  // Collect entrance/exit SDs per character (using effective character list)
+  const sdsByChar = new Map<string, Array<{ id: string }>>();
   for (const act of play.acts) {
     for (const scene of act.scenes) {
       for (const unit of scene.units) {
-        if (unit.type === "speech") speakingCharIds.add(unit.characterId);
+        if (unit.type === "speech") {
+          speakingCharIds.add(unit.characterId);
+          allSpeeches.push({ id: unit.id, characterId: unit.characterId });
+        } else if (unit.type === "stage" && (unit.stageType === "entrance" || unit.stageType === "exit")) {
+          for (const charId of getEffectiveChars(unit, activeCut?.stageDirectionEdits)) {
+            if (!sdsByChar.has(charId)) sdsByChar.set(charId, []);
+            sdsByChar.get(charId)!.push({ id: unit.id });
+          }
+        }
       }
     }
   }
   const speakingChars = play.castList.filter((c) => speakingCharIds.has(c.id));
+
+  // Fully-cut: all speeches AND all entrance/exit SDs for the character must be cut
+  const fullyCutCharIds = new Set<string>(
+    [...speakingCharIds].filter((charId) => {
+      const speeches = allSpeeches.filter((s) => s.characterId === charId);
+      const sds = sdsByChar.get(charId) ?? [];
+      const allSpeechesCut = speeches.length > 0 && speeches.every((s) => activeCut?.cutMap[s.id] === "cut");
+      const allSdsCut = sds.every((sd) => activeCut?.cutMap[sd.id] === "cut");
+      return allSpeechesCut && allSdsCut;
+    })
+  );
+
+  // Compute line/word/time counts for each character in this cut
+  const { lineCounts } = activeCut
+    ? computeCuts(play, activeCut, project.assignments, project.actors)
+    : { lineCounts: { byCharacter: {}, words: { byCharacter: {} } } as never };
+  const stageTime = activeCut ? computeStageTime(play, activeCut, project.settings) : null;
 
   // Build simultaneous map (chars that are ever on stage at the same moment in the cut)
   const simultaneousMap = computeSimultaneousMap(
@@ -176,35 +209,110 @@ export default function CastingManager({ playId }: Props) {
 
         {project.actors.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {project.actors.map((actor) => (
-              <div
-                key={actor.id}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-stone-200 bg-white text-sm"
-              >
-                <label
-                  className="w-3 h-3 rounded-full cursor-pointer shrink-0 hover:ring-2 hover:ring-offset-1 hover:ring-stone-400 transition-shadow"
-                  style={{ backgroundColor: actor.color }}
-                  title="Click to change color"
+            {project.actors.map((actor) => {
+              const isEditing = editingActorId === actor.id;
+              const isConfirmingDelete = confirmDeleteActorId === actor.id;
+              const assignedCount = project.assignments.filter((a) => a.actorId === actor.id).length;
+
+              if (isConfirmingDelete) {
+                return (
+                  <div
+                    key={actor.id}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-red-300 bg-red-50 text-sm"
+                  >
+                    <span className="text-red-700 text-xs">
+                      Remove {actor.name}
+                      {assignedCount > 0 ? ` (${assignedCount} assigned char${assignedCount > 1 ? "s" : ""})` : ""}?
+                    </span>
+                    <button
+                      onClick={() => {
+                        dispatch({ type: "DELETE_ACTOR", actorId: actor.id });
+                        setConfirmDeleteActorId(null);
+                      }}
+                      className="text-xs text-red-600 font-medium hover:text-red-800"
+                    >
+                      Yes
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteActorId(null)}
+                      className="text-xs text-stone-400 hover:text-stone-600"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  key={actor.id}
+                  className="group/chip flex items-center gap-2 px-3 py-1.5 rounded-full border border-stone-200 bg-white text-sm"
                 >
-                  <input
-                    type="color"
-                    value={actor.color}
-                    onChange={(e) =>
-                      dispatch({ type: "UPDATE_ACTOR", actorId: actor.id, name: actor.name, color: e.target.value })
-                    }
-                    className="sr-only"
-                  />
-                </label>
-                <span className="text-stone-700">{actor.name}</span>
-                <button
-                  onClick={() => dispatch({ type: "DELETE_ACTOR", actorId: actor.id })}
-                  className="text-stone-300 hover:text-red-400 ml-1 text-xs"
-                  title="Remove actor"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
+                  <label
+                    className="w-3 h-3 rounded-full cursor-pointer shrink-0 hover:ring-2 hover:ring-offset-1 hover:ring-stone-400 transition-shadow"
+                    style={{ backgroundColor: actor.color }}
+                    title="Click to change color"
+                  >
+                    <input
+                      type="color"
+                      value={actor.color}
+                      onChange={(e) =>
+                        dispatch({ type: "UPDATE_ACTOR", actorId: actor.id, name: actor.name, color: e.target.value })
+                      }
+                      className="sr-only"
+                    />
+                  </label>
+                  {isEditing ? (
+                    <input
+                      autoFocus
+                      type="text"
+                      value={editingActorName}
+                      onChange={(e) => setEditingActorName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && editingActorName.trim()) {
+                          dispatch({ type: "UPDATE_ACTOR", actorId: actor.id, name: editingActorName.trim(), color: actor.color });
+                          setEditingActorId(null);
+                        } else if (e.key === "Escape") {
+                          setEditingActorId(null);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (editingActorName.trim()) {
+                          dispatch({ type: "UPDATE_ACTOR", actorId: actor.id, name: editingActorName.trim(), color: actor.color });
+                        }
+                        setEditingActorId(null);
+                      }}
+                      className="text-stone-700 bg-transparent border-b border-stone-400 focus:outline-none focus:border-amber-500 w-24 text-sm"
+                    />
+                  ) : (
+                    <span
+                      className="group/name flex items-center gap-1 cursor-text"
+                      title="Click to rename"
+                      onClick={() => {
+                        setEditingActorId(actor.id);
+                        setEditingActorName(actor.name);
+                      }}
+                    >
+                      <span className="text-stone-700 hover:text-stone-900">{actor.name}</span>
+                      <span className="text-stone-300 opacity-0 group-hover/name:opacity-100 transition-opacity text-xs select-none" aria-hidden>✎</span>
+                    </span>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (assignedCount > 0) {
+                        setConfirmDeleteActorId(actor.id);
+                      } else {
+                        dispatch({ type: "DELETE_ACTOR", actorId: actor.id });
+                      }
+                    }}
+                    className="text-stone-300 hover:text-red-400 ml-1 text-xs"
+                    title="Remove actor"
+                  >
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -298,6 +406,10 @@ export default function CastingManager({ playId }: Props) {
             }
             conflictCount={conflictsPerChar.get(char.id) ?? 0}
             conflictingActorIds={getConflictingActorIds(char.id)}
+            isFullyCut={fullyCutCharIds.has(char.id)}
+            lineCounts={lineCounts?.byCharacter[char.id] ?? { original: 0, afterCut: 0 }}
+            wordCounts={lineCounts?.words.byCharacter[char.id] ?? { original: 0, afterCut: 0 }}
+            stageMinutes={stageTime?.byCharacter[char.id]?.minutes}
           />
         ))}
       </div>

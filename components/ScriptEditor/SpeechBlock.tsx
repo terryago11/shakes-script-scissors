@@ -1,6 +1,7 @@
 "use client";
 
-import type { Speech } from "@/types/play";
+import { useState } from "react";
+import type { Character, Speech } from "@/types/play";
 import type { LineWithStatus } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
 import { applyEditsToLine } from "@/lib/cuts/applyEdits";
@@ -17,6 +18,15 @@ interface Props {
   onClearEdits?: (unitId: string) => void;
   isContinuation?: boolean;
   cutModeActive?: boolean;
+  /** Cast list for the reassign dropdown */
+  castList?: Character[];
+  /** Current reassignment for this speech (null = original character) */
+  speechReassignment?: string | null;
+  /** Characters with at least one kept entrance SD — others get ⚠ in dropdown */
+  charsWithEntrance?: Set<string>;
+  onReassign?: (unitId: string, characterId: string | null) => void;
+  /** Scene-relative line offset for this speech (for running line counter every 5 lines) */
+  speechLineOffset?: number;
 }
 
 export default function SpeechBlock({
@@ -29,10 +39,16 @@ export default function SpeechBlock({
   onClearEdits,
   isContinuation,
   cutModeActive,
+  castList,
+  speechReassignment,
+  charsWithEntrance,
+  onReassign,
+  speechLineOffset,
 }: Props) {
   const { viewMode } = useViewMode();
   const isCut = status === "cut";
   const readonly = onToggle === null;
+  const [showReassign, setShowReassign] = useState(false);
 
   // In clean mode, hide cut speeches entirely
   if (isCut && viewMode === "clean") return null;
@@ -90,6 +106,44 @@ export default function SpeechBlock({
   const displayKept = metric === "lines" ? keptLines : keptWords;
   const metricLabel = metric === "lines" ? "L" : "W";
 
+  // Reassignment label
+  const reassignedChar = speechReassignment
+    ? castList?.find((c) => c.id === speechReassignment)
+    : null;
+
+  const canReassign = !readonly && !cutModeActive && !!onReassign && !!castList && castList.length > 0;
+
+  // Shared name-rendering pieces — used in both the clickable and non-clickable char name
+  const nameClass = isCut
+    ? "text-red-400 opacity-60 line-through"
+    : reassignedChar
+      ? "text-red-400 line-through"
+      : isContinuation ? "text-stone-300" : "text-stone-600";
+  const nameColorStyle = isCut || isContinuation || reassignedChar ? undefined : actorColor || undefined;
+  const nameContent = isContinuation && !isCut
+    ? <span className="font-normal italic normal-case tracking-normal text-stone-300">{speech.characterName.toLowerCase()} cont.</span>
+    : <>{speech.characterName}</>;
+
+  // Running line counter: every 5 lines, show scene-relative line number.
+  // Standard mode counts ALL lines (cut or kept) so numbers match the full original text.
+  // Clean/diff modes count only KEPT lines in the current cut.
+  const countAllLines = viewMode === "standard";
+  const lineNumMap = new Map<string, number | null>();
+  if (speechLineOffset != null) {
+    let keptCount = 0;
+    for (const line of speech.lines) {
+      const ls = lineStatusMap.get(line.id) ?? "kept";
+      const shouldCount = countAllLines ? true : (!isCut && ls === "kept");
+      if (shouldCount) {
+        keptCount++;
+        const lineNum = speechLineOffset + keptCount;
+        lineNumMap.set(line.id, lineNum % 5 === 0 ? lineNum : null);
+      } else {
+        lineNumMap.set(line.id, null);
+      }
+    }
+  }
+
   return (
     <div className="group flex gap-3 py-2 px-2 rounded">
       {/* Actor color bar */}
@@ -99,18 +153,63 @@ export default function SpeechBlock({
       />
 
       <div className="flex-1 min-w-0">
-        {/* Character name header — name, line count, and restore all on the left */}
+        {/* Character name header */}
         <div className="flex items-center gap-1.5 mb-1 min-w-0">
-          <span
-            className={`text-xs font-bold uppercase tracking-wider shrink-0 ${
-              isCut ? "text-red-400 opacity-60 line-through" : isContinuation ? "text-stone-300" : "text-stone-600"
-            }`}
-            style={{ color: isCut || isContinuation ? undefined : actorColor || undefined }}
-          >
-            {isContinuation && !isCut
-              ? <span className="font-normal italic normal-case tracking-normal text-stone-300">{speech.characterName.toLowerCase()} cont.</span>
-              : speech.characterName}
-          </span>
+
+          {/* Character name — hover shows border + tiny icon above; click opens reassign.
+              Once reassigned, skip the affordance — use ↩ restore to go back instead. */}
+          {canReassign && !isCut && !reassignedChar ? (
+            showReassign ? (
+              <select
+                autoFocus
+                size={1}
+                onBlur={() => setShowReassign(false)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  onReassign!(speech.id, val === "__original__" ? null : val);
+                  setShowReassign(false);
+                }}
+                defaultValue={speechReassignment ?? "__original__"}
+                className="text-xs border border-amber-300 rounded px-1 py-0.5 bg-white text-stone-700 focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option value="__original__">— Original ({speech.characterName}) —</option>
+                {castList!.map((char) => {
+                  const noEntrance = charsWithEntrance ? !charsWithEntrance.has(char.id) : false;
+                  return (
+                    <option key={char.id} value={char.id}>
+                      {noEntrance ? "⚠ " : ""}{char.name}
+                    </option>
+                  );
+                })}
+              </select>
+            ) : (
+              <span
+                className="group/charname relative shrink-0 cursor-pointer rounded px-0.5 -mx-0.5 border border-transparent hover:border-stone-300 hover:bg-stone-50 transition-colors"
+                onClick={(e) => { e.stopPropagation(); setShowReassign(true); }}
+                title="Click to reassign this speech to another character"
+              >
+                {/* Tiny icon floats above the name on hover */}
+                <span className="absolute -top-3 inset-x-0 flex justify-center opacity-0 group-hover/charname:opacity-100 transition-opacity pointer-events-none">
+                  <span className="text-[9px] text-stone-400 leading-none">⇄</span>
+                </span>
+                <span className={`text-xs font-bold uppercase tracking-wider ${nameClass}`} style={{ color: nameColorStyle }}>
+                  {nameContent}
+                </span>
+              </span>
+            )
+          ) : (
+            <span className={`text-xs font-bold uppercase tracking-wider shrink-0 ${nameClass}`} style={{ color: nameColorStyle }}>
+              {nameContent}
+            </span>
+          )}
+
+          {/* Reassignment indicator — green insertion style */}
+          {reassignedChar && !isCut && (
+            <span className="text-xs text-green-700 font-bold uppercase tracking-wider shrink-0">
+              {reassignedChar.name}
+            </span>
+          )}
 
           {!isContinuation && (
             <span className="text-xs font-normal text-stone-400 normal-case tracking-normal shrink-0">
@@ -122,15 +221,17 @@ export default function SpeechBlock({
             </span>
           )}
 
-          {/* Restore button — right next to name, shown on hover when any part is cut */}
-          {!readonly && !cutModeActive && (isCut || hasWordEdits || hasLineCuts) && (
+          {/* Restore button — shown on hover when any part is cut or reassigned */}
+          {!readonly && !cutModeActive && (isCut || hasWordEdits || hasLineCuts || !!reassignedChar) && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (isCut) { onToggle?.(); } else { onClearEdits?.(speech.id); }
+                if (isCut) { onToggle?.(); }
+                if (hasWordEdits || hasLineCuts) { onClearEdits?.(speech.id); }
+                if (reassignedChar) { onReassign?.(speech.id, null); }
               }}
               className="opacity-0 group-hover:opacity-100 text-xs px-1.5 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 transition-all shrink-0"
-              title={isCut ? "Restore entire speech" : "Remove all cuts from this speech"}
+              title="Restore this speech"
             >
               ↩ restore
             </button>
@@ -157,34 +258,41 @@ export default function SpeechBlock({
               ? applyEditsToLine(line.id, line.text, ops)
               : null;
 
+            const lineNum = lineNumMap.get(line.id) ?? null;
+            const lineContent = segments ? (
+              segments.map((seg, i) => {
+                if (seg.type === "kept") return <span key={i}>{seg.text}</span>;
+                if (seg.type === "cut") {
+                  if (viewMode === "clean") return null;
+                  return viewMode === "diff"
+                    ? <del key={i} className="text-red-500 bg-red-50 rounded">{seg.text}</del>
+                    : <del key={i} className="text-red-400 opacity-60">{seg.text}</del>;
+                }
+                if (seg.type === "insert") return viewMode === "diff"
+                  ? <ins key={i} className="text-green-700 bg-green-50 no-underline rounded px-0.5">{seg.text}</ins>
+                  : <ins key={i} className="text-green-600 no-underline underline decoration-green-400">{seg.text}</ins>;
+              })
+            ) : (
+              line.text
+            );
+
             return (
               <div
                 key={line.id}
                 data-line-id={line.id}
                 data-unit-id={speech.id}
                 data-cut={isCut ? "true" : undefined}
-                className={isLineCut
+                className={`flex items-baseline gap-1 ${isLineCut
                   ? viewMode === "diff"
                     ? "line-through text-red-500 bg-red-50 rounded px-0.5"
                     : "line-through text-red-400 opacity-60"
-                  : undefined}
+                  : ""}`}
               >
-                {segments ? (
-                  segments.map((seg, i) => {
-                    if (seg.type === "kept") return <span key={i}>{seg.text}</span>;
-                    if (seg.type === "cut") {
-                      // In clean mode, skip cut word segments
-                      if (viewMode === "clean") return null;
-                      return viewMode === "diff"
-                        ? <del key={i} className="text-red-500 bg-red-50 rounded">{seg.text}</del>
-                        : <del key={i} className="text-red-400 opacity-60">{seg.text}</del>;
-                    }
-                    if (seg.type === "insert") return viewMode === "diff"
-                      ? <ins key={i} className="text-green-700 bg-green-50 no-underline rounded px-0.5">{seg.text}</ins>
-                      : <ins key={i} className="text-green-600 no-underline underline decoration-green-400">{seg.text}</ins>;
-                  })
-                ) : (
-                  line.text
+                <span className="flex-1">{lineContent}</span>
+                {lineNum != null && (
+                  <span className="text-sm text-stone-700 tabular-nums select-none shrink-0 font-normal not-italic leading-none">
+                    {lineNum}
+                  </span>
                 )}
               </div>
             );

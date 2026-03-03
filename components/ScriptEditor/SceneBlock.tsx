@@ -26,12 +26,18 @@ interface Props {
   focusedSceneId: string | null;
   /** When true, render all content as original (no cuts/edits applied) — for diff side-by-side */
   showOriginal?: boolean;
+  /** unitId → characterId reassignments */
+  speechReassignments?: Record<string, string>;
+  /** Character IDs that appear in at least one kept entrance SD */
+  charsWithEntrance?: Set<string>;
+  onReassign?: (unitId: string, characterId: string | null) => void;
 }
 
 export default function SceneBlock({
   scene, units, assignments, actors, castList, onToggle, speechEdits, onClearEdits,
   filteredCharacterIds, cutModeActive, sceneCounts,
   focusedSceneId, showOriginal,
+  speechReassignments, charsWithEntrance, onReassign,
 }: Props) {
   // Default to collapsed so after act re-expand, scenes are collapsed and user can pick
   const [collapsed, setCollapsed] = useState(false);
@@ -119,6 +125,29 @@ export default function SceneBlock({
     }
   }
 
+  // Pre-compute per-speech scene-relative line offsets for the running counter.
+  // Standard mode: count ALL lines (including cut) so numbers match the full original text.
+  // Clean/diff modes: count only KEPT lines in the current cut.
+  const speechStartLines = (() => {
+    if (showOriginal) return new Map<string, number>();
+    const countAllLines = viewMode === "standard";
+    const map = new Map<string, number>();
+    let running = 0;
+    for (const { unit, status, lineStatuses } of units) {
+      if (unit.type !== "speech") continue;
+      map.set(unit.id, running);
+      if (countAllLines) {
+        // All lines regardless of cut status
+        running += unit.lineCount;
+      } else if (status === "kept") {
+        running += lineStatuses
+          ? lineStatuses.filter((ls) => ls.status === "kept").length
+          : unit.lineCount;
+      }
+    }
+    return map;
+  })();
+
   return (
     <div
       id={`scene-${scene.id}`}
@@ -202,10 +231,19 @@ export default function SceneBlock({
                   onClearEdits={showOriginal ? undefined : onClearEdits}
                   isContinuation={continuationIds.has(unit.id)}
                   cutModeActive={showOriginal ? false : cutModeActive}
+                  castList={castList}
+                  speechReassignment={showOriginal ? undefined : (speechReassignments?.[unit.id] ?? null)}
+                  charsWithEntrance={charsWithEntrance}
+                  onReassign={showOriginal ? undefined : onReassign}
+                  speechLineOffset={showOriginal ? undefined : speechStartLines.get(unit.id)}
                 />
               );
             } else {
-              if (isFiltering) return null;
+              if (isFiltering) {
+                // Show entrance/exit SDs that mention a filtered character; hide all others
+                const hasFilteredChar = filteredCharacterIds && unit.characters.some((id) => filteredCharacterIds.has(id));
+                if (!hasFilteredChar) return null;
+              }
               // In clean mode, hide cut SDs — but not when showOriginal (we want all in original column)
               if (status === "cut" && viewMode === "clean" && !showOriginal) return null;
               return (

@@ -50,4 +50,6 @@ export interface Cut {
   stageDirectionEdits?: Record<string, string[]>;
   /** Named pauses inserted after specific scenes. Key format: "after:{sceneId}" */
   pauses?: Record<string, { name: string; minutes: number }>;
+  /** unitId → characterId: re-attributes a speech to a different character for cast planning */
+  speechReassignments?: Record<string, string>;
 }

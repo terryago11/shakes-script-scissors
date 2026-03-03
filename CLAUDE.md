@@ -93,7 +93,7 @@ components/
     ScriptEditor.tsx        ← orchestrates play, computes cuts + stage time; view-mode switch
     ActBlock.tsx            ← collapsible act; filters by character/focus
     SceneBlock.tsx          ← collapsible scene, focus mode, restore-all button
-    SpeechBlock.tsx         ← speech unit, line-level cuts, word-level edits
+    SpeechBlock.tsx         ← speech unit, line-level cuts, word-level edits, speech reassignment, running line counter
     StageDirectionBlock.tsx ← SD display; entrance/exit show character chips (add/remove)
     DiffView.tsx            ← side-by-side diff: modified (left) vs original (right)
   LineCounts/
@@ -101,13 +101,14 @@ components/
     CharacterRow.tsx        ← single character row with bar chart
     ActorRow.tsx            ← single actor row with bar chart
   CastingManager/
-    CastingManager.tsx      ← builds simultaneous-pairs map, computes conflict warnings
-    CharacterCard.tsx       ← actor dropdown with ⚠ prefix for conflicting actors
+    CastingManager.tsx      ← builds simultaneous-pairs map, computes conflict warnings; actor inline rename + delete-with-confirmation; passes line/word/time counts to CharacterCard
+    CharacterCard.tsx       ← actor dropdown with ⚠ prefix for conflicting actors; shows cut line/word/time counts inline
   Dashboard/
     SceneDashboard.tsx      ← orchestrator; builds charSceneMatrix + stageTime; metric/tab state
     SceneList.tsx           ← drag-reorder scene list; pause insertion between scenes
     DashboardMatrix.tsx     ← character × scene matrix; actor-grouped headers; totals; Table/Chart
     RehearsalGroupings.tsx  ← By Actor scene breakdown + Suggested Rehearsal Blocks (side-by-side)
+    IntegrityChecks.tsx     ← Integrity tab: side-by-side no-exit / no-entrance warning cards
 ```
 
 ## Stage Time Engine (`lib/cuts/StageTimeEngine.ts`)
@@ -123,6 +124,7 @@ On-stage tracking uses **entrance/exit SDs only** — no fallback from speech pr
 `StageTimeResult` returns:
 - `byCharacter`: `{ minutes, originalMinutes, scenes[] }` per character
 - `totalMinutes` / `originalTotalMinutes`: total show duration
+- `warnings`: `Array<{ characterId, type: "no-exit" | "no-entrance" }>` — characters with kept speeches but no matching entrance/exit SD anywhere in the play. Filtered to non-empty `characterId` to skip TEI data gaps (`<sp>` with no `who=` attribute).
 
 ## Doubling Conflict Detection (`CastingManager.tsx`)
 
@@ -176,7 +178,34 @@ Two sections rendered side-by-side:
 - **By Actor**: for each actor, list of scenes they appear in (via any of their characters) with cut-only line/word/time values and totals
 - **Suggested Rehearsal Blocks**: consecutive scenes sharing at least one actor are grouped into a single "block" (multi-scene blocks only); shows scene range, duration, actor chips, and per-scene breakdown
 
-`SceneDashboard.tsx` orchestrates both tabs: builds `charSceneMatrix` (via `buildCharSceneMatrix` helper) and `actorSceneMatrix` (for SceneList actor presence chips), calls `computeStageTime` and `computeCuts`, derives `cutSceneIds`.
+`SceneDashboard.tsx` orchestrates all tabs: builds `charSceneMatrix` (via `buildCharSceneMatrix` helper) and `actorSceneMatrix` (for SceneList actor presence chips), calls `computeStageTime` and `computeCuts`, derives `cutSceneIds`.
+
+### Tab 4 — Integrity (`IntegrityChecks.tsx`)
+Side-by-side columns: **Missing Exit SDs** (left) and **Missing Entrance SDs** (right). Each character appears as an expandable card showing:
+- Scenes where they have kept speeches
+- Known complementary SD locations (e.g. known entrance when exit is missing) with approximate scene-relative line number (`~l.N`)
+- "Both are missing" when neither SD exists
+
+Badge on the tab button shows total warning count. `buildCharDetails` uses `findSdsForChar()` to walk the play counting kept lines before each matching SD to compute the approximate line number.
+
+`buildCharSceneMatrix` respects `speechReassignments`: original counts go to `unit.characterId`, afterCut counts go to `reassignments[unit.id] ?? unit.characterId`. Fully-cut characters are defined as having all speeches cut AND all entrance/exit SDs cut.
+
+## Speech Reassignment (`SpeechBlock.tsx`)
+
+A speech can be reassigned to a different character via `Cut.speechReassignments?: Record<unitId, characterId>`. In the script view:
+- Hover the character name → faint border + `⇄` icon appears above the name; click to open a dropdown
+- Once reassigned: original name shown with red strikethrough, new name in green; hover affordance is hidden
+- `↩ restore` button appears on hover and clears the reassignment (plus any cuts) in one click
+- Reassignment is reflected in dashboard `buildCharSceneMatrix`: afterCut counts route to the new character, original counts stay on the original
+
+## Running Line Counter (`SceneBlock.tsx` + `SpeechBlock.tsx`)
+
+A right-aligned scene-relative line number appears every 5 lines, displayed in `text-stone-700`:
+- **Standard mode**: counts ALL lines (including cut ones) — numbers reflect position in the full original text
+- **Clean mode**: counts only kept lines — numbers reflect position in the cut script
+- **Diff mode**: left column counts kept lines; right column counts all lines (each column independent)
+
+`SceneBlock` pre-computes `speechStartLines: Map<unitId, offset>` before rendering; `SpeechBlock` receives the offset as `speechLineOffset` and builds `lineNumMap` per-line.
 
 ## Cue Script Format
 
@@ -195,9 +224,9 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
 - **Group 6**: README user-facing section; gitignore cleanup
 - **Group 7**: Save/Open Project UI; 3-mode view toggle (Standard / Clean / Diff); focus-mode scene counts in LineCountPanel; character filter hides empty acts; Time metric in act/scene headers; cue script entrance + exit SD cues; play title subtitle in nav; `characterIdToName` fallback for unrecognized stage-direction characters
 - **Group 8**: Scene Dashboard (`/dashboard`) with 3 subtabs — Scenes & Pauses (drag-reorder, pause insertion), Matrix (character × scene line/word/time counts, actor-grouped headers, column filter, row + column totals, Table/Chart toggle with sorted bar chart), Rehearsal (By Actor breakdown + Suggested Rehearsal Blocks side-by-side); scene reorder moved exclusively to Dashboard; metric toggle (Lines/Words/Time) in dashboard header
+- **Group 9**: Script Integrity — Dashboard Integrity tab (side-by-side no-exit / no-entrance warnings with scene/line location of complementary SD); speech reassignment (hover char name → dropdown, restore clears it); running scene-relative line counter every 5 lines (mode-aware: Standard=all lines, Clean/Diff=kept lines); fully-cut character defined as all speeches + all entrance/exit SDs cut; CharacterCard shows cut line/word/time counts; actor inline rename + delete-with-confirmation in CastingManager
 
 ### Not Started (Phase 3+)
-- **Group 9**: Script integrity (no-exit warning, all-cut grey-out, reassign speech)
 - **Group 10**: Global character rename (`characterAliases`); suggest minimum cast
 - **Group 11**: Self-contained HTML export; PDF export of cue scripts
 - **Stretch**: Insert text; Google Drive backup; SD "All" expansion; Settings panel (WPM UI)

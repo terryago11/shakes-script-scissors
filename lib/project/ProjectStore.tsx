@@ -36,7 +36,8 @@ type ProjectAction =
   | { type: "REPLACE_PROJECT"; project: Project }
   | { type: "SET_PAUSE"; afterSceneId: string; name: string; minutes: number }
   | { type: "REMOVE_PAUSE"; afterSceneId: string }
-  | { type: "UPDATE_SETTINGS"; settings: Partial<ProjectSettings> };
+  | { type: "UPDATE_SETTINGS"; settings: Partial<ProjectSettings> }
+  | { type: "REASSIGN_SPEECH"; unitId: string; characterId: string | null };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
   if (!state.project && action.type !== "LOAD" && action.type !== "REPLACE_PROJECT") {
@@ -141,6 +142,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         sceneOrder: source?.sceneOrder ? [...source.sceneOrder] : undefined,
         stageDirectionEdits: source?.stageDirectionEdits ? { ...source.stageDirectionEdits } : undefined,
         pauses: source?.pauses ? { ...source.pauses } : undefined,
+        speechReassignments: source?.speechReassignments ? { ...source.speechReassignments } : undefined,
       };
       const newProject = {
         ...p,
@@ -271,6 +273,19 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
           updatedAt: now(),
         },
       };
+    }
+
+    case "REASSIGN_SPEECH": {
+      const existing = state.project!.cuts.find((c) => c.id === state.activeCutId)?.speechReassignments ?? {};
+      if (action.characterId === null) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { [action.unitId]: _removed, ...rest } = existing;
+        return updateActiveCut(state, (c) => ({ ...c, speechReassignments: rest }));
+      }
+      return updateActiveCut(state, (c) => ({
+        ...c,
+        speechReassignments: { ...existing, [action.unitId]: action.characterId! },
+      }));
     }
 
     default:

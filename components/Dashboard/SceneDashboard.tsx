@@ -12,6 +12,7 @@ import DashboardMatrix from "./DashboardMatrix";
 import type { CharSceneData } from "./DashboardMatrix";
 import SceneList from "./SceneList";
 import RehearsalGroupings from "./RehearsalGroupings";
+import IntegrityChecks from "./IntegrityChecks";
 
 const DEFAULT_WPM = 135;
 
@@ -21,7 +22,7 @@ interface Props {
   activeCut: Cut;
 }
 
-type Tab = "scenes" | "matrix" | "rehearsal";
+type Tab = "scenes" | "matrix" | "rehearsal" | "integrity";
 
 /** Count words in a string (matches CutEngine logic) */
 function countWords(text: string): number {
@@ -35,10 +36,18 @@ function buildCharSceneMatrix(
   effectiveSceneOrder: string[],
 ): Map<string, Map<string, CharSceneData>> {
   const matrix = new Map<string, Map<string, CharSceneData>>();
+  const reassignments = cut.speechReassignments ?? {};
 
   const sceneById = new Map<string, Scene>();
   for (const act of play.acts) {
     for (const scene of act.scenes) sceneById.set(scene.id, scene);
+  }
+
+  function ensureEntry(charId: string, sceneId: string): CharSceneData {
+    if (!matrix.has(charId)) matrix.set(charId, new Map());
+    const charMap = matrix.get(charId)!;
+    if (!charMap.has(sceneId)) charMap.set(sceneId, { linesOrig: 0, linesAfterCut: 0, wordsOrig: 0, wordsAfterCut: 0 });
+    return charMap.get(sceneId)!;
   }
 
   for (const sceneId of effectiveSceneOrder) {
@@ -47,16 +56,9 @@ function buildCharSceneMatrix(
 
     for (const unit of scene.units) {
       if (unit.type !== "speech") continue;
-      const charId = unit.characterId;
 
-      if (!matrix.has(charId)) matrix.set(charId, new Map());
-      const charMap = matrix.get(charId)!;
-      const existing = charMap.get(sceneId) ?? {
-        linesOrig: 0,
-        linesAfterCut: 0,
-        wordsOrig: 0,
-        wordsAfterCut: 0,
-      };
+      const origCharId = unit.characterId;
+      const effectiveCharId = reassignments[unit.id] ?? origCharId;
 
       const origLines = unit.lineCount;
       const origWords = unit.lines.reduce((sum, l) => sum + countWords(l.text), 0);
@@ -72,12 +74,21 @@ function buildCharSceneMatrix(
         }
       }
 
-      charMap.set(sceneId, {
-        linesOrig: existing.linesOrig + origLines,
-        linesAfterCut: existing.linesAfterCut + keptLines,
-        wordsOrig: existing.wordsOrig + origWords,
-        wordsAfterCut: existing.wordsAfterCut + keptWords,
-      });
+      // Original counts always go to the original character
+      const origEntry = ensureEntry(origCharId, sceneId);
+      origEntry.linesOrig += origLines;
+      origEntry.wordsOrig += origWords;
+
+      // Cut counts go to the effective (possibly reassigned) character
+      if (effectiveCharId !== origCharId) {
+        origEntry.linesAfterCut += 0; // Original char loses these lines in cut
+        const effEntry = ensureEntry(effectiveCharId, sceneId);
+        effEntry.linesAfterCut += keptLines;
+        effEntry.wordsAfterCut += keptWords;
+      } else {
+        origEntry.linesAfterCut += keptLines;
+        origEntry.wordsAfterCut += keptWords;
+      }
     }
   }
 
@@ -168,10 +179,13 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
   const pauseTotal = stageTime.pauseMinutes;
   const hasCuts = stageTime.totalMinutes < stageTime.originalTotalMinutes - 0.01;
 
+  const integrityWarnings = stageTime.warnings;
+
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: "scenes", label: "Scenes & Pauses" },
     { key: "matrix", label: "Matrix" },
     { key: "rehearsal", label: "Rehearsal" },
+    { key: "integrity", label: integrityWarnings.length > 0 ? `Integrity ⚠ ${integrityWarnings.length}` : "Integrity" },
   ];
 
   return (
@@ -291,6 +305,15 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           lineCounts={lineCounts}
           metric={metric}
           wpm={wpm}
+        />
+      )}
+
+      {/* Tab: Integrity */}
+      {tab === "integrity" && (
+        <IntegrityChecks
+          play={play}
+          activeCut={activeCut}
+          stageTime={stageTime}
         />
       )}
     </div>

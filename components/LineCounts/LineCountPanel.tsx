@@ -10,6 +10,7 @@ import { characterIdToName } from "@/lib/folger/TeiParser";
 import CharacterRow from "./CharacterRow";
 import ActorRow from "./ActorRow";
 
+
 type FilterState = { type: "character"; id: string } | { type: "actor"; id: string } | null;
 
 interface Props {

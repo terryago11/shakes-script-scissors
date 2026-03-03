@@ -9,6 +9,20 @@ interface Props {
   conflictCount?: number;
   /** Actor IDs that would cause a doubling conflict with this character */
   conflictingActorIds?: Set<string>;
+  /** When true, all speeches for this character are cut — grey out and disable assignment */
+  isFullyCut?: boolean;
+  /** Cut-only line count */
+  lineCounts?: { original: number; afterCut: number };
+  /** Cut-only word count */
+  wordCounts?: { original: number; afterCut: number };
+  /** Cut-only stage minutes */
+  stageMinutes?: number;
+}
+
+function fmtMins(m: number): string {
+  const r = Math.round(m);
+  if (r < 60) return `${r}m`;
+  return `${Math.floor(r / 60)}h ${r % 60}m`;
 }
 
 export default function CharacterCard({
@@ -18,13 +32,19 @@ export default function CharacterCard({
   onAssign,
   conflictCount,
   conflictingActorIds,
+  isFullyCut,
+  lineCounts,
+  wordCounts,
+  stageMinutes,
 }: Props) {
   const assignedActor = actors.find((a) => a.id === assignedActorId) || null;
   const assignmentConflicts =
     assignedActorId != null && (conflictingActorIds?.has(assignedActorId) ?? false);
 
   return (
-    <div className="border border-stone-200 rounded-lg bg-white px-4 py-3 flex items-center gap-3">
+    <div className={`border rounded-lg bg-white px-4 py-3 flex items-center gap-3 ${
+      isFullyCut ? "border-stone-100 opacity-50" : "border-stone-200"
+    }`}>
       {/* Actor color swatch */}
       <div
         className="w-3 h-3 rounded-full shrink-0 border border-stone-200"
@@ -33,10 +53,15 @@ export default function CharacterCard({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm font-semibold text-stone-700 truncate">
+          <span className={`text-sm font-semibold truncate ${isFullyCut ? "text-stone-400 italic" : "text-stone-700"}`}>
             {character.name}
           </span>
-          {(conflictCount ?? 0) > 0 && (
+          {isFullyCut && (
+            <span className="text-xs text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded font-normal shrink-0">
+              fully cut
+            </span>
+          )}
+          {!isFullyCut && (conflictCount ?? 0) > 0 && (
             <span
               className="text-xs text-amber-600 font-medium shrink-0"
               title={`${conflictCount} doubling conflict${conflictCount! > 1 ? "s" : ""} — this actor is on stage as two characters simultaneously`}
@@ -48,12 +73,26 @@ export default function CharacterCard({
         {assignedActor && (
           <div className="text-xs text-stone-400">{assignedActor.name}</div>
         )}
+        {(lineCounts || wordCounts || stageMinutes != null) && !isFullyCut && (
+          <div className="text-xs text-stone-400 tabular-nums mt-0.5 flex gap-2">
+            {lineCounts && lineCounts.afterCut > 0 && (
+              <span>{lineCounts.afterCut.toLocaleString()} lines</span>
+            )}
+            {wordCounts && wordCounts.afterCut > 0 && (
+              <span>{wordCounts.afterCut.toLocaleString()} words</span>
+            )}
+            {stageMinutes != null && stageMinutes > 0.01 && (
+              <span>{fmtMins(stageMinutes)}</span>
+            )}
+          </div>
+        )}
       </div>
 
       <select
         value={assignedActorId || ""}
         onChange={(e) => onAssign(e.target.value || null)}
-        className={`text-xs border rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 ${
+        disabled={isFullyCut}
+        className={`text-xs border rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:cursor-not-allowed ${
           assignmentConflicts
             ? "border-amber-400 text-amber-700"
             : "border-stone-300 text-stone-600"

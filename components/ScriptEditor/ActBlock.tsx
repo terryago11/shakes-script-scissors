@@ -28,12 +28,18 @@ interface Props {
   showOriginal?: boolean;
   /** Named pauses keyed by "after:{sceneId}" — shown between SceneBlocks */
   pauses?: Record<string, { name: string; minutes: number }>;
+  /** unitId → characterId reassignments for line count attribution */
+  speechReassignments?: Record<string, string>;
+  /** Character IDs that appear in at least one kept entrance SD */
+  charsWithEntrance?: Set<string>;
+  onReassign?: (unitId: string, characterId: string | null) => void;
 }
 
 export default function ActBlock({
   act, scenes, unitsByScene, assignments, actors, castList, onToggle, speechEdits, onClearEdits,
   filteredCharacterIds, cutModeActive, lineCounts,
   focusedSceneId, showOriginal, pauses,
+  speechReassignments, charsWithEntrance, onReassign,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   // Generation increments each time act collapses → SceneBlocks remount in collapsed state
@@ -144,6 +150,9 @@ export default function ActBlock({
                   sceneCounts={showOriginal ? undefined : lineCounts?.byScene[scene.id]}
                   focusedSceneId={focusedSceneId}
                   showOriginal={showOriginal}
+                  speechReassignments={showOriginal ? undefined : speechReassignments}
+                  charsWithEntrance={charsWithEntrance}
+                  onReassign={showOriginal ? undefined : onReassign}
                 />
                 {pauseEntry && (
                   <PauseIndicator name={pauseEntry.name} minutes={pauseEntry.minutes} />
