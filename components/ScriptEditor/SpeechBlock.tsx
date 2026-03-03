@@ -156,8 +156,9 @@ export default function SpeechBlock({
         {/* Character name header */}
         <div className="flex items-center gap-1.5 mb-1 min-w-0">
 
-          {/* Character name — hover shows border + tiny icon above; click opens reassign */}
-          {canReassign && !isCut ? (
+          {/* Character name — hover shows border + tiny icon above; click opens reassign.
+              Once reassigned, skip the affordance — use ↩ restore to go back instead. */}
+          {canReassign && !isCut && !reassignedChar ? (
             showReassign ? (
               <select
                 autoFocus
@@ -220,15 +221,17 @@ export default function SpeechBlock({
             </span>
           )}
 
-          {/* Restore button — shown on hover when any part is cut */}
-          {!readonly && !cutModeActive && (isCut || hasWordEdits || hasLineCuts) && (
+          {/* Restore button — shown on hover when any part is cut or reassigned */}
+          {!readonly && !cutModeActive && (isCut || hasWordEdits || hasLineCuts || !!reassignedChar) && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (isCut) { onToggle?.(); } else { onClearEdits?.(speech.id); }
+                if (isCut) { onToggle?.(); }
+                if (hasWordEdits || hasLineCuts) { onClearEdits?.(speech.id); }
+                if (reassignedChar) { onReassign?.(speech.id, null); }
               }}
               className="opacity-0 group-hover:opacity-100 text-xs px-1.5 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 transition-all shrink-0"
-              title={isCut ? "Restore entire speech" : "Remove all cuts from this speech"}
+              title="Restore this speech"
             >
               ↩ restore
             </button>
