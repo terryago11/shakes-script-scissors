@@ -1,5 +1,7 @@
 export interface ProjectSettings {
   wordsPerMinute: number;
+  /** Minutes below which an actor quick-change is flagged as a warning. Defaults to 2.0 at usage site. */
+  quickChangeThresholdMinutes?: number;
 }
 
 export interface Project {
@@ -46,4 +48,6 @@ export interface Cut {
   sceneOrder?: string[];
   /** stageId → effective character list (full override of StageDirection.characters) */
   stageDirectionEdits?: Record<string, string[]>;
+  /** Named pauses inserted after specific scenes. Key format: "after:{sceneId}" */
+  pauses?: Record<string, { name: string; minutes: number }>;
 }

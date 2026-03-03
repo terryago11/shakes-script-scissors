@@ -72,6 +72,7 @@ function ProjectNav({
   const { cutModeActive } = useCutMode();
 
   const otherNavLinks = [
+    { href: `/projects/${projectId}/dashboard`, label: "Dashboard" },
     { href: `/projects/${projectId}/casting`, label: "Casting" },
     { href: `/projects/${projectId}/export`, label: "Cue Scripts" },
   ];

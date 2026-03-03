@@ -26,20 +26,12 @@ interface Props {
   focusedSceneId: string | null;
   /** When true, render all content as original (no cuts/edits applied) — for diff side-by-side */
   showOriginal?: boolean;
-  // Drag-and-drop reorder
-  isDragOver?: boolean;
-  onDragStart?: (e: React.DragEvent) => void;
-  onDragOver?: (e: React.DragEvent) => void;
-  onDragLeave?: () => void;
-  onDrop?: (e: React.DragEvent) => void;
-  onDragEnd?: () => void;
 }
 
 export default function SceneBlock({
   scene, units, assignments, actors, castList, onToggle, speechEdits, onClearEdits,
   filteredCharacterIds, cutModeActive, sceneCounts,
   focusedSceneId, showOriginal,
-  isDragOver, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
 }: Props) {
   // Default to collapsed so after act re-expand, scenes are collapsed and user can pick
   const [collapsed, setCollapsed] = useState(false);
@@ -128,33 +120,14 @@ export default function SceneBlock({
   }
 
   return (
-    <div className="relative">
-      {isDragOver && (
-        <div className="pointer-events-none absolute -top-3 left-0 right-0 h-0.5 bg-amber-400 z-10 rounded-full" />
-      )}
-      <div
-        id={`scene-${scene.id}`}
-        draggable={!showOriginal && !cutModeActive}
-        onDragStart={onDragStart}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        onDragEnd={onDragEnd}
-        className={`border rounded-lg transition-colors ${
-          isFullyCut ? "border-stone-200 bg-stone-50" : "border-stone-100 bg-white"
-        }`}
-      >
-      {/* Header row: drag handle + collapse button + restore-all + focus (separate so buttons don't nest) */}
+    <div
+      id={`scene-${scene.id}`}
+      className={`border rounded-lg transition-colors ${
+        isFullyCut ? "border-stone-200 bg-stone-50" : "border-stone-100 bg-white"
+      }`}
+    >
+      {/* Header row: collapse button + restore-all + focus */}
       <div className={`group flex items-center rounded-lg ${isFullyCut ? "opacity-50" : ""}`}>
-        {/* Drag handle */}
-        {!showOriginal && !cutModeActive && (
-          <div
-            className="opacity-0 group-hover:opacity-100 pl-2 py-3 cursor-grab text-stone-300 hover:text-stone-500 select-none shrink-0 transition-opacity"
-            title="Drag to reorder scene"
-          >
-            ⠿
-          </div>
-        )}
         <button
           onClick={() => setCollapsed((c) => !c)}
           className="flex items-center gap-3 flex-1 text-left px-4 py-3 hover:bg-stone-50 rounded-lg"
@@ -248,7 +221,6 @@ export default function SceneBlock({
           })}
         </div>
       )}
-      </div>
     </div>
   );
 }

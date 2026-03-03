@@ -6,13 +6,29 @@ A tool for directors and dramaturgs to cut Shakespeare scripts for production.
 
 ShakesScriptScissors lets you work through any of the 37 Folger Shakespeare texts and build a production cut interactively:
 
-- **Cut speeches and lines** — mark what's out; the tool tracks before/after counts (lines, words, minutes) automatically
+### Cutting the script
+- **Cut speeches and lines** — mark what's out at the speech or individual-line level; the tool tracks before/after counts (lines, words, minutes) automatically
+- **Word-level edits** — make track-changes edits within individual lines for fine-grained alterations
 - **Three view modes** — Standard (strikethrough), Clean (cuts hidden, final script only), or Diff (side-by-side comparison with original)
-- **Multiple versions** — keep several cuts side by side (e.g. "Workshop draft", "Final cut") and clone between them
-- **Assign actors to roles** — set up your company and handle double-casting; conflict warnings flag characters ever on stage simultaneously
-- **Running time** — stage-time tracking from entrance/exit stage directions shows per-character and total show duration, cut vs. original
-- **Scene focus** — zoom in on one scene; line/word/time counts update to reflect that scene only
-- **Export cue scripts** — generate a personal script for each actor showing only their lines plus the last few words before each entrance, exit, and speech
+- **Multiple cut versions** — keep several cuts side by side (e.g. "Workshop draft", "Final cut") and switch between them from the nav bar
+
+### Casting
+- **Assign actors to roles** — set up your company and handle double-casting; each actor gets a colour that carries through all views
+- **Conflict warnings** — characters ever simultaneously on stage are flagged; actor dropdowns show a ⚠ pre-warning before you create a clash
+- **Stage direction editor** — add or remove characters from individual entrance/exit stage directions to fix gaps in the TEI data
+
+### Metrics
+- **Running time** — stage-time tracking from entrance/exit stage directions shows per-character and total show duration, cut vs. original; configurable words-per-minute rate
+- **Lines / Words / Time toggle** — switch between metrics throughout the app; counts appear on act and scene headers as well as the side panel
+- **Scene focus** — zoom in on one scene; all counts update to reflect that scene only
+
+### Scene Dashboard
+- **Scenes & Pauses** — see all scenes in order with their cut counts; drag to reorder scenes; insert named pauses (intermission, breaks) between scenes with a duration that adds to total running time
+- **Matrix** — character × scene grid showing who speaks (or is on stage) in each scene; columns group by actor; click a column to filter; row and column totals; toggle between Table and Chart views
+- **Rehearsal planner** — per-actor scene breakdown and suggested rehearsal blocks (consecutive scenes sharing cast members)
+
+### Export
+- **Export cue scripts** — generate a personal script for each actor showing only their lines plus the last few words before each entrance, exit, and speech (printed directly from the browser)
 - **Save / Open Project** — download your cut as a `.sss.json` file and reopen it later; share with collaborators or import on another machine
 
 **The tool currently runs locally** — there's no website to visit yet. Ask a developer on your team to set it up (see the Setup section below). Once it's running, you just open a browser and use it like any other web app. Your work is saved automatically in the browser and can be exported as a file for safekeeping.

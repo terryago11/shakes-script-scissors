@@ -4,20 +4,30 @@ import type { Cut, ProjectSettings } from "@/types/project";
 const AVG_WORDS_PER_LINE = 8;
 const DEFAULT_WPM = 135;
 
+export interface SceneStageTime {
+  sceneId: string;
+  /** On-stage minutes in the cut script for this scene */
+  minutes: number;
+  /** On-stage minutes in the uncut script for this scene */
+  originalMinutes: number;
+}
+
 export interface CharacterStageTime {
   characterId: string;
   /** On-stage minutes in the cut script */
   minutes: number;
   /** On-stage minutes in the uncut script */
   originalMinutes: number;
-  /** Scene IDs in which this character was on stage */
-  scenes: string[];
+  /** Per-scene breakdown */
+  scenes: SceneStageTime[];
 }
 
 export interface StageTimeResult {
   byCharacter: Record<string, CharacterStageTime>;
   totalMinutes: number;
   originalTotalMinutes: number;
+  /** Total minutes added by pauses (already included in totalMinutes) */
+  pauseMinutes: number;
 }
 
 /** Returns the effective character list for an SD, applying any overrides from the cut. */
@@ -43,6 +53,10 @@ export function computeStageTime(
   const byCharacter: Record<string, CharacterStageTime> = {};
   let totalMinutes = 0;
   let originalTotalMinutes = 0;
+
+  // Per-scene minute accumulators: sceneId → charId → minutes
+  const sceneMinByChar: Record<string, Record<string, number>> = {};
+  const sceneOrigMinByChar: Record<string, Record<string, number>> = {};
 
   // Effective scene order (custom or TEI default)
   const defaultSceneOrder = play.acts.flatMap((act) => act.scenes.map((s) => s.id));
@@ -94,10 +108,11 @@ export function computeStageTime(
         // ── Original: accumulate for ALL speeches ──────────────────────────
         const origMinutes = (unit.lineCount * AVG_WORDS_PER_LINE) / wpm;
         originalTotalMinutes += origMinutes;
+        if (!sceneOrigMinByChar[sceneId]) sceneOrigMinByChar[sceneId] = {};
         for (const charId of onStageOrig) {
           const entry = ensureChar(byCharacter, charId);
           entry.originalMinutes += origMinutes;
-          if (!entry.scenes.includes(sceneId)) entry.scenes.push(sceneId);
+          sceneOrigMinByChar[sceneId][charId] = (sceneOrigMinByChar[sceneId][charId] ?? 0) + origMinutes;
         }
 
         // ── Cut: only for kept speeches ────────────────────────────────────
@@ -113,16 +128,45 @@ export function computeStageTime(
         const cutMinutes = (keptLines * AVG_WORDS_PER_LINE) / wpm;
         totalMinutes += cutMinutes;
 
+        if (!sceneMinByChar[sceneId]) sceneMinByChar[sceneId] = {};
         // Accumulate for ALL characters currently on stage (cut version)
         for (const charId of onStage) {
           const entry = ensureChar(byCharacter, charId);
           entry.minutes += cutMinutes;
-          if (!entry.scenes.includes(sceneId)) entry.scenes.push(sceneId);
+          sceneMinByChar[sceneId][charId] = (sceneMinByChar[sceneId][charId] ?? 0) + cutMinutes;
         }
       }
     }
     // Characters remaining in onStage at scene end are assumed to exit at scene end
   }
 
-  return { byCharacter, totalMinutes, originalTotalMinutes };
+  // Build per-scene SceneStageTime[] for each character
+  const allCharIds = new Set([
+    ...Object.keys(sceneMinByChar).flatMap((sid) => Object.keys(sceneMinByChar[sid])),
+    ...Object.keys(sceneOrigMinByChar).flatMap((sid) => Object.keys(sceneOrigMinByChar[sid])),
+  ]);
+  for (const charId of allCharIds) {
+    const entry = ensureChar(byCharacter, charId);
+    entry.scenes = effectiveSceneOrder
+      .filter((sid) => (sceneMinByChar[sid]?.[charId] ?? 0) > 0 || (sceneOrigMinByChar[sid]?.[charId] ?? 0) > 0)
+      .map((sid) => ({
+        sceneId: sid,
+        minutes: sceneMinByChar[sid]?.[charId] ?? 0,
+        originalMinutes: sceneOrigMinByChar[sid]?.[charId] ?? 0,
+      }));
+  }
+
+  // Add pause minutes to cut running time only (original is unaffected)
+  let pauseMinutes = 0;
+  if (cut.pauses) {
+    for (const [key, pause] of Object.entries(cut.pauses)) {
+      const sceneId = key.replace(/^after:/, "");
+      if (effectiveSceneOrder.includes(sceneId)) {
+        pauseMinutes += pause.minutes;
+      }
+    }
+  }
+  totalMinutes += pauseMinutes;
+
+  return { byCharacter, totalMinutes, originalTotalMinutes, pauseMinutes };
 }
