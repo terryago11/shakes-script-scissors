@@ -52,4 +52,6 @@ export interface Cut {
   pauses?: Record<string, { name: string; minutes: number }>;
   /** unitId → characterId: re-attributes a speech to a different character for cast planning */
   speechReassignments?: Record<string, string>;
+  /** characterId → display name override for this cut; never alters underlying Play data */
+  characterAliases?: Record<string, string>;
 }

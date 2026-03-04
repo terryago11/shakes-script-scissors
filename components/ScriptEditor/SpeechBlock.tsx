@@ -7,6 +7,7 @@ import type { SpeechEdit } from "@/types/edit";
 import { applyEditsToLine } from "@/lib/cuts/applyEdits";
 import { useMetric } from "@/lib/ui/MetricContext";
 import { useViewMode } from "@/lib/ui/ViewModeContext";
+import { resolveCharacterName } from "@/lib/project/projectUtils";
 
 interface Props {
   speech: Speech;
@@ -27,6 +28,8 @@ interface Props {
   onReassign?: (unitId: string, characterId: string | null) => void;
   /** Scene-relative line offset for this speech (for running line counter every 5 lines) */
   speechLineOffset?: number;
+  /** Cut-level character display-name aliases */
+  characterAliases?: Record<string, string>;
 }
 
 export default function SpeechBlock({
@@ -44,6 +47,7 @@ export default function SpeechBlock({
   charsWithEntrance,
   onReassign,
   speechLineOffset,
+  characterAliases,
 }: Props) {
   const { viewMode } = useViewMode();
   const isCut = status === "cut";
@@ -113,6 +117,12 @@ export default function SpeechBlock({
 
   const canReassign = !readonly && !cutModeActive && !!onReassign && !!castList && castList.length > 0;
 
+  // Resolve display name: alias overrides castList name (falls back via resolveCharacterName)
+  const resolvedSpeakerName = resolveCharacterName(speech.characterId, characterAliases, castList ?? []);
+  const resolvedReassignedName = reassignedChar
+    ? resolveCharacterName(reassignedChar.id, characterAliases, castList ?? [])
+    : null;
+
   // Shared name-rendering pieces — used in both the clickable and non-clickable char name
   const nameClass = isCut
     ? "text-red-400 opacity-60 line-through"
@@ -121,8 +131,8 @@ export default function SpeechBlock({
       : isContinuation ? "text-stone-300" : "text-stone-600";
   const nameColorStyle = isCut || isContinuation || reassignedChar ? undefined : actorColor || undefined;
   const nameContent = isContinuation && !isCut
-    ? <span className="font-normal italic normal-case tracking-normal text-stone-300">{speech.characterName.toLowerCase()} cont.</span>
-    : <>{speech.characterName}</>;
+    ? <span className="font-normal italic normal-case tracking-normal text-stone-300">{resolvedSpeakerName.toLowerCase()} cont.</span>
+    : <>{resolvedSpeakerName}</>;
 
   // Running line counter: every 5 lines, show scene-relative line number.
   // Standard mode counts ALL lines (cut or kept) so numbers match the full original text.
@@ -173,12 +183,13 @@ export default function SpeechBlock({
                 className="text-xs border border-amber-300 rounded px-1 py-0.5 bg-white text-stone-700 focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
                 onClick={(e) => e.stopPropagation()}
               >
-                <option value="__original__">— Original ({speech.characterName}) —</option>
+                <option value="__original__">— Original ({resolvedSpeakerName}) —</option>
                 {castList!.map((char) => {
                   const noEntrance = charsWithEntrance ? !charsWithEntrance.has(char.id) : false;
+                  const charDisplay = resolveCharacterName(char.id, characterAliases, castList!);
                   return (
                     <option key={char.id} value={char.id}>
-                      {noEntrance ? "⚠ " : ""}{char.name}
+                      {noEntrance ? "⚠ " : ""}{charDisplay}
                     </option>
                   );
                 })}
@@ -207,7 +218,7 @@ export default function SpeechBlock({
           {/* Reassignment indicator — green insertion style */}
           {reassignedChar && !isCut && (
             <span className="text-xs text-green-700 font-bold uppercase tracking-wider shrink-0">
-              {reassignedChar.name}
+              {resolvedReassignedName}
             </span>
           )}
 

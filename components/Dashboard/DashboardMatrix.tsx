@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import type { Act, Character, Scene } from "@/types/play";
 import type { Actor, ActorAssignment } from "@/types/project";
+import { resolveCharacterName } from "@/lib/project/projectUtils";
 import type { CharacterStageTime } from "@/lib/cuts/StageTimeEngine";
 
 export interface CharSceneData {
@@ -28,6 +29,8 @@ interface Props {
   metric: "lines" | "words" | "time";
   /** Scene IDs where all speeches are cut (dim these rows) */
   cutSceneIds: Set<string>;
+  /** Cut-level character display-name aliases */
+  characterAliases?: Record<string, string>;
 }
 
 function fmtMins(m: number): string {
@@ -52,6 +55,7 @@ export default function DashboardMatrix({
   pauses,
   metric,
   cutSceneIds,
+  characterAliases,
 }: Props) {
   const [filterCharId, setFilterCharId] = useState<string | null>(null);
   const [viewType, setViewType] = useState<ViewType>("table");
@@ -198,7 +202,7 @@ export default function DashboardMatrix({
           <div className="flex items-center gap-2">
             <span className="text-xs text-stone-500">
               Filtering to scenes with{" "}
-              <span className="font-medium">{charById.get(filterCharId)?.name ?? filterCharId}</span>
+              <span className="font-medium">{resolveCharacterName(filterCharId, characterAliases, characters)}</span>
             </span>
             <button
               onClick={() => setFilterCharId(null)}
@@ -214,7 +218,7 @@ export default function DashboardMatrix({
         /* ── Chart view ── */
         <div className="max-w-2xl space-y-1.5">
           {charTotals.map(({ charId, total, actor }) => {
-            const char = charById.get(charId);
+            const charDisplayName = resolveCharacterName(charId, characterAliases, characters);
             const barPct = (total / maxTotal) * 100;
             return (
               <div key={charId} className="flex items-center gap-3">
@@ -222,9 +226,9 @@ export default function DashboardMatrix({
                 <div
                   className="text-xs font-medium text-right shrink-0 w-28 truncate"
                   style={{ color: actor ? actor.color : "#78716c" }}
-                  title={char?.name ?? charId}
+                  title={charDisplayName}
                 >
-                  {char?.name ?? charId}
+                  {charDisplayName}
                 </div>
                 {/* Bar */}
                 <div className="flex-1 h-5 bg-stone-100 rounded overflow-hidden">
@@ -300,7 +304,7 @@ export default function DashboardMatrix({
                   Scene
                 </th>
                 {orderedCharIds.map((charId) => {
-                  const char = charById.get(charId);
+                  const charDisplayName = resolveCharacterName(charId, characterAliases, characters);
                   const actorId = charToActor.get(charId);
                   const actor = actorId ? actors.find((a) => a.id === actorId) : null;
                   const isFiltered = filterCharId === charId;
@@ -313,10 +317,10 @@ export default function DashboardMatrix({
                       } ${isFiltered ? "bg-amber-50" : "hover:bg-stone-50"}`}
                       style={{ color: actor ? actor.color : "#a8a29e" }}
                       onClick={() => handleColClick(charId)}
-                      title={`Click to filter to scenes with ${char?.name ?? charId}`}
+                      title={`Click to filter to scenes with ${charDisplayName}`}
                     >
                       <div className="flex flex-col items-center gap-0.5">
-                        <span className="truncate block max-w-24">{char?.name ?? charId}</span>
+                        <span className="truncate block max-w-24">{charDisplayName}</span>
                         {isFiltered && (
                           <span className="text-amber-500 text-xs leading-none">▼</span>
                         )}
@@ -372,7 +376,7 @@ export default function DashboardMatrix({
                             }`}
                             title={
                               present
-                                ? `${charById.get(charId)?.name ?? charId}: ${display}${metric === "time" ? " on stage" : ` ${metric}`}`
+                                ? `${resolveCharacterName(charId, characterAliases, characters)}: ${display}${metric === "time" ? " on stage" : ` ${metric}`}`
                                 : undefined
                             }
                           >

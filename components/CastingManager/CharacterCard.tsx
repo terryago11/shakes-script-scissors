@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Character } from "@/types/play";
 import type { Actor } from "@/types/project";
 
@@ -17,6 +18,10 @@ interface Props {
   wordCounts?: { original: number; afterCut: number };
   /** Cut-only stage minutes */
   stageMinutes?: number;
+  /** Current display-name alias for this character (cut-level) */
+  alias?: string;
+  /** Called when the user sets or clears a display-name alias */
+  onSetAlias?: (alias: string | null) => void;
 }
 
 function fmtMins(m: number): string {
@@ -36,10 +41,32 @@ export default function CharacterCard({
   lineCounts,
   wordCounts,
   stageMinutes,
+  alias,
+  onSetAlias,
 }: Props) {
+  const [editingAlias, setEditingAlias] = useState(false);
+  const [aliasInput, setAliasInput] = useState("");
+
   const assignedActor = actors.find((a) => a.id === assignedActorId) || null;
   const assignmentConflicts =
     assignedActorId != null && (conflictingActorIds?.has(assignedActorId) ?? false);
+
+  const displayName = alias || character.name;
+
+  function startEdit() {
+    setAliasInput(alias || character.name);
+    setEditingAlias(true);
+  }
+
+  function commitEdit() {
+    const trimmed = aliasInput.trim();
+    if (trimmed && trimmed !== character.name) {
+      onSetAlias?.(trimmed);
+    } else {
+      onSetAlias?.(null);
+    }
+    setEditingAlias(false);
+  }
 
   return (
     <div className={`border rounded-lg bg-white px-4 py-3 flex items-center gap-3 ${
@@ -53,9 +80,47 @@ export default function CharacterCard({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className={`text-sm font-semibold truncate ${isFullyCut ? "text-stone-400 italic" : "text-stone-700"}`}>
-            {character.name}
-          </span>
+          {editingAlias ? (
+            <input
+              autoFocus
+              type="text"
+              value={aliasInput}
+              onChange={(e) => setAliasInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitEdit();
+                else if (e.key === "Escape") setEditingAlias(false);
+              }}
+              onBlur={commitEdit}
+              className="text-sm font-semibold text-stone-700 bg-transparent border-b border-amber-400 focus:outline-none w-32"
+            />
+          ) : (
+            <span
+              className={`group/name flex items-center gap-1 text-sm font-semibold truncate ${
+                isFullyCut ? "text-stone-400 italic" : "text-stone-700"
+              }`}
+            >
+              <span
+                className={onSetAlias ? "cursor-text hover:text-stone-900" : ""}
+                title={onSetAlias ? "Click to rename" : undefined}
+                onClick={onSetAlias && !isFullyCut ? startEdit : undefined}
+              >
+                {displayName}
+              </span>
+              {onSetAlias && !isFullyCut && (
+                <span
+                  className="text-stone-300 opacity-0 group-hover/name:opacity-100 transition-opacity text-xs select-none"
+                  aria-hidden
+                >
+                  ✎
+                </span>
+              )}
+            </span>
+          )}
+          {alias && !editingAlias && (
+            <span className="text-xs text-stone-400 italic truncate shrink-0" title={`TEI: ${character.name}`}>
+              ({character.name})
+            </span>
+          )}
           {isFullyCut && (
             <span className="text-xs text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded font-normal shrink-0">
               fully cut

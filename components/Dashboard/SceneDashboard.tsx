@@ -288,6 +288,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           pauses={activeCut.pauses}
           metric={metric}
           cutSceneIds={cutSceneIds}
+          characterAliases={activeCut.characterAliases}
         />
       )}
 
@@ -305,6 +306,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           lineCounts={lineCounts}
           metric={metric}
           wpm={wpm}
+          characterAliases={activeCut.characterAliases}
         />
       )}
 
@@ -314,6 +316,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           play={play}
           activeCut={activeCut}
           stageTime={stageTime}
+          characterAliases={activeCut.characterAliases}
         />
       )}
     </div>

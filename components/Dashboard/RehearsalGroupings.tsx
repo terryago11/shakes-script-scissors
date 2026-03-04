@@ -2,6 +2,7 @@
 
 import type { Act, Play, Scene } from "@/types/play";
 import type { Actor, ActorAssignment } from "@/types/project";
+import { resolveCharacterName } from "@/lib/project/projectUtils";
 import type { CharacterStageTime } from "@/lib/cuts/StageTimeEngine";
 import type { LineCounts } from "@/types/cut";
 import type { CharSceneData } from "./DashboardMatrix";
@@ -18,6 +19,8 @@ interface Props {
   lineCounts: LineCounts;
   metric: "lines" | "words" | "time";
   wpm: number;
+  /** Cut-level character display-name aliases */
+  characterAliases?: Record<string, string>;
 }
 
 function fmtMins(m: number): string {
@@ -39,6 +42,7 @@ export default function RehearsalGroupings({
   lineCounts,
   metric,
   wpm,
+  characterAliases,
 }: Props) {
   const charToActor = new Map<string, string>();
   const actorToChars = new Map<string, string[]>();
@@ -200,7 +204,7 @@ export default function RehearsalGroupings({
                   {/* Character breakdown */}
                   <div className="text-xs text-stone-400 mb-2 pl-4">
                     {charIds
-                      .map((cid) => charById.get(cid)?.name ?? cid)
+                      .map((cid) => resolveCharacterName(cid, characterAliases, play.castList))
                       .join(" / ")}
                   </div>
 

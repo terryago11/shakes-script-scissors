@@ -6,7 +6,7 @@ import type { Actor, ActorAssignment, ProjectSettings } from "@/types/project";
 import type { LineCounts } from "@/types/cut";
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import { useMetric } from "@/lib/ui/MetricContext";
-import { characterIdToName } from "@/lib/folger/TeiParser";
+import { resolveCharacterName } from "@/lib/project/projectUtils";
 import CharacterRow from "./CharacterRow";
 import ActorRow from "./ActorRow";
 
@@ -25,6 +25,8 @@ interface Props {
   settings?: ProjectSettings;
   /** When true, lineCounts is scoped to a focused scene — show a label */
   isFocused?: boolean;
+  /** Cut-level character display-name aliases */
+  characterAliases?: Record<string, string>;
 }
 
 function formatMinutes(minutes: number): string {
@@ -36,7 +38,7 @@ function formatMinutes(minutes: number): string {
 
 export default function LineCountPanel({
   play, lineCounts, actors, assignments, filter, onFilterCharacter, onFilterActor,
-  stageTime, settings, isFocused,
+  stageTime, settings, isFocused, characterAliases,
 }: Props) {
   const { metric, setMetric } = useMetric();
   // Local tab state — "time" only available when stageTime is provided
@@ -186,7 +188,7 @@ export default function LineCountPanel({
                 const actorHasCuts = minutes < originalMinutes - 0.01;
                 const actorHasAdded = minutes > originalMinutes + 0.01;
                 const charNames = charIds
-                  .map((id) => play.castList.find((c) => c.id === id)?.name ?? characterIdToName(id))
+                  .map((id) => resolveCharacterName(id, characterAliases, play.castList))
                   .join(", ");
                 const cutPct = originalMinutes > 0.01
                   ? Math.round((1 - minutes / originalMinutes) * 100)
@@ -246,8 +248,7 @@ export default function LineCountPanel({
           </div>
           <div className="space-y-2">
             {byCharList.map(({ characterId, minutes, originalMinutes }) => {
-              const char = play.castList.find((c) => c.id === characterId);
-              const charName = char?.name ?? characterIdToName(characterId);
+              const charName = resolveCharacterName(characterId, characterAliases, play.castList);
               const pctBar = (minutes / maxMinutesForBar) * 100;
               const origPctBar = (originalMinutes / maxMinutesForBar) * 100;
               const charHasCuts = minutes < originalMinutes - 0.01;
@@ -380,6 +381,7 @@ export default function LineCountPanel({
                 counts={activeCounts.byCharacter[char.id] || { original: 0, afterCut: 0 }}
                 isFiltered={filter?.type === "character" && filter.id === char.id}
                 onClick={onFilterCharacter ? () => handleCharacterClick(char.id) : undefined}
+                displayName={resolveCharacterName(char.id, characterAliases, play.castList)}
               />
             ))}
         </div>

@@ -7,6 +7,9 @@ import { computeQuickChanges } from "@/lib/cuts/QuickChangeEngine";
 import { computeCuts } from "@/lib/cuts/CutEngine";
 import { computeStageTime } from "@/lib/cuts/StageTimeEngine";
 import { characterIdToName } from "@/lib/folger/TeiParser";
+import { suggestMinimumCast } from "@/lib/cuts/CastingUtils";
+import { defaultColors, generateId } from "@/lib/project/projectUtils";
+import type { Actor, ActorAssignment } from "@/types/project";
 import CharacterCard from "./CharacterCard";
 
 interface Props {
@@ -77,6 +80,9 @@ export default function CastingManager({ playId }: Props) {
   const [editingActorId, setEditingActorId] = useState<string | null>(null);
   const [editingActorName, setEditingActorName] = useState("");
   const [confirmDeleteActorId, setConfirmDeleteActorId] = useState<string | null>(null);
+  // Suggest minimum cast
+  type SuggestedGroup = { actorIndex: number; charIds: string[] };
+  const [suggestedGroups, setSuggestedGroups] = useState<SuggestedGroup[] | null>(null);
   const threshold = project?.settings?.quickChangeThresholdMinutes ?? 2.0;
 
   useEffect(() => {
@@ -94,6 +100,41 @@ export default function CastingManager({ playId }: Props) {
     if (!name) return;
     dispatch({ type: "ADD_ACTOR", name });
     setNewActorName("");
+  }
+
+  function handleSuggest() {
+    const activeCharIds = speakingChars
+      .filter((c) => !fullyCutCharIds.has(c.id))
+      .map((c) => c.id);
+    const result = suggestMinimumCast(activeCharIds, simultaneousMap);
+    const groups = new Map<number, string[]>();
+    for (const { charId, actorIndex } of result) {
+      if (!groups.has(actorIndex)) groups.set(actorIndex, []);
+      groups.get(actorIndex)!.push(charId);
+    }
+    setSuggestedGroups(
+      Array.from(groups.entries())
+        .sort(([a], [b]) => a - b)
+        .map(([actorIndex, charIds]) => ({ actorIndex, charIds }))
+    );
+  }
+
+  function handleApplySuggestion() {
+    if (!suggestedGroups) return;
+    const newActors: Actor[] = suggestedGroups.map((g, i) => ({
+      id: generateId(),
+      name: `Actor ${g.actorIndex + 1}`,
+      color: defaultColors[i % defaultColors.length],
+    }));
+    const newAssignments: ActorAssignment[] = [];
+    for (let i = 0; i < suggestedGroups.length; i++) {
+      const actorId = newActors[i].id;
+      for (const charId of suggestedGroups[i].charIds) {
+        newAssignments.push({ characterId: charId, actorId });
+      }
+    }
+    dispatch({ type: "BULK_SET_CAST", actors: newActors, assignments: newAssignments });
+    setSuggestedGroups(null);
   }
 
   // Build character → actor lookup
@@ -205,7 +246,55 @@ export default function CastingManager({ playId }: Props) {
           >
             Add Actor
           </button>
+          <button
+            onClick={handleSuggest}
+            className="px-4 py-2 text-sm border border-stone-300 text-stone-600 rounded-lg hover:bg-stone-50 transition-colors"
+            title="Suggest the minimum number of actors needed (greedy doubling algorithm)"
+          >
+            Suggest
+          </button>
         </div>
+
+        {/* Minimum cast suggestion preview */}
+        {suggestedGroups && (
+          <div className="mb-4 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-sm font-medium text-stone-700">
+                Suggested minimum: {suggestedGroups.length} actor{suggestedGroups.length !== 1 ? "s" : ""}
+              </span>
+              <div className="ml-auto flex gap-2">
+                <button
+                  onClick={handleApplySuggestion}
+                  className="text-xs px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600"
+                >
+                  Apply
+                </button>
+                <button
+                  onClick={() => setSuggestedGroups(null)}
+                  className="text-xs px-3 py-1.5 border border-stone-300 text-stone-600 rounded-lg hover:bg-white"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1">
+              {suggestedGroups.map((g) => (
+                <div key={g.actorIndex} className="flex items-start gap-2 text-xs">
+                  <span
+                    className="w-3 h-3 rounded-full mt-0.5 shrink-0"
+                    style={{ backgroundColor: defaultColors[g.actorIndex % defaultColors.length] }}
+                  />
+                  <span className="text-stone-500 shrink-0">Actor {g.actorIndex + 1}:</span>
+                  <span className="text-stone-700">
+                    {g.charIds
+                      .map((id) => activeCut?.characterAliases?.[id] ?? speakingChars.find((c) => c.id === id)?.name ?? characterIdToName(id))
+                      .join(", ")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {project.actors.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -410,6 +499,10 @@ export default function CastingManager({ playId }: Props) {
             lineCounts={lineCounts?.byCharacter[char.id] ?? { original: 0, afterCut: 0 }}
             wordCounts={lineCounts?.words.byCharacter[char.id] ?? { original: 0, afterCut: 0 }}
             stageMinutes={stageTime?.byCharacter[char.id]?.minutes}
+            alias={activeCut?.characterAliases?.[char.id]}
+            onSetAlias={(alias) =>
+              dispatch({ type: "SET_CHARACTER_ALIAS", characterId: char.id, alias })
+            }
           />
         ))}
       </div>

@@ -20,6 +20,8 @@ interface Props {
   onToggle: (unitId: string) => void;
   onClearEdits: (unitId: string) => void;
   cutModeActive?: boolean;
+  /** Cut-level character display-name aliases */
+  characterAliases?: Record<string, string>;
 }
 
 export default function DiffView({
@@ -34,6 +36,7 @@ export default function DiffView({
   onToggle,
   onClearEdits,
   cutModeActive,
+  characterAliases,
 }: Props) {
   // Build character→actor color map
   const charColor: Record<string, string> = {};
@@ -173,6 +176,7 @@ export default function DiffView({
                                 isContinuation={continuationIds.has(unit.id)}
                                 cutModeActive={cutModeActive}
                                 speechLineOffset={cutSpeechStartLines.get(unit.id)}
+                                characterAliases={characterAliases}
                               />
                             </div>
 

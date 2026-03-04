@@ -37,7 +37,9 @@ type ProjectAction =
   | { type: "SET_PAUSE"; afterSceneId: string; name: string; minutes: number }
   | { type: "REMOVE_PAUSE"; afterSceneId: string }
   | { type: "UPDATE_SETTINGS"; settings: Partial<ProjectSettings> }
-  | { type: "REASSIGN_SPEECH"; unitId: string; characterId: string | null };
+  | { type: "REASSIGN_SPEECH"; unitId: string; characterId: string | null }
+  | { type: "SET_CHARACTER_ALIAS"; characterId: string; alias: string | null }
+  | { type: "BULK_SET_CAST"; actors: Actor[]; assignments: ActorAssignment[] };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
   if (!state.project && action.type !== "LOAD" && action.type !== "REPLACE_PROJECT") {
@@ -143,6 +145,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         stageDirectionEdits: source?.stageDirectionEdits ? { ...source.stageDirectionEdits } : undefined,
         pauses: source?.pauses ? { ...source.pauses } : undefined,
         speechReassignments: source?.speechReassignments ? { ...source.speechReassignments } : undefined,
+        characterAliases: source?.characterAliases ? { ...source.characterAliases } : undefined,
       };
       const newProject = {
         ...p,
@@ -286,6 +289,32 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         ...c,
         speechReassignments: { ...existing, [action.unitId]: action.characterId! },
       }));
+    }
+
+    case "SET_CHARACTER_ALIAS": {
+      const existing = state.project!.cuts.find((c) => c.id === state.activeCutId)?.characterAliases ?? {};
+      if (!action.alias) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { [action.characterId]: _removed, ...rest } = existing;
+        return updateActiveCut(state, (c) => ({ ...c, characterAliases: rest }));
+      }
+      return updateActiveCut(state, (c) => ({
+        ...c,
+        characterAliases: { ...existing, [action.characterId]: action.alias! },
+      }));
+    }
+
+    case "BULK_SET_CAST": {
+      const p = state.project!;
+      return {
+        ...state,
+        project: {
+          ...p,
+          actors: action.actors,
+          assignments: action.assignments,
+          updatedAt: now(),
+        },
+      };
     }
 
     default:

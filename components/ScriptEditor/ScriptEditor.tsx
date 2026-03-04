@@ -399,6 +399,7 @@ export default function ScriptEditor({ playId }: Props) {
     speechReassignments: activeCut.speechReassignments ?? {},
     charsWithEntrance,
     onReassign: handleReassign,
+    characterAliases: activeCut.characterAliases,
   };
 
   return (
@@ -450,6 +451,7 @@ export default function ScriptEditor({ playId }: Props) {
             onToggle={handleToggle}
             onClearEdits={handleClearEdits}
             cutModeActive={cutModeActive}
+            characterAliases={activeCut.characterAliases}
           />
         ) : (
           <div className={`px-4 pb-6 ${
@@ -487,6 +489,7 @@ export default function ScriptEditor({ playId }: Props) {
             stageTime={focusedStageTime ?? stageTime}
             settings={project.settings}
             isFocused={!!focusedSceneId}
+            characterAliases={activeCut.characterAliases}
           />
         </div>
       )}
