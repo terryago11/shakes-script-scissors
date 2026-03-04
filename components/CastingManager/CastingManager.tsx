@@ -83,6 +83,7 @@ export default function CastingManager({ playId }: Props) {
   // Suggest minimum cast
   type SuggestedGroup = { actorIndex: number; charIds: string[] };
   const [suggestedGroups, setSuggestedGroups] = useState<SuggestedGroup[] | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
   const threshold = project?.settings?.quickChangeThresholdMinutes ?? 2.0;
 
   useEffect(() => {
@@ -144,6 +145,14 @@ export default function CastingManager({ playId }: Props) {
     // ── forbiddenPairs: quick-change conflicts between characters ──────────
     const forbiddenPairs = buildForbiddenPairs(play!, activeCut, project?.settings);
 
+    // ── characterLinks: director-specified "must share" pairs ──────────────
+    // These feed into sameActorPairs alongside the auto-detected same-name ones,
+    // and silently override any forbidden-pair constraint between the same two chars.
+    const linkPairs = (activeCut?.characterLinks ?? []).filter(
+      ([a, b]) => activeCharIds.includes(a) && activeCharIds.includes(b)
+    );
+    const allSameActorPairs = [...sameActorPairs, ...linkPairs];
+
     // ── lineCounts: afterCut lines per character ───────────────────────────
     const lineCountsForSuggest: Record<string, number> = {};
     for (const c of activeChars) {
@@ -153,7 +162,7 @@ export default function CastingManager({ playId }: Props) {
     const result = suggestMinimumCast(activeCharIds, simultaneousMap, {
       lineCounts: lineCountsForSuggest,
       forbiddenPairs,
-      sameActorPairs,
+      sameActorPairs: allSameActorPairs,
     });
 
     const groups = new Map<number, string[]>();
@@ -267,6 +276,23 @@ export default function CastingManager({ playId }: Props) {
     return conflicting;
   }
 
+  // Build a Map<charId, Set<charId>> from the cut's character links
+  const linkedCharIdsMap = new Map<string, Set<string>>();
+  for (const [a, b] of activeCut?.characterLinks ?? []) {
+    if (!linkedCharIdsMap.has(a)) linkedCharIdsMap.set(a, new Set());
+    if (!linkedCharIdsMap.has(b)) linkedCharIdsMap.set(b, new Set());
+    linkedCharIdsMap.get(a)!.add(b);
+    linkedCharIdsMap.get(b)!.add(a);
+  }
+
+  // All active (non-fully-cut) characters with resolved display names — for the "Link with…" dropdown
+  const allActiveCharsForLinks = speakingChars
+    .filter((c) => !fullyCutCharIds.has(c.id))
+    .map((c) => ({
+      id: c.id,
+      name: activeCut?.characterAliases?.[c.id] ?? c.name,
+    }));
+
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
       <h1 className="text-2xl font-bold text-stone-800 mb-2">Casting</h1>
@@ -302,7 +328,42 @@ export default function CastingManager({ playId }: Props) {
           >
             Suggest
           </button>
+          <button
+            onClick={() => setShowHelp((v) => !v)}
+            className={`px-2 py-2 text-sm rounded-lg border transition-colors ${
+              showHelp
+                ? "border-stone-400 bg-stone-100 text-stone-700"
+                : "border-stone-200 text-stone-400 hover:text-stone-600 hover:border-stone-300"
+            }`}
+            title="How does Suggest work?"
+            aria-pressed={showHelp}
+          >
+            ?
+          </button>
         </div>
+
+        {/* Algorithm help text */}
+        {showHelp && (
+          <div className="mb-4 rounded-lg border border-stone-100 bg-stone-50 px-4 py-3 text-xs text-stone-500 space-y-2 leading-relaxed">
+            <p>
+              <strong className="text-stone-600">How the suggestion works:</strong>{" "}
+              Characters are treated as nodes in a graph. Two characters share an edge — and
+              therefore <em>cannot</em> be doubled — if they are ever on stage simultaneously,
+              or if the gap between one&apos;s exit and the other&apos;s entrance is below the
+              quick-change threshold (currently <strong className="text-stone-700">{threshold} min</strong>).
+              The algorithm fills the largest parts first, then clusters smaller parts onto
+              actors with the fewest accumulated lines, minimising the total actor count.
+            </p>
+            <p>
+              <strong className="text-stone-600">Character links</strong> (the{" "}
+              <span className="font-mono text-stone-600">+ link</span> button on each
+              character card) let you pin two characters to always share the same actor,
+              regardless of quick-change constraints. Use them to encode dramaturgical
+              choices — e.g. Theseus/Oberon or Hippolyta/Titania — <em>before</em> running
+              Suggest. Links are stored per cut and carried over when you clone a cut.
+            </p>
+          </div>
+        )}
 
         {/* Minimum cast suggestion preview */}
         {suggestedGroups && (
@@ -582,6 +643,11 @@ export default function CastingManager({ playId }: Props) {
             alias={activeCut?.characterAliases?.[char.id]}
             onSetAlias={(alias) =>
               dispatch({ type: "SET_CHARACTER_ALIAS", characterId: char.id, alias })
+            }
+            linkedCharIds={linkedCharIdsMap.get(char.id)}
+            allActiveChars={allActiveCharsForLinks}
+            onToggleLink={(otherId) =>
+              dispatch({ type: "TOGGLE_CHARACTER_LINK", charIdA: char.id, charIdB: otherId })
             }
           />
         ))}

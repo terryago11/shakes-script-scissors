@@ -22,6 +22,12 @@ interface Props {
   alias?: string;
   /** Called when the user sets or clears a display-name alias */
   onSetAlias?: (alias: string | null) => void;
+  /** IDs of characters that are explicitly linked to this one (must share an actor) */
+  linkedCharIds?: Set<string>;
+  /** All active (non-fully-cut) characters available for linking, with resolved display names */
+  allActiveChars?: Array<{ id: string; name: string }>;
+  /** Called to toggle a character link — adds if absent, removes if present */
+  onToggleLink?: (otherId: string) => void;
 }
 
 function fmtMins(m: number): string {
@@ -43,9 +49,13 @@ export default function CharacterCard({
   stageMinutes,
   alias,
   onSetAlias,
+  linkedCharIds,
+  allActiveChars,
+  onToggleLink,
 }: Props) {
   const [editingAlias, setEditingAlias] = useState(false);
   const [aliasInput, setAliasInput] = useState("");
+  const [showLinkSelect, setShowLinkSelect] = useState(false);
 
   const assignedActor = actors.find((a) => a.id === assignedActorId) || null;
   const assignmentConflicts =
@@ -148,6 +158,57 @@ export default function CharacterCard({
             )}
             {stageMinutes != null && stageMinutes > 0.01 && (
               <span>{fmtMins(stageMinutes)}</span>
+            )}
+          </div>
+        )}
+
+        {/* Character links — "must share an actor" pins for the Suggest algorithm */}
+        {onToggleLink && !isFullyCut && (
+          <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+            {linkedCharIds && [...linkedCharIds].map((id) => {
+              const linkedName = allActiveChars?.find((c) => c.id === id)?.name ?? id;
+              return (
+                <span
+                  key={id}
+                  className="inline-flex items-center gap-0.5 text-xs bg-sky-50 text-sky-600 border border-sky-200 rounded-full px-2 py-0.5"
+                >
+                  🔗 {linkedName}
+                  <button
+                    onClick={() => onToggleLink(id)}
+                    className="text-sky-400 hover:text-sky-700 leading-none ml-0.5"
+                    title={`Remove link with ${linkedName}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              );
+            })}
+            {showLinkSelect ? (
+              <select
+                autoFocus
+                defaultValue=""
+                onChange={(e) => {
+                  if (e.target.value) onToggleLink(e.target.value);
+                  setShowLinkSelect(false);
+                }}
+                onBlur={() => setShowLinkSelect(false)}
+                className="text-xs border border-stone-300 rounded px-1.5 py-0.5 bg-white text-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-400"
+              >
+                <option value="" disabled>Link with…</option>
+                {allActiveChars
+                  ?.filter((c) => c.id !== character.id && !linkedCharIds?.has(c.id))
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+              </select>
+            ) : (
+              <button
+                onClick={() => setShowLinkSelect(true)}
+                className="text-xs text-stone-300 hover:text-stone-500 transition-colors"
+                title="Pin this character to always share an actor with another (used by Suggest)"
+              >
+                + link
+              </button>
             )}
           </div>
         )}

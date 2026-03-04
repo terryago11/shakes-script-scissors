@@ -54,4 +54,11 @@ export interface Cut {
   speechReassignments?: Record<string, string>;
   /** characterId → display name override for this cut; never alters underlying Play data */
   characterAliases?: Record<string, string>;
+  /**
+   * Director-specified pairs of characters that must share the same actor.
+   * Each entry is [charIdA, charIdB] (IDs stored in sorted order).
+   * Overrides quick-change constraints in the Suggest algorithm — use to
+   * encode dramaturgical choices (e.g. Theseus/Oberon) before running Suggest.
+   */
+  characterLinks?: Array<[string, string]>;
 }
