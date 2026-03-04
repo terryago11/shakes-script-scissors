@@ -12,8 +12,20 @@ export interface QuickChangeWarning {
   enterCharacterId: string;
   /** Scene where the exit happened */
   exitSceneId: string;
+  /** Act number (1-based) of the exit scene */
+  exitActNum: number;
+  /** Scene number (1-based, within its act) of the exit scene */
+  exitSceneNum: number;
+  /** Approximate scene-relative line number (original/uncut) of the exit */
+  exitApproxLine: number;
   /** Scene where the entrance happens */
   enterSceneId: string;
+  /** Act number (1-based) of the entrance scene */
+  enterActNum: number;
+  /** Scene number (1-based, within its act) of the entrance scene */
+  enterSceneNum: number;
+  /** Approximate scene-relative line number (original/uncut) of the entrance */
+  enterApproxLine: number;
   /** Gap in minutes between the exit and the entrance */
   gapMinutes: number;
 }
@@ -27,6 +39,12 @@ interface ExitRecord {
   /** Cumulative minutes at the point of exit */
   atCumulativeMinutes: number;
   charId: string;
+  /** Act number (1-based) */
+  actNum: number;
+  /** Scene number within act (1-based) */
+  sceneNum: number;
+  /** Scene-relative line count (original/uncut) at point of exit */
+  approxLine: number;
 }
 
 export function computeQuickChanges(
@@ -50,9 +68,13 @@ export function computeQuickChanges(
 
   // Build scene lookup
   const sceneById = new Map<string, (typeof play.acts)[0]["scenes"][0]>();
-  for (const act of play.acts) {
-    for (const scene of act.scenes) {
+  // Build scene → act/scene-number lookup (1-based, always from original TEI order)
+  const sceneLocation = new Map<string, { actNum: number; sceneNum: number }>();
+  for (let ai = 0; ai < play.acts.length; ai++) {
+    for (let si = 0; si < play.acts[ai].scenes.length; si++) {
+      const scene = play.acts[ai].scenes[si];
       sceneById.set(scene.id, scene);
+      sceneLocation.set(scene.id, { actNum: ai + 1, sceneNum: si + 1 });
     }
   }
 
@@ -66,10 +88,14 @@ export function computeQuickChanges(
     const scene = sceneById.get(sceneId);
     if (!scene) continue;
 
+    const { actNum, sceneNum } = sceneLocation.get(sceneId) ?? { actNum: 0, sceneNum: 0 };
+
     // Track on-stage set within scene to compute virtual exit at scene end
     const onStage = new Set<string>();
     // Track scene duration as we walk speeches
     let sceneMinutes = 0;
+    // Track original (uncut) scene-relative line count for location display
+    let sceneLineCount = 0;
 
     for (const unit of scene.units) {
       if (unit.type === "stage") {
@@ -93,7 +119,13 @@ export function computeQuickChanges(
                   exitCharacterId: record.charId,
                   enterCharacterId: charId,
                   exitSceneId: record.sceneId,
+                  exitActNum: record.actNum,
+                  exitSceneNum: record.sceneNum,
+                  exitApproxLine: record.approxLine,
                   enterSceneId: sceneId,
+                  enterActNum: actNum,
+                  enterSceneNum: sceneNum,
+                  enterApproxLine: sceneLineCount,
                   gapMinutes: gap,
                 });
               }
@@ -109,12 +141,18 @@ export function computeQuickChanges(
                 sceneId,
                 atCumulativeMinutes: cumulativeMinutes + sceneMinutes,
                 charId,
+                actNum,
+                sceneNum,
+                approxLine: sceneLineCount,
               });
             }
             onStage.delete(charId);
           }
         }
       } else if (unit.type === "speech") {
+        // Always count original lines for location tracking (regardless of cut status)
+        sceneLineCount += unit.lineCount;
+
         const isKept = (cut.cutMap[unit.id] ?? "kept") === "kept";
         if (isKept) {
           let keptLines = unit.lineCount;
@@ -135,6 +173,9 @@ export function computeQuickChanges(
           sceneId,
           atCumulativeMinutes: cumulativeMinutes + sceneMinutes,
           charId,
+          actNum,
+          sceneNum,
+          approxLine: sceneLineCount,
         });
       }
     }

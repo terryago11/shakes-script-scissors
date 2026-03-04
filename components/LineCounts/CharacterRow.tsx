@@ -5,9 +5,11 @@ interface Props {
   counts: { original: number; afterCut: number };
   isFiltered?: boolean;
   onClick?: () => void;
+  /** Overrides character.name for display (e.g. alias) */
+  displayName?: string;
 }
 
-export default function CharacterRow({ character, counts, isFiltered, onClick }: Props) {
+export default function CharacterRow({ character, counts, isFiltered, onClick, displayName }: Props) {
   const { original, afterCut } = counts;
   const hasAdded = afterCut > original + 0.5;
   const hasCut = !hasAdded && afterCut < original;
@@ -27,7 +29,7 @@ export default function CharacterRow({ character, counts, isFiltered, onClick }:
       {/* Name + count on the same line — name wraps, count stays right-aligned */}
       <div className="flex items-baseline gap-1.5 min-w-0">
         <span className={`text-xs leading-snug flex-1 min-w-0 ${isFiltered ? "text-amber-800 font-medium" : "text-stone-700"}`}>
-          {character.name}
+          {displayName ?? character.name}
         </span>
         <span className="text-xs tabular-nums text-right shrink-0">
           <span className={hasAdded ? "text-green-600 font-medium" : hasCut ? "text-red-500 font-medium" : "text-stone-500"}>

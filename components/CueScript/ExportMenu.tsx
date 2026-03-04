@@ -19,7 +19,7 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
   const selectedActor = actors.find((a) => a.id === selectedActorId) || null;
 
   const cueScript = selectedActor
-    ? buildCueScript(play, cut, selectedActor, assignments)
+    ? buildCueScript(play, cut, selectedActor, assignments, cut.characterAliases)
     : null;
 
   function handlePrint() {

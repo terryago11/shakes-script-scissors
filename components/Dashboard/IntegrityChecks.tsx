@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Play } from "@/types/play";
 import type { Cut } from "@/types/project";
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
-import { characterIdToName } from "@/lib/folger/TeiParser";
+import { resolveCharacterName } from "@/lib/project/projectUtils";
 
 interface SdLocation {
   actTitle: string;
@@ -55,13 +55,11 @@ function buildCharDetails(
   characterIds: string[],
   /** The SD type that IS missing (so we look for the opposite one as "existing") */
   missingType: "exit" | "entrance",
+  characterAliases?: Record<string, string>,
 ): CharDetail[] {
   const existingType = missingType === "exit" ? "entrance" : "exit";
   return characterIds.map((charId) => {
-    const charName =
-      play.castList.find((c) => c.id === charId)?.name ||
-      characterIdToName(charId) ||
-      charId; // final fallback: show raw ID when name can't be resolved
+    const charName = resolveCharacterName(charId, characterAliases, play.castList);
 
     const appearances: Array<{ actTitle: string; sceneTitle: string }> = [];
     const seenScenes = new Set<string>();
@@ -187,9 +185,10 @@ interface Props {
   play: Play;
   activeCut: Cut;
   stageTime: StageTimeResult;
+  characterAliases?: Record<string, string>;
 }
 
-export default function IntegrityChecks({ play, activeCut, stageTime }: Props) {
+export default function IntegrityChecks({ play, activeCut, stageTime, characterAliases }: Props) {
   const noExitIds = stageTime.warnings
     .filter((w) => w.type === "no-exit")
     .map((w) => w.characterId);
@@ -208,8 +207,8 @@ export default function IntegrityChecks({ play, activeCut, stageTime }: Props) {
     );
   }
 
-  const noExitChars = buildCharDetails(play, activeCut, noExitIds, "exit");
-  const noEntranceChars = buildCharDetails(play, activeCut, noEntranceIds, "entrance");
+  const noExitChars = buildCharDetails(play, activeCut, noExitIds, "exit", characterAliases);
+  const noEntranceChars = buildCharDetails(play, activeCut, noEntranceIds, "entrance", characterAliases);
 
   return (
     <div className="grid grid-cols-2 gap-8">

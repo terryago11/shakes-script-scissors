@@ -1,7 +1,22 @@
+import { characterIdToName } from "@/lib/folger/TeiParser";
+
 /** Generate a short random ID */
 export function generateId(): string {
   return Math.random().toString(36).slice(2, 10) +
     Math.random().toString(36).slice(2, 10);
+}
+
+/**
+ * Resolve a character's display name for the given cut.
+ * Priority: characterAliases (cut-level) → castList canonical name → TEI ID normalization.
+ */
+export function resolveCharacterName(
+  charId: string,
+  aliases: Record<string, string> | undefined,
+  castList: { id: string; name: string }[]
+): string {
+  if (aliases?.[charId]) return aliases[charId];
+  return castList.find((c) => c.id === charId)?.name ?? characterIdToName(charId);
 }
 
 /** Default actor colors — cycles when more than this many actors.

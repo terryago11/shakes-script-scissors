@@ -37,7 +37,10 @@ type ProjectAction =
   | { type: "SET_PAUSE"; afterSceneId: string; name: string; minutes: number }
   | { type: "REMOVE_PAUSE"; afterSceneId: string }
   | { type: "UPDATE_SETTINGS"; settings: Partial<ProjectSettings> }
-  | { type: "REASSIGN_SPEECH"; unitId: string; characterId: string | null };
+  | { type: "REASSIGN_SPEECH"; unitId: string; characterId: string | null }
+  | { type: "SET_CHARACTER_ALIAS"; characterId: string; alias: string | null }
+  | { type: "TOGGLE_CHARACTER_LINK"; charIdA: string; charIdB: string }
+  | { type: "BULK_SET_CAST"; actors: Actor[]; assignments: ActorAssignment[] };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
   if (!state.project && action.type !== "LOAD" && action.type !== "REPLACE_PROJECT") {
@@ -143,6 +146,10 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         stageDirectionEdits: source?.stageDirectionEdits ? { ...source.stageDirectionEdits } : undefined,
         pauses: source?.pauses ? { ...source.pauses } : undefined,
         speechReassignments: source?.speechReassignments ? { ...source.speechReassignments } : undefined,
+        characterAliases: source?.characterAliases ? { ...source.characterAliases } : undefined,
+        characterLinks: source?.characterLinks
+          ? source.characterLinks.map(([a, b]) => [a, b] as [string, string])
+          : undefined,
       };
       const newProject = {
         ...p,
@@ -286,6 +293,49 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         ...c,
         speechReassignments: { ...existing, [action.unitId]: action.characterId! },
       }));
+    }
+
+    case "SET_CHARACTER_ALIAS": {
+      const existing = state.project!.cuts.find((c) => c.id === state.activeCutId)?.characterAliases ?? {};
+      if (!action.alias) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { [action.characterId]: _removed, ...rest } = existing;
+        return updateActiveCut(state, (c) => ({ ...c, characterAliases: rest }));
+      }
+      return updateActiveCut(state, (c) => ({
+        ...c,
+        characterAliases: { ...existing, [action.characterId]: action.alias! },
+      }));
+    }
+
+    case "TOGGLE_CHARACTER_LINK": {
+      const existing = state.project!.cuts.find((c) => c.id === state.activeCutId)?.characterLinks ?? [];
+      // Always store pairs in sorted order so we can do a simple equality check
+      const [keyA, keyB] =
+        action.charIdA < action.charIdB
+          ? [action.charIdA, action.charIdB]
+          : [action.charIdB, action.charIdA];
+      const alreadyLinked = existing.some(([a, b]) => a === keyA && b === keyB);
+      const newLinks: Array<[string, string]> = alreadyLinked
+        ? existing.filter(([a, b]) => !(a === keyA && b === keyB))
+        : [...existing, [keyA, keyB]];
+      return updateActiveCut(state, (c) => ({
+        ...c,
+        characterLinks: newLinks.length > 0 ? newLinks : undefined,
+      }));
+    }
+
+    case "BULK_SET_CAST": {
+      const p = state.project!;
+      return {
+        ...state,
+        project: {
+          ...p,
+          actors: action.actors,
+          assignments: action.assignments,
+          updatedAt: now(),
+        },
+      };
     }
 
     default:

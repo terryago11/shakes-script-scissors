@@ -31,6 +31,8 @@ interface Props {
   /** Character IDs that appear in at least one kept entrance SD */
   charsWithEntrance?: Set<string>;
   onReassign?: (unitId: string, characterId: string | null) => void;
+  /** Cut-level character display-name aliases */
+  characterAliases?: Record<string, string>;
 }
 
 export default function SceneBlock({
@@ -38,6 +40,7 @@ export default function SceneBlock({
   filteredCharacterIds, cutModeActive, sceneCounts,
   focusedSceneId, showOriginal,
   speechReassignments, charsWithEntrance, onReassign,
+  characterAliases,
 }: Props) {
   // Default to collapsed so after act re-expand, scenes are collapsed and user can pick
   const [collapsed, setCollapsed] = useState(false);
@@ -236,6 +239,7 @@ export default function SceneBlock({
                   charsWithEntrance={charsWithEntrance}
                   onReassign={showOriginal ? undefined : onReassign}
                   speechLineOffset={showOriginal ? undefined : speechStartLines.get(unit.id)}
+                  characterAliases={showOriginal ? undefined : characterAliases}
                 />
               );
             } else {

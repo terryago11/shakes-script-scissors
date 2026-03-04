@@ -33,6 +33,8 @@ interface Props {
   /** Character IDs that appear in at least one kept entrance SD */
   charsWithEntrance?: Set<string>;
   onReassign?: (unitId: string, characterId: string | null) => void;
+  /** Cut-level character display-name aliases */
+  characterAliases?: Record<string, string>;
 }
 
 export default function ActBlock({
@@ -40,6 +42,7 @@ export default function ActBlock({
   filteredCharacterIds, cutModeActive, lineCounts,
   focusedSceneId, showOriginal, pauses,
   speechReassignments, charsWithEntrance, onReassign,
+  characterAliases,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   // Generation increments each time act collapses → SceneBlocks remount in collapsed state
@@ -153,6 +156,7 @@ export default function ActBlock({
                   speechReassignments={showOriginal ? undefined : speechReassignments}
                   charsWithEntrance={charsWithEntrance}
                   onReassign={showOriginal ? undefined : onReassign}
+                  characterAliases={showOriginal ? undefined : characterAliases}
                 />
                 {pauseEntry && (
                   <PauseIndicator name={pauseEntry.name} minutes={pauseEntry.minutes} />

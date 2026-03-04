@@ -3,6 +3,7 @@ import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import type { CueScript, CueEntry } from "@/types/cut";
 import { getAllUnitsInOrder } from "./CutEngine";
 import { getEffectiveCharacters } from "./StageTimeEngine";
+import { resolveCharacterName } from "@/lib/project/projectUtils";
 import { applyEditsToLine, segmentsToText } from "./applyEdits";
 
 /**
@@ -21,7 +22,8 @@ export function buildCueScript(
   play: Play,
   cut: Cut,
   actor: Actor,
-  assignments: ActorAssignment[]
+  assignments: ActorAssignment[],
+  characterAliases?: Record<string, string>
 ): CueScript {
   // Get all character IDs this actor plays
   const actorCharIds = new Set(
@@ -79,7 +81,7 @@ export function buildCueScript(
         // Emit the actor's kept lines only
         const linesText = keptLines.map((l) => l.text).join("\n");
         if (linesText) {
-          entries.push({ type: "lines", text: linesText, characterName: speech.characterName });
+          entries.push({ type: "lines", text: linesText, characterName: resolveCharacterName(speech.characterId, characterAliases, play.castList) });
         }
         inActorBlock = true;
         lastOtherSpeechText = null;
@@ -90,11 +92,11 @@ export function buildCueScript(
         if (inActorBlock) {
           // We just finished an actor block — prep the cue from this speech
           pendingCue = extractCue(fullText);
-          pendingCueSpeakerName = speech.characterName;
+          pendingCueSpeakerName = resolveCharacterName(speech.characterId, characterAliases, play.castList);
           inActorBlock = false;
         }
         lastOtherSpeechText = fullText;
-        lastOtherSpeakerName = speech.characterName;
+        lastOtherSpeakerName = resolveCharacterName(speech.characterId, characterAliases, play.castList);
       }
     } else if (unit.type === "stage") {
       const stage = unit as StageDirection;

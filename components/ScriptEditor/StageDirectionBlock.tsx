@@ -2,6 +2,7 @@
 
 import type { Character, StageDirection } from "@/types/play";
 import { useProject } from "@/lib/project/ProjectStore";
+import { resolveCharacterName } from "@/lib/project/projectUtils";
 
 interface Props {
   stage: StageDirection;
@@ -37,15 +38,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList 
     : [];
 
   function charName(id: string): string {
-    const found = castList.find((c) => c.id === id);
-    if (found) return found.name;
-    // Fallback: strip leading # and _PlayId suffix, then title-case each segment.
-    // e.g. "#ATTENDANTS_Err" → "Attendants", "#LORDS.COURT_Ham" → "Lords Court"
-    const stem = id.replace(/^#/, "").replace(/_[A-Za-z]+$/, "");
-    return stem
-      .split(".")
-      .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
-      .join(" ");
+    return resolveCharacterName(id, activeCut?.characterAliases, castList);
   }
 
   function removeChar(charId: string) {
