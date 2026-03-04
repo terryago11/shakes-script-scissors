@@ -21,6 +21,11 @@ function getEffectiveChars(sd: StageDirection, edits?: Record<string, string[]>)
   return edits?.[sd.id] ?? sd.characters;
 }
 
+/** Roman numeral for 1–5 (covers all Shakespeare acts). */
+function toRoman(n: number): string {
+  return ["", "I", "II", "III", "IV", "V"][n] ?? String(n);
+}
+
 /**
  * Per-scene on-stage walk using entrance/exit SDs (mirrors StageTimeEngine logic).
  * Returns Map<characterId, Set<characterId>> of characters that were EVER simultaneously
@@ -584,34 +589,53 @@ export default function CastingManager({ playId }: Props) {
                 const actor = project.actors.find((a) => a.id === w.actorId);
                 const exitChar = play.castList.find((c) => c.id === w.exitCharacterId);
                 const enterChar = play.castList.find((c) => c.id === w.enterCharacterId);
-                const exitName = exitChar?.name ?? characterIdToName(w.exitCharacterId);
-                const enterName = enterChar?.name ?? characterIdToName(w.enterCharacterId);
+                const exitName =
+                  activeCut?.characterAliases?.[w.exitCharacterId] ??
+                  exitChar?.name ??
+                  characterIdToName(w.exitCharacterId);
+                const enterName =
+                  activeCut?.characterAliases?.[w.enterCharacterId] ??
+                  enterChar?.name ??
+                  characterIdToName(w.enterCharacterId);
                 const mins = Math.floor(w.gapMinutes);
                 const secs = Math.round((w.gapMinutes - mins) * 60);
                 const gapLabel = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+
+                // Format location: "Act II, sc.3, ~l.47"
+                const exitLoc = `Act ${toRoman(w.exitActNum)}, sc.${w.exitSceneNum}, ~l.${w.exitApproxLine}`;
+                const enterLoc = `Act ${toRoman(w.enterActNum)}, sc.${w.enterSceneNum}, ~l.${w.enterApproxLine}`;
+
                 return (
                   <div
                     key={i}
-                    className="flex items-center gap-3 px-4 py-2.5 rounded border border-amber-200 bg-amber-50 text-sm"
+                    className="px-4 py-3 rounded border border-amber-200 bg-amber-50 text-sm"
                   >
-                    <span className="text-amber-500 shrink-0">⚡</span>
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {actor && (
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: actor.color }}
-                        />
-                      )}
-                      <span className="font-medium text-stone-700 shrink-0">
-                        {actor?.name ?? w.actorId}
+                    {/* Row 1: actor · characters · gap */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-amber-500 shrink-0">⚡</span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {actor && (
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: actor.color }}
+                          />
+                        )}
+                        <span className="font-medium text-stone-700 shrink-0">
+                          {actor?.name ?? w.actorId}
+                        </span>
+                      </div>
+                      <span className="text-stone-500 truncate min-w-0">
+                        {exitName} → {enterName}
+                      </span>
+                      <span className="ml-auto shrink-0 font-medium text-amber-700 tabular-nums">
+                        {gapLabel} gap
                       </span>
                     </div>
-                    <span className="text-stone-500 truncate min-w-0">
-                      {exitName} → {enterName}
-                    </span>
-                    <span className="ml-auto shrink-0 font-medium text-amber-700 tabular-nums">
-                      {gapLabel} gap
-                    </span>
+                    {/* Row 2: act / scene / original line location */}
+                    <div className="mt-1 ml-6 text-xs text-stone-400 tabular-nums">
+                      {exitLoc} → {enterLoc}
+                      <span className="ml-1.5 text-stone-300">(original lines)</span>
+                    </div>
                   </div>
                 );
               })}
