@@ -21,10 +21,6 @@ function getEffectiveChars(sd: StageDirection, edits?: Record<string, string[]>)
   return edits?.[sd.id] ?? sd.characters;
 }
 
-/** Roman numeral for 1–5 (covers all Shakespeare acts). */
-function toRoman(n: number): string {
-  return ["", "I", "II", "III", "IV", "V"][n] ?? String(n);
-}
 
 /**
  * Per-scene on-stage walk using entrance/exit SDs (mirrors StageTimeEngine logic).
@@ -601,9 +597,9 @@ export default function CastingManager({ playId }: Props) {
                 const secs = Math.round((w.gapMinutes - mins) * 60);
                 const gapLabel = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 
-                // Format location: "Act II, sc.3, ~l.47"
-                const exitLoc = `Act ${toRoman(w.exitActNum)}, sc.${w.exitSceneNum}, ~l.${w.exitApproxLine}`;
-                const enterLoc = `Act ${toRoman(w.enterActNum)}, sc.${w.enterSceneNum}, ~l.${w.enterApproxLine}`;
+                // Format location: "Act 1, scene 2: ~l.47"
+                const exitLoc = `Act ${w.exitActNum}, scene ${w.exitSceneNum}: ~l.${w.exitApproxLine}`;
+                const enterLoc = `Act ${w.enterActNum}, scene ${w.enterSceneNum}: ~l.${w.enterApproxLine}`;
 
                 return (
                   <div
