@@ -16,10 +16,13 @@ ShakesScriptScissors lets you work through any of the 37 Folger Shakespeare text
 
 ### Casting
 - **Assign actors to roles** — set up your company and handle double-casting; each actor gets a colour that carries through all views
-- **Conflict warnings** — characters ever simultaneously on stage are flagged; actor dropdowns show a ⚠ pre-warning before you create a clash
+- **Conflict warnings** — characters ever simultaneously on stage are flagged; actor dropdowns show a ⚠ pre-warning before you create a clash; each warning card shows the exact act, scene, and approximate original-script line number for both the exit and entrance so you can judge whether the change is physically feasible
 - **Stage direction editor** — add or remove characters from individual entrance/exit stage directions to fix gaps in the TEI data
 - **Character counts in casting** — each character card shows their current cut line count, word count, and stage time at a glance
 - **Actor management** — click an actor's name to rename it inline; delete shows a confirmation with how many characters are assigned
+- **Character aliases** — give any character a production-specific display name (e.g. rename "FIRST PLAYER" to "Player King" for clarity); aliases apply everywhere — script view, line counts, matrix, cue scripts — while the original TEI name stays visible in muted text so the mapping is always traceable; aliases are per-cut, so different cut versions can have different names
+- **Character links** — pin two characters to always share the same actor (e.g. Theseus/Oberon in MND); linked pairs appear as sky-blue pills on each character card and override the Suggest algorithm so those characters are always grouped together regardless of quick-change constraints
+- **Suggest minimum cast** — click "Suggest minimum cast" to find the smallest possible company for your cut; the algorithm uses graph colouring (Welsh–Powell, sorted by line count) to group characters with no simultaneous conflicts; it respects your quick-change threshold setting — characters with too little turnaround time between scenes cannot share an actor — and honours all character links you've set; the suggestion panel shows character names under each actor slot and lets you Apply (creates the actors and assignments) or Dismiss
 
 ### Metrics
 - **Running time** — stage-time tracking from entrance/exit stage directions shows per-character and total show duration, cut vs. original; configurable words-per-minute rate

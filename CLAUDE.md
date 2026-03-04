@@ -29,8 +29,10 @@ Node must be loaded via nvm: `export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:
 | `lib/cuts/CutEngine.ts` | Pure fn: `(Play, Cut, assignments, actors)` → `LineCounts` + filtered units |
 | `lib/cuts/StageTimeEngine.ts` | Computes per-character on-stage time from entrance/exit SDs; returns cut vs original minutes |
 | `lib/cuts/CueScriptBuilder.ts` | Builds per-actor cue scripts from cut play |
+| `lib/cuts/CastingUtils.ts` | `suggestMinimumCast` (Welsh–Powell graph colouring) + `buildForbiddenPairs` (quick-change-aware doubling constraints) |
+| `lib/cuts/QuickChangeEngine.ts` | `computeQuickChanges` — walks scenes to find actor quick-changes below the threshold; warnings include act/scene/line locations |
 | `lib/project/ProjectStore.tsx` | React context + localStorage persistence; all project mutations |
-| `lib/project/projectUtils.ts` | `generateId()`, `defaultColors` (reds + greens excluded — reserved for UI indicators) |
+| `lib/project/projectUtils.ts` | `generateId()`, `defaultColors` (reds + greens excluded — reserved for UI indicators), `resolveCharacterName(charId, aliases, castList)` |
 | `lib/project/projectIO.ts` | JSON export (file download) and import (file picker + Zod validation); `exportProject` / `importProject` |
 | `app/api/play/[playId]/route.ts` | GET: fetch + parse + cache a play; returns `Play` JSON |
 | `app/api/plays/route.ts` | GET: returns `PLAYS` listing |
@@ -51,9 +53,13 @@ Node must be loaded via nvm: `export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:
   - `stageDirectionEdits?: Record<sdId, string[]>` — full override of character list per SD
   - `sceneOrder?: string[]` — custom scene ordering (for reordering scenes)
   - `speechEdits?: Record<unitId, SpeechEdit>` — word-level track-changes edits
+  - `speechReassignments?: Record<unitId, characterId>` — re-attributes a speech to a different character; afterCut counts route to the new character, original counts stay on the original
+  - `characterAliases?: Record<characterId, string>` — display-name overrides per character for this cut; never alters underlying Play data; propagated to all render sites (script, line counts, matrix, cue scripts)
+  - `characterLinks?: Array<[charIdA, charIdB]>` — director-specified pairs that must share the same actor; IDs stored in sorted order for stable equality checks; fed into Suggest as `sameActorPairs` overrides, which take precedence over quick-change forbidden pairs; per-cut, cloned when duplicating a cut
+  - `pauses?: Record<"after:{sceneId}", { name: string; minutes: number }>` — named intermissions inserted between scenes; duration adds to total running time
 - `actors[]`: name + color hex
 - `assignments[]`: `characterId` → `actorId` (double-casting: one actor → many characters)
-- `settings?: { wordsPerMinute: number }` — used for stage time calculation
+- `settings?: { wordsPerMinute: number; quickChangeThresholdMinutes?: number }` — used for stage time and quick-change calculations
 - Export file extension: `.sss.json`
 
 ## TEI Parsing Notes
@@ -101,8 +107,8 @@ components/
     CharacterRow.tsx        ← single character row with bar chart
     ActorRow.tsx            ← single actor row with bar chart
   CastingManager/
-    CastingManager.tsx      ← builds simultaneous-pairs map, computes conflict warnings; actor inline rename + delete-with-confirmation; passes line/word/time counts to CharacterCard
-    CharacterCard.tsx       ← actor dropdown with ⚠ prefix for conflicting actors; shows cut line/word/time counts inline
+    CastingManager.tsx      ← builds simultaneous-pairs map, computes conflict warnings (with act/scene/line locations); actor inline rename + delete-with-confirmation; "Suggest minimum cast" button + Apply/Dismiss panel; ? help button with algorithm explanation; passes line/word/time counts + alias + link props to CharacterCard
+    CharacterCard.tsx       ← actor dropdown with ⚠ prefix for conflicting actors; shows cut line/word/time counts inline; alias editing (pencil icon → inline input, original name shown muted); character link pills (sky-blue) + "link with…" select
   Dashboard/
     SceneDashboard.tsx      ← orchestrator; builds charSceneMatrix + stageTime; metric/tab state
     SceneList.tsx           ← drag-reorder scene list; pause insertion between scenes
@@ -131,6 +137,52 @@ On-stage tracking uses **entrance/exit SDs only** — no fallback from speech pr
 `computeSimultaneousMap` walks entrance/exit SDs to build `Map<charId, Set<charId>>` of characters ever simultaneously on stage. From this:
 - `conflictCount` badge (⚠ N) on a character card = N of their simultaneous partners share the same assigned actor
 - Actor dropdown shows `⚠ ActorName` as a **pre-warning** before assigning, if that actor is already assigned to a simultaneous-on-stage character
+
+### Quick-change warnings (`lib/cuts/QuickChangeEngine.ts`)
+
+`computeQuickChanges` detects actor turnaround gaps below `settings.quickChangeThresholdMinutes` (default 2.0 min). Each `QuickChangeWarning` carries:
+- `exitSceneId` / `enterSceneId` — which scenes contain the costume change
+- `exitActNum`, `exitSceneNum`, `exitApproxLine` — 1-based act and scene numbers, plus scene-relative original-text line count at point of exit
+- `enterActNum`, `enterSceneNum`, `enterApproxLine` — same for the entrance
+- `gapMinutes` — gap between exit and entrance in estimated minutes
+
+Displayed in `CastingManager` as a two-row card per warning:
+```
+[actor name] exits as [Char A] → enters as [Char B]  (X.Xm gap)
+  Act 1, scene 2: ~l.47 → Act 1, scene 4: ~l.0  (original lines)
+```
+
+`exitApproxLine` counts all speech `lineCount`s in the scene up to that point regardless of cut status, so the number matches the uncut script for physical reference.
+
+## Character Aliases (`Cut.characterAliases`)
+
+Per-cut display-name overrides stored as `Record<characterId, string>`. Key behaviours:
+- **Never alters `Play` data** — the TEI character ID and cast-list name are untouched
+- **Propagated everywhere** via `resolveCharacterName(charId, aliases, castList)` in `lib/project/projectUtils.ts`; falls back to `characterIdToName(charId)` if no cast entry
+- **Alias editing in CharacterCard**: hover the character name → pencil icon → inline `<input>` → Enter/blur to confirm; original TEI name shown in muted text below when an alias is set
+- **Cue script**: `buildCueScript` accepts `characterAliases` and uses resolved names for character headers and speaker labels
+- **Cloned with the cut**: duplicating a cut copies `characterAliases`; aliases are independent per cut
+- Cleared by setting `alias = null` (key is deleted from the map)
+
+## Character Links (`Cut.characterLinks`)
+
+Director-specified same-actor pairs stored as `Array<[charIdA, charIdB]>` (IDs in lexicographic order for stable equality). Key behaviours:
+- **UI**: sky-blue pills below the line-count area on each CharacterCard; `+ link` button opens an inline `<select>` of unlinked characters; × button removes the link; link is bidirectional (both cards show the pill)
+- **Store action**: `TOGGLE_CHARACTER_LINK` adds the sorted pair if absent, removes it if present
+- **Suggest integration**: links feed into `handleSuggest` as additional `sameActorPairs`, which union-find merges before graph colouring — this overrides any quick-change forbidden-pair constraint between the linked characters, encoding the director's dramaturgical decision
+- **Help text**: `?` button in CastingManager header shows a panel explaining the graph-colouring algorithm, quick-change threshold, and how links work
+
+## Minimum Cast Suggestion (`lib/cuts/CastingUtils.ts`)
+
+`suggestMinimumCast(speakingCharIds, simultaneousMap, options)` finds the minimum actor count using Welsh–Powell greedy graph colouring:
+
+1. **`buildForbiddenPairs(play, cut, settings)`** — walks the cut play tracking cumulative minutes; any actor pair with gap < `quickChangeThresholdMinutes` is added to the forbidden set
+2. **Sort by degree × line count** — characters sorted descending by simultaneous-pair count (most constrained first), tie-broken by line count
+3. **Union-find for same-actor merges** — `sameActorPairs` (from existing assignments + character links) are merged into groups; each group is coloured as a unit
+4. **Greedy colouring** — each character (or merged group) is assigned the lowest-indexed slot not used by any simultaneous-on-stage neighbour or forbidden-pair neighbour
+5. **"Prefer least-loaded" slot** — among valid slots, picks the one with the fewest total lines to balance the cast
+
+Result displayed in CastingManager as a preview panel: "Suggested minimum: N actors" → grouped character lists → **Apply** (creates `Actor` objects with `defaultColors`, dispatches `BULK_SET_CAST`) / **Dismiss**.
 
 ## UI Color Conventions
 
@@ -225,8 +277,8 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
 - **Group 7**: Save/Open Project UI; 3-mode view toggle (Standard / Clean / Diff); focus-mode scene counts in LineCountPanel; character filter hides empty acts; Time metric in act/scene headers; cue script entrance + exit SD cues; play title subtitle in nav; `characterIdToName` fallback for unrecognized stage-direction characters
 - **Group 8**: Scene Dashboard (`/dashboard`) with 3 subtabs — Scenes & Pauses (drag-reorder, pause insertion), Matrix (character × scene line/word/time counts, actor-grouped headers, column filter, row + column totals, Table/Chart toggle with sorted bar chart), Rehearsal (By Actor breakdown + Suggested Rehearsal Blocks side-by-side); scene reorder moved exclusively to Dashboard; metric toggle (Lines/Words/Time) in dashboard header
 - **Group 9**: Script Integrity — Dashboard Integrity tab (side-by-side no-exit / no-entrance warnings with scene/line location of complementary SD); speech reassignment (hover char name → dropdown, restore clears it); running scene-relative line counter every 5 lines (mode-aware: Standard=all lines, Clean/Diff=kept lines); fully-cut character defined as all speeches + all entrance/exit SDs cut; CharacterCard shows cut line/word/time counts; actor inline rename + delete-with-confirmation in CastingManager
+- **Group 10**: Character aliases (`characterAliases` per-cut, propagated to all render sites including cue scripts); suggest minimum cast (Welsh–Powell graph colouring, quick-change-aware forbidden pairs, union-find for same-actor merges, Apply/Dismiss panel); character links (`characterLinks` per-cut, sky-blue pills on CharacterCard, feed into Suggest as hard same-actor constraints); quick-change warning locations (act/scene/original-line for both exit and entrance)
 
 ### Not Started (Phase 3+)
-- **Group 10**: Global character rename (`characterAliases`); suggest minimum cast
 - **Group 11**: Self-contained HTML export; PDF export of cue scripts
 - **Stretch**: Insert text; Google Drive backup; SD "All" expansion; Settings panel (WPM UI)
