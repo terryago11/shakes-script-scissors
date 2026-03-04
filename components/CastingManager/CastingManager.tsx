@@ -7,7 +7,7 @@ import { computeQuickChanges } from "@/lib/cuts/QuickChangeEngine";
 import { computeCuts } from "@/lib/cuts/CutEngine";
 import { computeStageTime } from "@/lib/cuts/StageTimeEngine";
 import { characterIdToName } from "@/lib/folger/TeiParser";
-import { suggestMinimumCast } from "@/lib/cuts/CastingUtils";
+import { suggestMinimumCast, buildForbiddenPairs } from "@/lib/cuts/CastingUtils";
 import { defaultColors, generateId } from "@/lib/project/projectUtils";
 import type { Actor, ActorAssignment } from "@/types/project";
 import CharacterCard from "./CharacterCard";
@@ -103,10 +103,59 @@ export default function CastingManager({ playId }: Props) {
   }
 
   function handleSuggest() {
-    const activeCharIds = speakingChars
-      .filter((c) => !fullyCutCharIds.has(c.id))
-      .map((c) => c.id);
-    const result = suggestMinimumCast(activeCharIds, simultaneousMap);
+    if (!activeCut) return;
+
+    const activeChars = speakingChars.filter((c) => !fullyCutCharIds.has(c.id));
+    const activeCharIds = activeChars.map((c) => c.id);
+
+    // Resolve display name for a character (alias → castList → TEI fallback)
+    function displayName(id: string): string {
+      return (
+        activeCut?.characterAliases?.[id] ??
+        speakingChars.find((c) => c.id === id)?.name ??
+        characterIdToName(id)
+      );
+    }
+
+    // ── sameActorPairs: characters that share the same display name ────────
+    // These are either genuine TEI duplicates (e.g., two IDs both named
+    // "First Player") or play-within-a-play roles tied to a frame character.
+    // Characters with identical names and no simultaneous constraint must
+    // always be played by the same actor.
+    const nameGroups = new Map<string, string[]>();
+    for (const c of activeChars) {
+      const n = displayName(c.id);
+      if (!nameGroups.has(n)) nameGroups.set(n, []);
+      nameGroups.get(n)!.push(c.id);
+    }
+    const sameActorPairs: Array<[string, string]> = [];
+    for (const group of nameGroups.values()) {
+      if (group.length < 2) continue;
+      // Only merge if they are NOT simultaneously on stage (which would be a
+      // data error, but guard against it anyway).
+      for (let i = 1; i < group.length; i++) {
+        const simSet = simultaneousMap.get(group[0]) ?? new Set();
+        if (!simSet.has(group[i])) {
+          sameActorPairs.push([group[0], group[i]]);
+        }
+      }
+    }
+
+    // ── forbiddenPairs: quick-change conflicts between characters ──────────
+    const forbiddenPairs = buildForbiddenPairs(play!, activeCut, project?.settings);
+
+    // ── lineCounts: afterCut lines per character ───────────────────────────
+    const lineCountsForSuggest: Record<string, number> = {};
+    for (const c of activeChars) {
+      lineCountsForSuggest[c.id] = lineCounts?.byCharacter[c.id]?.afterCut ?? 0;
+    }
+
+    const result = suggestMinimumCast(activeCharIds, simultaneousMap, {
+      lineCounts: lineCountsForSuggest,
+      forbiddenPairs,
+      sameActorPairs,
+    });
+
     const groups = new Map<number, string[]>();
     for (const { charId, actorIndex } of result) {
       if (!groups.has(actorIndex)) groups.set(actorIndex, []);
@@ -286,9 +335,16 @@ export default function CastingManager({ playId }: Props) {
                   />
                   <span className="text-stone-500 shrink-0">Actor {g.actorIndex + 1}:</span>
                   <span className="text-stone-700">
-                    {g.charIds
-                      .map((id) => activeCut?.characterAliases?.[id] ?? speakingChars.find((c) => c.id === id)?.name ?? characterIdToName(id))
-                      .join(", ")}
+                    {[
+                      ...new Set(
+                        g.charIds.map(
+                          (id) =>
+                            activeCut?.characterAliases?.[id] ??
+                            speakingChars.find((c) => c.id === id)?.name ??
+                            characterIdToName(id)
+                        )
+                      ),
+                    ].join(", ")}
                   </span>
                 </div>
               ))}
@@ -301,13 +357,28 @@ export default function CastingManager({ playId }: Props) {
             {project.actors.map((actor) => {
               const isEditing = editingActorId === actor.id;
               const isConfirmingDelete = confirmDeleteActorId === actor.id;
-              const assignedCount = project.assignments.filter((a) => a.actorId === actor.id).length;
+              const assignedCharIds = project.assignments
+                .filter((a) => a.actorId === actor.id)
+                .map((a) => a.characterId);
+              const assignedCount = assignedCharIds.length;
+
+              // Resolve display names for assigned characters (deduplicated)
+              const assignedCharNames = [
+                ...new Set(
+                  assignedCharIds.map(
+                    (id) =>
+                      activeCut?.characterAliases?.[id] ??
+                      play?.castList.find((c) => c.id === id)?.name ??
+                      characterIdToName(id)
+                  )
+                ),
+              ];
 
               if (isConfirmingDelete) {
                 return (
                   <div
                     key={actor.id}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-red-300 bg-red-50 text-sm"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-red-300 bg-red-50 text-sm"
                   >
                     <span className="text-red-700 text-xs">
                       Remove {actor.name}
@@ -335,10 +406,10 @@ export default function CastingManager({ playId }: Props) {
               return (
                 <div
                   key={actor.id}
-                  className="group/chip flex items-center gap-2 px-3 py-1.5 rounded-full border border-stone-200 bg-white text-sm"
+                  className="group/chip flex items-start gap-2 px-3 py-2 rounded-lg border border-stone-200 bg-white text-sm"
                 >
                   <label
-                    className="w-3 h-3 rounded-full cursor-pointer shrink-0 hover:ring-2 hover:ring-offset-1 hover:ring-stone-400 transition-shadow"
+                    className="w-3 h-3 rounded-full cursor-pointer shrink-0 mt-0.5 hover:ring-2 hover:ring-offset-1 hover:ring-stone-400 transition-shadow"
                     style={{ backgroundColor: actor.color }}
                     title="Click to change color"
                   >
@@ -351,54 +422,63 @@ export default function CastingManager({ playId }: Props) {
                       className="sr-only"
                     />
                   </label>
-                  {isEditing ? (
-                    <input
-                      autoFocus
-                      type="text"
-                      value={editingActorName}
-                      onChange={(e) => setEditingActorName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && editingActorName.trim()) {
-                          dispatch({ type: "UPDATE_ACTOR", actorId: actor.id, name: editingActorName.trim(), color: actor.color });
-                          setEditingActorId(null);
-                        } else if (e.key === "Escape") {
-                          setEditingActorId(null);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (editingActorName.trim()) {
-                          dispatch({ type: "UPDATE_ACTOR", actorId: actor.id, name: editingActorName.trim(), color: actor.color });
-                        }
-                        setEditingActorId(null);
-                      }}
-                      className="text-stone-700 bg-transparent border-b border-stone-400 focus:outline-none focus:border-amber-500 w-24 text-sm"
-                    />
-                  ) : (
-                    <span
-                      className="group/name flex items-center gap-1 cursor-text"
-                      title="Click to rename"
-                      onClick={() => {
-                        setEditingActorId(actor.id);
-                        setEditingActorName(actor.name);
-                      }}
-                    >
-                      <span className="text-stone-700 hover:text-stone-900">{actor.name}</span>
-                      <span className="text-stone-300 opacity-0 group-hover/name:opacity-100 transition-opacity text-xs select-none" aria-hidden>✎</span>
-                    </span>
-                  )}
-                  <button
-                    onClick={() => {
-                      if (assignedCount > 0) {
-                        setConfirmDeleteActorId(actor.id);
-                      } else {
-                        dispatch({ type: "DELETE_ACTOR", actorId: actor.id });
-                      }
-                    }}
-                    className="text-stone-300 hover:text-red-400 ml-1 text-xs"
-                    title="Remove actor"
-                  >
-                    ✕
-                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1">
+                      {isEditing ? (
+                        <input
+                          autoFocus
+                          type="text"
+                          value={editingActorName}
+                          onChange={(e) => setEditingActorName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && editingActorName.trim()) {
+                              dispatch({ type: "UPDATE_ACTOR", actorId: actor.id, name: editingActorName.trim(), color: actor.color });
+                              setEditingActorId(null);
+                            } else if (e.key === "Escape") {
+                              setEditingActorId(null);
+                            }
+                          }}
+                          onBlur={() => {
+                            if (editingActorName.trim()) {
+                              dispatch({ type: "UPDATE_ACTOR", actorId: actor.id, name: editingActorName.trim(), color: actor.color });
+                            }
+                            setEditingActorId(null);
+                          }}
+                          className="text-stone-700 bg-transparent border-b border-stone-400 focus:outline-none focus:border-amber-500 w-24 text-sm"
+                        />
+                      ) : (
+                        <span
+                          className="group/name flex items-center gap-1 cursor-text"
+                          title="Click to rename"
+                          onClick={() => {
+                            setEditingActorId(actor.id);
+                            setEditingActorName(actor.name);
+                          }}
+                        >
+                          <span className="text-stone-700 hover:text-stone-900">{actor.name}</span>
+                          <span className="text-stone-300 opacity-0 group-hover/name:opacity-100 transition-opacity text-xs select-none" aria-hidden>✎</span>
+                        </span>
+                      )}
+                      <button
+                        onClick={() => {
+                          if (assignedCount > 0) {
+                            setConfirmDeleteActorId(actor.id);
+                          } else {
+                            dispatch({ type: "DELETE_ACTOR", actorId: actor.id });
+                          }
+                        }}
+                        className="text-stone-300 hover:text-red-400 ml-1 text-xs"
+                        title="Remove actor"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    {assignedCharNames.length > 0 && (
+                      <div className="text-xs text-stone-400 mt-0.5 leading-snug">
+                        {assignedCharNames.join(", ")}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
