@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Project, Cut } from "@/types/project";
+import type { Project, Cut, Actor, ActorAssignment } from "@/types/project";
 import type { Play } from "@/types/play";
 import { generateScriptHtml } from "@/lib/cuts/HtmlExporter";
 
@@ -85,8 +85,14 @@ export function importProjectFromJson(json: string): Project {
 }
 
 /** Download the cut script as a self-contained HTML file */
-export function exportScriptHtml(play: Play, cut: Cut, projectName?: string): void {
-  const html = generateScriptHtml(play, cut, projectName);
+export function exportScriptHtml(
+  play: Play,
+  cut: Cut,
+  projectName?: string,
+  actors?: Actor[],
+  assignments?: ActorAssignment[]
+): void {
+  const html = generateScriptHtml(play, cut, projectName, actors, assignments);
   const blob = new Blob([html], { type: "text/html" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
