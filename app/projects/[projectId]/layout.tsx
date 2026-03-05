@@ -4,7 +4,9 @@ import { useEffect, use, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useProject, loadProjectFromStorage } from "@/lib/project/ProjectStore";
-import { exportProject } from "@/lib/project/projectIO";
+import { exportProject, exportScriptHtml } from "@/lib/project/projectIO";
+import type { Cut } from "@/types/project";
+import type { Play } from "@/types/play";
 import CutSelector from "@/components/CutSelector/CutSelector";
 import { SceneJumpProvider, useSceneJump } from "@/lib/ui/SceneJumpContext";
 import { CutModeProvider, useCutMode } from "@/lib/ui/CutModeContext";
@@ -20,7 +22,7 @@ export default function ProjectLayout({
 }) {
   const { projectId } = use(params);
   const router = useRouter();
-  const { project, loadProject } = useProject();
+  const { project, activeCut, loadProject } = useProject();
   const pathname = usePathname();
 
   useEffect(() => {
@@ -45,7 +47,14 @@ export default function ProjectLayout({
       <CutModeProvider>
         <MetricProvider>
           <ViewModeProvider>
-            <ProjectNav project={project} projectId={projectId} isScriptPage={isScriptPage} router={router} pathname={pathname} />
+            <ProjectNav
+              project={project}
+              activeCut={activeCut}
+              projectId={projectId}
+              isScriptPage={isScriptPage}
+              router={router}
+              pathname={pathname}
+            />
             <div className="flex-1">{children}</div>
           </ViewModeProvider>
         </MetricProvider>
@@ -56,6 +65,7 @@ export default function ProjectLayout({
 
 function ProjectNav({
   project,
+  activeCut,
   projectId,
   isScriptPage,
   router,
@@ -63,6 +73,7 @@ function ProjectNav({
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   project: any;
+  activeCut: Cut | null;
   projectId: string;
   isScriptPage: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -133,14 +144,8 @@ function ProjectNav({
 
         <CutSelector />
 
-        {/* Save Project */}
-        <button
-          onClick={() => exportProject(project)}
-          className="ml-auto shrink-0 text-xs px-3 py-1.5 rounded border border-stone-300 bg-white text-stone-600 hover:bg-stone-50 hover:border-stone-400 transition-colors font-medium"
-          title="Save project as .sss.json file"
-        >
-          ↓ Save Project
-        </button>
+        {/* Save / Export dropdown */}
+        <SaveExportDropdown project={project} activeCut={activeCut} />
       </div>
 
       {/* Cut mode overlay */}
@@ -152,6 +157,74 @@ function ProjectNav({
         </div>
       )}
     </header>
+  );
+}
+
+/** Save / Export dropdown — JSON save + HTML export */
+function SaveExportDropdown({
+  project,
+  activeCut,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  project: any;
+  activeCut: Cut | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  async function handleHtmlExport() {
+    if (!activeCut) return;
+    setOpen(false);
+    setExporting(true);
+    try {
+      const r = await fetch(`/api/play/${project.playId}`);
+      const play: Play = await r.json();
+      exportScriptHtml(play, activeCut, project.name, project.actors, project.assignments);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <div ref={ref} className="relative ml-auto shrink-0">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        disabled={exporting}
+        className="text-xs px-3 py-1.5 rounded border border-stone-300 bg-white text-stone-600 hover:bg-stone-50 hover:border-stone-400 transition-colors font-medium flex items-center gap-1.5 disabled:opacity-60"
+      >
+        {exporting ? "Exporting…" : "Save / Export"}
+        {!exporting && <span className="opacity-40">▾</span>}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-stone-200 rounded-lg shadow-lg py-1 z-50">
+          <button
+            onClick={() => { exportProject(project); setOpen(false); }}
+            className="w-full text-left px-3 py-2 text-sm text-stone-600 hover:bg-stone-50 flex items-center gap-2"
+          >
+            <span className="text-stone-400">↓</span>
+            Save project as JSON
+          </button>
+          <button
+            onClick={handleHtmlExport}
+            disabled={!activeCut}
+            className="w-full text-left px-3 py-2 text-sm text-stone-600 hover:bg-stone-50 flex items-center gap-2 disabled:opacity-40"
+          >
+            <span className="text-stone-400">⊞</span>
+            Export cut as HTML
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

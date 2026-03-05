@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Play } from "@/types/play";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import { buildCueScript } from "@/lib/cuts/CueScriptBuilder";
+import { resolveCharacterName } from "@/lib/project/projectUtils";
 import CueScriptDocument from "./CueScriptDocument";
 
 interface Props {
@@ -11,12 +12,18 @@ interface Props {
   cut: Cut;
   actors: Actor[];
   assignments: ActorAssignment[];
+  projectName?: string;
 }
 
 export default function ExportMenu({ play, cut, actors, assignments }: Props) {
   const [selectedActorId, setSelectedActorId] = useState<string>(actors[0]?.id || "");
 
   const selectedActor = actors.find((a) => a.id === selectedActorId) || null;
+
+  // Resolve the character names assigned to this actor for the PDF header
+  const actorCharacterNames = assignments
+    .filter((a) => a.actorId === selectedActorId)
+    .map((a) => resolveCharacterName(a.characterId, cut.characterAliases, play.castList));
 
   const cueScript = selectedActor
     ? buildCueScript(play, cut, selectedActor, assignments, cut.characterAliases)
@@ -39,9 +46,9 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Controls (hidden when printing) */}
-      <div className="no-print px-6 py-4 border-b border-stone-200 flex items-center gap-4 bg-white">
-        <label className="text-sm text-stone-600 font-medium">Actor:</label>
+      {/* Controls — hidden when printing */}
+      <div className="no-print px-6 py-4 border-b border-stone-200 bg-white flex items-center gap-4">
+        <label className="text-sm font-medium text-stone-700 shrink-0">Actor Cue Script</label>
         <select
           value={selectedActorId}
           onChange={(e) => setSelectedActorId(e.target.value)}
@@ -53,10 +60,9 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
             </option>
           ))}
         </select>
-
         <button
           onClick={handlePrint}
-          className="ml-auto px-4 py-2 bg-amber-500 text-white text-sm rounded-lg hover:bg-amber-600"
+          className="ml-auto px-4 py-2 bg-stone-700 text-white text-sm rounded-lg hover:bg-stone-800 shrink-0"
         >
           Print / Save PDF
         </button>
@@ -64,7 +70,7 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
 
       {/* Cue script preview */}
       {cueScript ? (
-        <CueScriptDocument cueScript={cueScript} />
+        <CueScriptDocument cueScript={cueScript} characterNames={actorCharacterNames} />
       ) : (
         <div className="text-stone-400 text-sm p-6">Select an actor above.</div>
       )}

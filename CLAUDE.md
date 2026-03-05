@@ -24,7 +24,7 @@ Node must be loaded via nvm: `export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:
 | Path | Purpose |
 |------|---------|
 | `lib/folger/FolgerClient.ts` | Fetches TEI XML from DraCor; `PLAYS` array maps `id` → `slug` |
-| `lib/folger/TeiParser.ts` | Parses TEI XML into `Play` domain objects; sets `stageType` + `isSong` on SDs |
+| `lib/folger/TeiParser.ts` | Parses TEI XML into `Play` domain objects; sets `stageType` + `isSong` on SDs; extracts `castList` names verbatim from TEI (handles both `<role><name>` and bare `<role>` formats); stores raw `<speaker>` text as `Speech.speakerTag` |
 | `lib/folger/PlayCache.ts` | LRU in-memory cache for parsed plays (server-side) |
 | `lib/cuts/CutEngine.ts` | Pure fn: `(Play, Cut, assignments, actors)` → `LineCounts` + filtered units |
 | `lib/cuts/StageTimeEngine.ts` | Computes per-character on-stage time from entrance/exit SDs; returns cut vs original minutes |
@@ -41,7 +41,7 @@ Node must be loaded via nvm: `export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:
 
 ### `Play` (parsed from TEI, never stored)
 - `acts[]` → `scenes[]` → `units[]` (Speech | StageDirection)
-- `Speech`: `characterId` (e.g. `#Hamlet_Ham`), `lines[]`, `lineCount`
+- `Speech`: `characterId` (e.g. `#Hamlet_Ham`), `characterName`, `speakerTag` (raw `<speaker>` tag text verbatim, e.g. `"GHOST OF HAMLET'S FATHER"`), `lines[]`, `lineCount`
 - `StageDirection`: `id`, `text`, `characters[]`, `stageType?` (`"entrance"|"exit"|"business"|"delivery"`), `isSong?`
 - `Line`: `id`, `ftln` (Folger through-line number), `text`
 
@@ -74,6 +74,11 @@ The DraCor TEI format uses:
 - `<stage type="entrance|exit|...">` for stage directions (type drives on-stage tracking)
 
 `fast-xml-parser` is configured with `preserveOrder: true` so elements maintain document order.
+
+**Two `<castItem>` formats** handled by the parser:
+- `<role><name>King Claudius</name></role>` — named characters (has `<name>` child)
+- `<role>A Lord</role>` — minor characters (text directly in `<role>`, no `<name>` child)
+TEI-authored names are used verbatim; `normalizeCharacterName` is only applied to the ID-stem as a last-resort fallback when no TEI name exists.
 
 **Known DraCor data gaps**: Some exit SDs are missing characters (e.g. "All but Hamlet exit" may omit Voltemand/Cornelius). Use the SD character editor to fix per-production.
 
@@ -114,7 +119,7 @@ components/
     SceneList.tsx           ← drag-reorder scene list; pause insertion between scenes
     DashboardMatrix.tsx     ← character × scene matrix; actor-grouped headers; totals; Table/Chart
     RehearsalGroupings.tsx  ← By Actor scene breakdown + Suggested Rehearsal Blocks (side-by-side)
-    IntegrityChecks.tsx     ← Integrity tab: side-by-side no-exit / no-entrance warning cards
+    IntegrityChecks.tsx     ← Integrity tab: side-by-side no-exit / no-entrance warning cards; Name Diagnostics collapsible table (Character ID · Folger Cast List · Folger Speaker Name · ID-Normalized · SD References · Resolved)
 ```
 
 ## Stage Time Engine (`lib/cuts/StageTimeEngine.ts`)
@@ -240,6 +245,8 @@ Side-by-side columns: **Missing Exit SDs** (left) and **Missing Entrance SDs** (
 
 Badge on the tab button shows total warning count. `buildCharDetails` uses `findSdsForChar()` to walk the play counting kept lines before each matching SD to compute the approximate line number.
 
+**Name Diagnostics** — collapsible developer/dramaturg table at the bottom of the Integrity tab. Shows every character's name across all sources side by side: TEI ID, Folger Cast List name, raw `<speaker>` tag text, ID-normalized fallback, SD References (name tokens + pronouns extracted from SD prose, with act/scene/`~l.N` hover tooltips per token), and the resolved display name. SD token extraction filters possessive qualifiers (`"Gravedigger"` excluded from `"Gravedigger's companion"`) and qualified-ID context words (`"Fortinbras"` excluded from `SOLDIERS.FORTINBRAS`). Sky-blue rows have an active alias for the current cut.
+
 `buildCharSceneMatrix` respects `speechReassignments`: original counts go to `unit.characterId`, afterCut counts go to `reassignments[unit.id] ?? unit.characterId`. Fully-cut characters are defined as having all speeches cut AND all entrance/exit SDs cut.
 
 ## Speech Reassignment (`SpeechBlock.tsx`)
@@ -278,7 +285,9 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
 - **Group 8**: Scene Dashboard (`/dashboard`) with 3 subtabs — Scenes & Pauses (drag-reorder, pause insertion), Matrix (character × scene line/word/time counts, actor-grouped headers, column filter, row + column totals, Table/Chart toggle with sorted bar chart), Rehearsal (By Actor breakdown + Suggested Rehearsal Blocks side-by-side); scene reorder moved exclusively to Dashboard; metric toggle (Lines/Words/Time) in dashboard header
 - **Group 9**: Script Integrity — Dashboard Integrity tab (side-by-side no-exit / no-entrance warnings with scene/line location of complementary SD); speech reassignment (hover char name → dropdown, restore clears it); running scene-relative line counter every 5 lines (mode-aware: Standard=all lines, Clean/Diff=kept lines); fully-cut character defined as all speeches + all entrance/exit SDs cut; CharacterCard shows cut line/word/time counts; actor inline rename + delete-with-confirmation in CastingManager
 - **Group 10**: Character aliases (`characterAliases` per-cut, propagated to all render sites including cue scripts); suggest minimum cast (Welsh–Powell graph colouring, quick-change-aware forbidden pairs, union-find for same-actor merges, Apply/Dismiss panel); character links (`characterLinks` per-cut, sky-blue pills on CharacterCard, feed into Suggest as hard same-actor constraints); quick-change warning locations (act/scene/original-line for both exit and entrance)
+- **Parser + Diagnostics**: TEI cast list parser fixes — bare `<role>` fallback, removed length-heuristic, verbatim TEI names; `Speech.speakerTag` field (raw `<speaker>` text); Name Diagnostics table in Integrity tab (SD reference token extraction with possessive/qualifier filtering, CSS hover tooltips for act/scene/line locations)
+
+- **Group 11**: "Save / Export ▾" nav dropdown (save JSON or export HTML); dynamic self-contained HTML mini-app export (pre-rendered data + embedded vanilla JS; three view modes Clean/Standard/Diff; character filter sidebar grouped by actor; sticky topbar with mode switcher, scene jump, print button; `@page` margin boxes baked in at export time); PDF cue scripts with `@page` headers (play title/cut name top-left, actor/characters top-right) and footer (page number + timestamp + tool attribution); white background on all print views
 
 ### Not Started (Phase 3+)
-- **Group 11**: Self-contained HTML export; PDF export of cue scripts
 - **Stretch**: Insert text; Google Drive backup; SD "All" expansion; Settings panel (WPM UI)

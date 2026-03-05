@@ -33,6 +33,7 @@ export default function ExportPage({
       cut={activeCut}
       actors={project.actors}
       assignments={project.assignments}
+      projectName={project.name}
     />
   );
 }
