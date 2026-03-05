@@ -221,6 +221,11 @@ function buildScriptData(
  * - Sticky top bar with title, mode switcher, scene jump select, and print button
  * - Correct project name, character aliases, speech reassignments, scene order, pauses
  */
+/** Escape a string value for embedding in a CSS content: "..." property */
+function escapeCss(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
 export function generateScriptHtml(
   play: Play,
   cut: Cut,
@@ -234,6 +239,16 @@ export function generateScriptHtml(
   const pageTitle = data.projectName
     ? `${data.projectName} — ${data.title} — ${data.cutName}`
     : `${data.title} — ${data.cutName}`;
+
+  // @page margin boxes for print — strings baked in at export time
+  const exportDate = new Date().toLocaleDateString("en-GB", {
+    day: "2-digit", month: "short", year: "numeric",
+  });
+  const pageTopLeft = data.projectName
+    ? `${escapeCss(data.projectName)}  ·  ${escapeCss(data.cutName)}`
+    : `${escapeCss(data.title)}  ·  ${escapeCss(data.cutName)}`;
+  const pageTopRight = data.projectName ? escapeCss(data.title) : "";
+  const pageCss = `@page{margin-top:15mm;margin-bottom:18mm;@top-left{content:"${pageTopLeft}";font-family:Georgia,serif;font-size:8pt;color:#666;}${pageTopRight ? `@top-right{content:"${pageTopRight}";font-family:Georgia,serif;font-size:8pt;color:#666;}` : ""}@bottom-center{content:"Page " counter(page) "  ·  Exported ${exportDate}  ·  Generated with the Shakespeare Script Scissors tool";font-family:Georgia,serif;font-size:8pt;color:#999;}}@page :first{margin-top:5mm;@top-left{content:none;}@top-right{content:none;}@bottom-center{content:none;}}`;
 
   // ------------------------------------------------------------------
   // Inline CSS
@@ -279,7 +294,7 @@ body{font-family:Georgia,'Times New Roman',serif;font-size:14px;line-height:1.65
 .panel-count{font-size:10px;color:#a8a29e;margin-left:4px}
 @media(max-width:700px){#char-panel{display:none}#script-col{padding:16px 20px}}
 @media print{
-  body{overflow:visible;height:auto}
+  body{overflow:visible;height:auto;background:white!important}
   #app{display:block;height:auto}
   #layout{display:block}
   #topbar,#char-panel{display:none}
@@ -459,7 +474,7 @@ document.addEventListener('DOMContentLoaded',function(){
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${pageTitle}</title>
-<style>${css}</style>
+<style>${css}${pageCss}</style>
 </head>
 <body>
 <div id="app">

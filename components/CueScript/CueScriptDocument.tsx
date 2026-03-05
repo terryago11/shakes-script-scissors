@@ -17,8 +17,13 @@ export default function CueScriptDocument({ cueScript, characterNames = [] }: Pr
   const charList = characterNames.join(", ");
   const charDisplay = charList.length > 60 ? charList.slice(0, 58) + "…" : charList;
 
+  // Timestamp for the print footer
+  const printDate = new Date().toLocaleDateString("en-GB", {
+    day: "2-digit", month: "short", year: "numeric",
+  });
+
   // @page margin-box CSS — injected as a <style> block for print
-  // All pages: footer with page number
+  // All pages: footer with page number + date
   // All pages except first: header with play/actor/characters
   const pageCSS = `
 @page {
@@ -26,13 +31,16 @@ export default function CueScriptDocument({ cueScript, characterNames = [] }: Pr
   margin-bottom: 18mm;
   @top-left   { content: "${escapeCssString(playTitle)}  ·  ${escapeCssString(cutName)}"; font-family: Georgia, serif; font-size: 8pt; color: #666; }
   @top-right  { content: "${escapeCssString(actorName)}${charDisplay ? `  ·  ${escapeCssString(charDisplay)}` : ""}"; font-family: Georgia, serif; font-size: 8pt; color: #666; }
-  @bottom-center { content: "Page " counter(page) "  ·  Generated with the Shakespeare Script Scissors tool"; font-family: Georgia, serif; font-size: 8pt; color: #999; }
+  @bottom-center { content: "Page " counter(page) "  ·  ${escapeCssString(printDate)}  ·  Generated with the Shakespeare Script Scissors tool"; font-family: Georgia, serif; font-size: 8pt; color: #999; }
 }
 @page :first {
   margin-top: 5mm;
   @top-left   { content: none; }
   @top-right  { content: none; }
   @bottom-center { content: none; }
+}
+@media print {
+  body { background: white !important; }
 }
 `.trim();
 
