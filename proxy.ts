@@ -8,17 +8,12 @@ const PUBLIC_PATHS = [
   "/login",
   "/api/auth/login",
   "/api/auth/me",
-  "/view",
 ];
 
 function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
   if (pathname.startsWith("/_next/")) return true;
   if (pathname.startsWith("/favicon")) return true;
-  // /view uses ?share= param — the page itself is public
-  if (pathname.startsWith("/view")) return true;
-  // Play data API — needed by the public /view page to render the script
-  if (pathname.startsWith("/api/play/")) return true;
   return false;
 }
 

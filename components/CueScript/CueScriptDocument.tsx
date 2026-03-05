@@ -31,7 +31,7 @@ export default function CueScriptDocument({ cueScript }: Props) {
 function CueEntryView({ entry }: { entry: CueEntry }) {
   if (entry.type === "cue") {
     return (
-      <div className="text-right pr-2 border-r-2 border-stone-300">
+      <div className="break-inside-avoid text-right pr-2 border-r-2 border-stone-300">
         {entry.cueSpeakerName && (
           <div className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-0.5">
             {entry.cueSpeakerName}
@@ -44,7 +44,7 @@ function CueEntryView({ entry }: { entry: CueEntry }) {
 
   if (entry.type === "stage") {
     return (
-      <div className="text-sm italic text-stone-500 text-center">
+      <div className="break-inside-avoid text-sm italic text-stone-500 text-center">
         [{entry.text}]
       </div>
     );
@@ -52,7 +52,7 @@ function CueEntryView({ entry }: { entry: CueEntry }) {
 
   // "lines" — the actor's own speech
   return (
-    <div className="pl-2">
+    <div className="break-inside-avoid pl-2">
       {entry.characterName && (
         <div className="text-xs font-bold uppercase tracking-wider text-stone-500 mb-0.5">
           {entry.characterName}
