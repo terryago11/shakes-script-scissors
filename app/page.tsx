@@ -220,7 +220,7 @@ export default function HomePage() {
       {/* Attribution footer */}
       <footer className="mt-16 pt-6 border-t border-stone-200 text-xs text-stone-400 space-y-1">
         <p>
-          Shakespeare texts are provided by{" "}
+          Shakespeare texts (37 plays) are provided by{" "}
           <a
             href="https://dracor.org/shake"
             target="_blank"
@@ -228,17 +228,17 @@ export default function HomePage() {
             className="underline hover:text-stone-600"
           >
             DraCor
-          </a>{" "}
-          and are based on the{" "}
+          </a>
+          . <em>The Two Noble Kinsmen</em> is taken directly from the{" "}
           <a
             href="https://www.folger.edu/explore/shakespeares-works/"
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-stone-600"
           >
-            Folger Shakespeare editions
+            Folger Digital Texts
           </a>
-          , edited by Barbara Mowat, Paul Werstine, Michael Poston, and Rebecca Niles.
+          . All texts are based on the Folger Shakespeare editions, edited by Barbara Mowat, Paul Werstine, Michael Poston, and Rebecca Niles.
           Licensed{" "}
           <a
             href="https://creativecommons.org/licenses/by-sa/4.0/"
@@ -261,7 +261,25 @@ export default function HomePage() {
           >
             Next.js
           </a>
-          .
+          . Concept by Natan Skop, implemented with{" "}
+          <a
+            href="https://claude.ai/code"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-stone-600"
+          >
+            Claude Code
+          </a>
+          .{" "}
+          <a
+            href="https://github.com/terryago11/shakes-script-scissors/blob/main/LICENSE"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-stone-600"
+          >
+            MIT License
+          </a>
+          {" "}— free to use, modify, and redistribute with attribution.
         </p>
       </footer>
 

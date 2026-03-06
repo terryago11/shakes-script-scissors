@@ -25,7 +25,7 @@ export async function fetchPlayXml(playId: string): Promise<string> {
     }
   }
 
-  // Live DraCor fallback (also used for TNK which is not in shakedracor)
+  // Live DraCor fallback (submodule file missing at runtime)
   const url = `${DRACOR_BASE}/${play.slug}/tei`;
   const res = await fetch(url, {
     next: { revalidate: 86400 },
@@ -44,6 +44,7 @@ export interface PlayMeta {
   title: string;
   localFile?: string; // shakedracor filename without .xml (if different from slug)
   noLocal?: boolean;  // true = not in shakedracor submodule, always use DraCor API
+  folgerSource?: string; // Folger raw TEI URL — present when the local file was produced by scripts/normalize-folger-tei.py rather than pulled from DraCor; check this URL for updates alongside `git pull` in the shakedracor submodule
 }
 
 /** All 38 Shakespeare plays — 37 from DraCor corpus + TNK from Folger Digital Texts (normalized by scripts/normalize-folger-tei.py), all mirrored locally in shakedracor/tei/ */
@@ -84,6 +85,6 @@ export const PLAYS: PlayMeta[] = [
   { id: "Tro", slug: "troilus-and-cressida", title: "Troilus and Cressida" },
   { id: "TN", slug: "twelfth-night", title: "Twelfth Night" },
   { id: "TGV", slug: "the-two-gentlemen-of-verona", localFile: "two-gentlemen-of-verona", title: "The Two Gentlemen of Verona" },
-  { id: "TNK", slug: "the-two-noble-kinsmen", title: "The Two Noble Kinsmen" },
+  { id: "TNK", slug: "the-two-noble-kinsmen", title: "The Two Noble Kinsmen", folgerSource: "https://www.folgerdigitaltexts.org/download/xml/TNK.xml" },
   { id: "WT", slug: "the-winters-tale", title: "The Winter's Tale" },
 ];

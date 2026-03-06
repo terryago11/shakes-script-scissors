@@ -11,7 +11,26 @@ npm run lint     # ESLint check
 npx tsc --noEmit # TypeScript check (no build output)
 ```
 
-Node must be loaded via nvm: `export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:$PATH"`
+Node must be loaded via nvm:
+
+## Updating Play Texts
+
+**DraCor plays (37 of 38)**: Pull the submodule.
+```bash
+cd shakedracor && git pull origin main && cd ..
+git add shakedracor && git commit -m "chore: update DraCor submodule"
+```
+
+**The Two Noble Kinsmen (Folger source)**: Check for updates at the `folgerSource` URL in `FolgerClient.ts`, then re-run the normalizer.
+```bash
+curl -o /tmp/TNK-raw.xml https://www.folgerdigitaltexts.org/download/xml/TNK.xml
+python3 scripts/normalize-folger-tei.py /tmp/TNK-raw.xml shakedracor/tei/the-two-noble-kinsmen.xml
+cd shakedracor && git add tei/the-two-noble-kinsmen.xml && git commit -m "chore: update TNK from Folger" && cd ..
+git add shakedracor && git commit -m "chore: update TNK submodule ref"
+```
+Both updates should be done together whenever play texts are refreshed.
+
+ `export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:$PATH"`
 
 ## Architecture
 
@@ -292,8 +311,32 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
 - **Group 12**: Settings modal (⚙ gear in nav → project name, WPM, quick-change threshold); copyright/attribution footer (home page) citing DraCor + Folger Editions CC BY-SA 4.0; `SECURITY.md` (allowlist API, localStorage-only, 0 `npm audit` vulns after `npm audit fix`); The Two Noble Kinsmen — not in DraCor corpus, local Folger TEI normalizer (`scripts/normalize-folger-tei.py`) converts raw Folger word-tokenized XML to DraCor-compatible format; mirrored at `shakedracor/tei/the-two-noble-kinsmen.xml`; `noLocal` flag removed; TNK loads with 3,291 lines + 42 cast members
 
 ### Not Started (Phase 4+)
-- **Group 13**: Dark mode (light/dark/auto, global localStorage); UI/UX polish; Shakespeare easter eggs ("Scratch it out!" / "Scratch it back in!" animations)
-- **Group 14**: Responsive layout for tablet landscape (1024px+)
-- **Group 15**: SD "All" auto-resolve; speech splitting; insert text (freestyle + borrow-from-play)
-- **Group 16**: TEI/DraCor source verification (Folger FDT docs); methodology PDFs (dev reference); user-facing documentation (`docs/`)
-- **Stretch**: Google Drive backup; GUI/installer for non-technical users
+
+#### Group 13 — Dark Mode + UI Polish + Easter Eggs
+- **Dark mode**: Add `ThemeContext` in `lib/ui/ThemeContext.tsx` with `"light" | "dark" | "auto"` (default `"auto"`). Store preference in `localStorage` key `sss_theme`. Toggle UI: sun/moon/auto icon group in nav bar, left of the gear icon. Implementation: set `class="dark"` on `<html>` when dark active; `prefers-color-scheme` media query for auto. Requires audit of all Tailwind classes to add `dark:` variants across all component files. Critical files: `app/layout.tsx`, `app/projects/[projectId]/layout.tsx`, all component files.
+- **UI/UX polish pass**: Review pass after dark mode — identify and fix loading states, empty states, button affordances, spacing inconsistencies.
+- **Easter eggs**: Trigger: ≥20 cuts made in a session → small Shakespeare SVG/animation slides in from bottom-left saying "Scratch it out!" (auto-dismisses after 3s). Trigger: "Restore all" button clicked on a scene → animation says "Scratch it back in!". Implementation: CSS keyframe animation + cut counter in `ScriptEditor.tsx` or `SceneBlock.tsx`.
+
+#### Group 14 — Responsive Design (Tablet Landscape Priority)
+- Target: tablet landscape (1024px) as primary breakpoint; mobile (375px) as secondary.
+- Nav bar: collapse scene jump + cut selector behind hamburger on small screens.
+- `LineCountPanel`: collapsed to bottom drawer on tablet, hidden on mobile.
+- Script editor: full-width on tablet.
+- Dashboard matrix: horizontal scroll on small screens.
+- CastingManager: stack character cards vertically on mobile.
+- Approach: Tailwind `md:` / `lg:` breakpoints throughout; no JS layout switching needed.
+
+#### Group 15 — Script Features
+- **SD "All" expansion**: Walk exit SDs where `sd.characters` is empty or matches `/\ball\b|\bexeunt\b/i`. Add "Auto-fill from on-stage" button in `StageDirectionBlock.tsx` that pre-fills the SD character editor with the computed on-stage set (non-destructive, user confirms). Critical files: `lib/cuts/StageTimeEngine.ts`, `components/ScriptEditor/StageDirectionBlock.tsx`.
+- **Split speech**: Allow splitting a `Speech` at a line boundary into two independently cuttable/reassignable units. Data model: `Cut.speechSplits?: Record<unitId, { splitAtLineIndex: number; newCharacterId?: string }>`. UI: hover a line boundary → "Split here" micro-button; a "Merge" button restores. `CutEngine` must expand splits. Critical files: `types/project.ts`, `lib/cuts/CutEngine.ts`, `components/ScriptEditor/SpeechBlock.tsx`.
+- **Insert text (full)**: Two modes — **Freestyle** (plain text, assign from cast) and **Borrow from play** (DraCor catalogue picker → scene browser → line multi-select). Data model: `Cut.insertions?: Record<insertionId, { afterUnitId: string; characterId: string; lines: InsertedLine[]; source: "freestyle" | { playId: string; unitId: string } }>`. Inserted units appear with a green left border + "inserted" badge in all view modes. Counts included in line/word totals and cue scripts. New component: `components/ScriptEditor/InsertionBlock.tsx`. Critical files: `types/project.ts`, `lib/cuts/CutEngine.ts`, `lib/cuts/CueScriptBuilder.ts`, `components/ScriptEditor/SpeechBlock.tsx`.
+
+#### Group 16 — TEI Verification + Documentation
+- **TEI verification**: Read Folger FDT documentation PDF (user to supply). Verify DraCor endpoint correctness, check for parsing gaps (`<ab>`, nested `<stage>`, etc.). Document findings in CLAUDE.md.
+- **Cutting methodology**: User to supply PDF. After reviewing: add "How to cut a play" help section accessible from a `?` button near the Cut mode button. Implementation: inline help panel or `/help` page.
+- **Doubling methodology**: User to supply PDF. After reviewing: add "How to double cast" section to CastingManager `?` modal.
+- **User-facing docs**: Create `docs/` directory with `GETTING_STARTED.md`, `USER_GUIDE.md`, `FEATURES.md` for non-technical theatre directors/dramaturgs.
+
+#### Stretch / Deferred
+- Google Drive backup integration
+- GUI/installer for non-technical users (would require Electron or web installer wizard)
