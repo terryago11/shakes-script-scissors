@@ -171,11 +171,11 @@ export default function RehearsalGroupings({
     <div className="flex gap-10 items-start">
       {/* By Actor */}
       <section className="flex-1 min-w-0">
-        <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-4">
+        <h2 className="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-4">
           By Actor
         </h2>
         {actors.length === 0 ? (
-          <p className="text-sm text-stone-400">No actors assigned yet.</p>
+          <p className="text-sm text-stone-400 dark:text-stone-500">No actors assigned yet.</p>
         ) : (
           <div className="space-y-6">
             {actors.map((actor) => {
@@ -192,8 +192,8 @@ export default function RehearsalGroupings({
                       className="w-2.5 h-2.5 rounded-full shrink-0"
                       style={{ backgroundColor: actor.color }}
                     />
-                    <span className="font-semibold text-stone-700 text-sm">{actor.name}</span>
-                    <span className="text-xs text-stone-400 ml-auto tabular-nums">
+                    <span className="font-semibold text-stone-700 dark:text-stone-200 text-sm">{actor.name}</span>
+                    <span className="text-xs text-stone-400 dark:text-stone-500 ml-auto tabular-nums">
                       {entries.length} scenes ·{" "}
                       {metric === "time"
                         ? fmtMins(total)
@@ -202,7 +202,7 @@ export default function RehearsalGroupings({
                   </div>
 
                   {/* Character breakdown */}
-                  <div className="text-xs text-stone-400 mb-2 pl-4">
+                  <div className="text-xs text-stone-400 dark:text-stone-500 mb-2 pl-4">
                     {charIds
                       .map((cid) => resolveCharacterName(cid, characterAliases, play.castList))
                       .join(" / ")}
@@ -217,9 +217,9 @@ export default function RehearsalGroupings({
                       return (
                         <div
                           key={sceneId}
-                          className="flex items-center gap-2 text-xs text-stone-600"
+                          className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300"
                         >
-                          <span className="text-stone-400 shrink-0 w-16 truncate">
+                          <span className="text-stone-400 dark:text-stone-500 shrink-0 w-16 truncate">
                             {act.title}
                           </span>
                           <span className="flex-1 truncate">{scene.title}</span>
@@ -248,10 +248,10 @@ export default function RehearsalGroupings({
       {/* Rehearsal Blocks */}
       {multiBlocks.length > 0 && (
         <section className="flex-1 min-w-0">
-          <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-1">
+          <h2 className="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-1">
             Suggested Rehearsal Blocks
           </h2>
-          <p className="text-xs text-stone-400 mb-4">
+          <p className="text-xs text-stone-400 dark:text-stone-500 mb-4">
             Consecutive scenes sharing cast — group these into a single rehearsal call.
           </p>
           <div className="space-y-4">
@@ -274,20 +274,20 @@ export default function RehearsalGroupings({
               return (
                 <div
                   key={idx}
-                  className="border border-stone-200 rounded-lg p-4"
+                  className="border border-stone-200 dark:border-stone-700 rounded-lg p-4"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <div className="text-sm font-medium text-stone-700">
+                      <div className="text-sm font-medium text-stone-700 dark:text-stone-200">
                         Block {idx + 1}
                       </div>
-                      <div className="text-xs text-stone-400 mt-0.5">{rangeLabel}</div>
+                      <div className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">{rangeLabel}</div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="text-sm font-semibold text-stone-700 tabular-nums">
+                      <div className="text-sm font-semibold text-stone-700 dark:text-stone-200 tabular-nums">
                         {fmtMins(block.totalMinutes)}
                       </div>
-                      <div className="text-xs text-stone-400">
+                      <div className="text-xs text-stone-400 dark:text-stone-500">
                         {block.sceneIds.length} scenes
                       </div>
                     </div>
@@ -321,12 +321,12 @@ export default function RehearsalGroupings({
                       return (
                         <div
                           key={sceneId}
-                          className="flex items-center gap-2 text-xs text-stone-500"
+                          className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400"
                         >
-                          <span className="w-1.5 h-1.5 rounded-full bg-stone-200 shrink-0" />
-                          <span className="text-stone-400 shrink-0">{act.title}</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-stone-200 dark:bg-stone-700 shrink-0" />
+                          <span className="text-stone-400 dark:text-stone-500 shrink-0">{act.title}</span>
                           <span className="flex-1 truncate">{scene.title}</span>
-                          <span className="tabular-nums text-stone-400 shrink-0">
+                          <span className="tabular-nums text-stone-400 dark:text-stone-500 shrink-0">
                             {fmtMins(sceneMins)}
                           </span>
                         </div>

@@ -12,6 +12,7 @@ import { computeStageTime, getEffectiveCharacters } from "@/lib/cuts/StageTimeEn
 import { applyEditsToLine } from "@/lib/cuts/applyEdits";
 import ActBlock from "./ActBlock";
 import DiffView from "./DiffView";
+import ShakespeareAnimation from "@/components/EasterEgg/ShakespeareAnimation";
 import LineCountPanel from "@/components/LineCounts/LineCountPanel";
 import { useSceneJump } from "@/lib/ui/SceneJumpContext";
 import { useCutMode } from "@/lib/ui/CutModeContext";
@@ -141,6 +142,10 @@ export default function ScriptEditor({ playId }: Props) {
   const [error, setError] = useState<string | null>(null);
   type FilterState = { type: "character"; id: string } | { type: "actor"; id: string } | null;
   const [filter, setFilter] = useState<FilterState>(null);
+  const [cutCount, setCutCount] = useState(0);
+  const [easterEggVisible, setEasterEggVisible] = useState(false);
+  const [easterEggVariant, setEasterEggVariant] = useState<"cut" | "restore">("cut");
+  const CUT_THRESHOLD = 20;
   const { setScenes, setActiveSceneId, jumpingRef, focusedSceneId, setFocusedSceneId } = useSceneJump();
   const { cutModeActive, setCutModeActive } = useCutMode();
   const { viewMode } = useViewMode();
@@ -248,7 +253,26 @@ export default function ScriptEditor({ playId }: Props) {
     : null;
 
   function handleToggle(unitId: string) {
+    // Determine current status to detect a cut action for the easter egg
+    const currentStatus = activeCut?.cutMap?.[unitId] ?? "kept";
     dispatch({ type: "TOGGLE_UNIT", unitId });
+    if (currentStatus === "kept") {
+      // This is a cut action
+      setCutCount((prev) => {
+        const next = prev + 1;
+        if (next >= CUT_THRESHOLD) {
+          setEasterEggVariant("cut");
+          setEasterEggVisible(true);
+          return 0;
+        }
+        return next;
+      });
+    }
+  }
+
+  function handleRestoreScene() {
+    setEasterEggVariant("restore");
+    setEasterEggVisible(true);
   }
 
   function handleClearEdits(unitId: string) {
@@ -400,6 +424,7 @@ export default function ScriptEditor({ playId }: Props) {
     charsWithEntrance,
     onReassign: handleReassign,
     characterAliases: activeCut.characterAliases,
+    onRestoreScene: handleRestoreScene,
   };
 
   return (
@@ -412,23 +437,23 @@ export default function ScriptEditor({ playId }: Props) {
       >
         {/* Focus banner + filter badge */}
         {!cutModeActive && (focusedSceneId || filterLabel) && (
-          <div className="no-print sticky top-14 z-20 bg-white">
+          <div className="no-print sticky top-14 z-20 bg-white dark:bg-stone-950">
             {focusedSceneId && (
-              <div className="bg-amber-50 border-b border-amber-200 px-4 py-1.5 flex items-center gap-3">
-                <span className="text-sm text-amber-700 font-medium">
+              <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900 px-4 py-1.5 flex items-center gap-3">
+                <span className="text-sm text-amber-700 dark:text-amber-400 font-medium">
                   {focusedSceneTitle ?? "Focused scene"}
                 </span>
                 <button
                   onClick={() => setFocusedSceneId(null)}
-                  className="ml-auto text-xs px-2.5 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 font-medium transition-colors shrink-0"
+                  className="ml-auto text-xs px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900 border border-amber-200 dark:border-amber-800 font-medium transition-colors shrink-0"
                 >
                   ✕ Exit focus
                 </button>
               </div>
             )}
             {filterLabel && (
-              <div className="px-4 py-2 border-b border-stone-100 flex items-center gap-2">
-                <div className="flex items-center gap-1.5 text-xs bg-amber-50 border border-amber-200 text-amber-800 px-2 py-1 rounded">
+              <div className="px-4 py-2 border-b border-stone-100 dark:border-stone-800 flex items-center gap-2">
+                <div className="flex items-center gap-1.5 text-xs bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 px-2 py-1 rounded">
                   <span>Showing: <strong>{filterLabel}</strong></span>
                   <button onClick={() => setFilter(null)} className="text-amber-500 hover:text-amber-700 font-medium ml-1">✕</button>
                 </div>
@@ -477,7 +502,7 @@ export default function ScriptEditor({ playId }: Props) {
 
       {/* Line count panel — hidden in diff mode */}
       {viewMode !== "diff" && (
-        <div className="no-print w-72 shrink-0 border-l border-stone-200 bg-white sticky top-14 self-start h-[calc(100vh-3.5rem)] overflow-y-auto">
+        <div className="no-print w-72 shrink-0 border-l border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-14 self-start h-[calc(100vh-3.5rem)] overflow-y-auto">
           <LineCountPanel
             play={play}
             lineCounts={focusedLineCounts ?? lineCounts}
@@ -493,6 +518,13 @@ export default function ScriptEditor({ playId }: Props) {
           />
         </div>
       )}
+
+      {/* Easter egg animation */}
+      <ShakespeareAnimation
+        variant={easterEggVariant}
+        visible={easterEggVisible}
+        onDismiss={() => setEasterEggVisible(false)}
+      />
     </div>
   );
 }

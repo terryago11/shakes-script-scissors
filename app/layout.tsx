@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ProjectProvider } from "@/lib/project/ProjectStore";
+import { ThemeProvider } from "@/lib/ui/ThemeContext";
 
 export const metadata: Metadata = {
   title: "ShakesScriptScissors",
@@ -16,9 +17,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen font-sans">
-        <ProjectProvider>{children}</ProjectProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen font-sans bg-white dark:bg-stone-950 dark:text-stone-100">
+        <ThemeProvider>
+          <ProjectProvider>{children}</ProjectProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

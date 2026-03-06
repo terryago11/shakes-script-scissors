@@ -9,6 +9,7 @@ import type { Cut } from "@/types/project";
 import type { Play } from "@/types/play";
 import CutSelector from "@/components/CutSelector/CutSelector";
 import SettingsModal from "@/components/SettingsModal/SettingsModal";
+import ThemeToggle from "@/components/ThemeToggle";
 import { SceneJumpProvider, useSceneJump } from "@/lib/ui/SceneJumpContext";
 import { CutModeProvider, useCutMode } from "@/lib/ui/CutModeContext";
 import { MetricProvider } from "@/lib/ui/MetricContext";
@@ -35,7 +36,7 @@ export default function ProjectLayout({
 
   if (!project || project.id !== projectId) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-stone-400">
+      <div className="flex items-center justify-center min-h-screen text-stone-400 dark:text-stone-500">
         Loading project…
       </div>
     );
@@ -116,17 +117,17 @@ function ProjectNav({
   ];
 
   return (
-    <header className="no-print border-b border-stone-200 bg-white sticky top-0 z-50">
+    <header className="no-print border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-50">
       <div className="max-w-screen-xl mx-auto px-4 h-14 flex items-center gap-3">
-        <Link href="/" className="text-stone-400 hover:text-stone-700 text-sm shrink-0">
+        <Link href="/" className="text-stone-400 hover:text-stone-700 dark:text-stone-500 dark:hover:text-stone-300 text-sm shrink-0">
           ✂ ShakesScriptScissors
         </Link>
         <div className="flex flex-col justify-center shrink-0 max-w-xs" title={project.name ? project.playTitle : undefined}>
-          <span className="text-stone-700 font-semibold text-sm truncate leading-tight">
+          <span className="text-stone-700 dark:text-stone-200 font-semibold text-sm truncate leading-tight">
             {project.name || project.playTitle}
           </span>
           {project.name && project.playTitle && project.name !== project.playTitle && (
-            <span className="text-stone-400 text-xs italic truncate leading-tight">
+            <span className="text-stone-400 dark:text-stone-500 text-xs italic truncate leading-tight">
               {project.playTitle}
             </span>
           )}
@@ -138,7 +139,7 @@ function ProjectNav({
           ) : (
             <Link
               href={`/projects/${projectId}`}
-              className="px-3 py-1.5 rounded text-sm font-medium transition-colors text-stone-500 hover:text-stone-800 hover:bg-stone-100"
+              className="px-3 py-1.5 rounded text-sm font-medium transition-colors text-stone-500 hover:text-stone-800 hover:bg-stone-100 dark:text-stone-400 dark:hover:text-stone-200 dark:hover:bg-stone-800"
             >
               Script
             </Link>
@@ -151,8 +152,8 @@ function ProjectNav({
                 href={link.href}
                 className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-amber-100 text-amber-800"
-                    : "text-stone-500 hover:text-stone-800 hover:bg-stone-100"
+                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                    : "text-stone-500 hover:text-stone-800 hover:bg-stone-100 dark:text-stone-400 dark:hover:text-stone-200 dark:hover:bg-stone-800"
                 }`}
               >
                 {link.label}
@@ -174,10 +175,13 @@ function ProjectNav({
         {/* Save / Export dropdown */}
         <SaveExportDropdown project={project} activeCut={activeCut} />
 
+        {/* Theme toggle */}
+        <ThemeToggle />
+
         {/* Settings gear */}
         <button
           onClick={() => setSettingsOpen(true)}
-          className="shrink-0 text-stone-400 hover:text-stone-700 text-base px-1.5 py-1 rounded hover:bg-stone-100 transition-colors"
+          className="shrink-0 text-stone-400 hover:text-stone-700 dark:text-stone-500 dark:hover:text-stone-300 text-base px-1.5 py-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
           title="Project settings"
           aria-label="Open project settings"
         >
@@ -245,26 +249,26 @@ function SaveExportDropdown({
       <button
         onClick={() => setOpen((o) => !o)}
         disabled={exporting}
-        className="text-xs px-3 py-1.5 rounded border border-stone-300 bg-white text-stone-600 hover:bg-stone-50 hover:border-stone-400 transition-colors font-medium flex items-center gap-1.5 disabled:opacity-60"
+        className="text-xs px-3 py-1.5 rounded border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 hover:border-stone-400 dark:hover:border-stone-600 transition-colors font-medium flex items-center gap-1.5 disabled:opacity-60"
       >
         {exporting ? "Exporting…" : "Save / Export"}
         {!exporting && <span className="opacity-40">▾</span>}
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-stone-200 rounded-lg shadow-lg py-1 z-50">
+        <div className="absolute right-0 top-full mt-1 w-52 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg shadow-lg py-1 z-50">
           <button
             onClick={() => { exportProject(project); setOpen(false); }}
-            className="w-full text-left px-3 py-2 text-sm text-stone-600 hover:bg-stone-50 flex items-center gap-2"
+            className="w-full text-left px-3 py-2 text-sm text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2"
           >
-            <span className="text-stone-400">↓</span>
+            <span className="text-stone-400 dark:text-stone-500">↓</span>
             Save project as JSON
           </button>
           <button
             onClick={handleHtmlExport}
             disabled={!activeCut}
-            className="w-full text-left px-3 py-2 text-sm text-stone-600 hover:bg-stone-50 flex items-center gap-2 disabled:opacity-40"
+            className="w-full text-left px-3 py-2 text-sm text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2 disabled:opacity-40"
           >
-            <span className="text-stone-400">⊞</span>
+            <span className="text-stone-400 dark:text-stone-500">⊞</span>
             Export cut as HTML
           </button>
         </div>
@@ -301,7 +305,7 @@ function NavScriptMenu({ projectId, isActive }: { projectId: string; isActive: b
       <button
         onClick={() => setOpen((o) => !o)}
         className={`px-3 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-1.5 ${
-          isActive ? "bg-amber-100 text-amber-800" : "text-stone-500 hover:text-stone-800 hover:bg-stone-100"
+          isActive ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" : "text-stone-500 hover:text-stone-800 hover:bg-stone-100 dark:text-stone-400 dark:hover:text-stone-200 dark:hover:bg-stone-800"
         }`}
       >
         Script
@@ -309,8 +313,8 @@ function NavScriptMenu({ projectId, isActive }: { projectId: string; isActive: b
         <span className="text-xs opacity-40">▾</span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1 w-52 bg-white border border-stone-200 rounded-lg shadow-lg py-1 z-50">
-          <div className="px-3 pt-1.5 pb-1 text-xs text-stone-400 uppercase tracking-wider font-semibold">
+        <div className="absolute left-0 top-full mt-1 w-52 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg shadow-lg py-1 z-50">
+          <div className="px-3 pt-1.5 pb-1 text-xs text-stone-400 dark:text-stone-500 uppercase tracking-wider font-semibold">
             View mode
           </div>
           {modeOptions.map(({ value, icon, label, desc }) => (
@@ -318,13 +322,13 @@ function NavScriptMenu({ projectId, isActive }: { projectId: string; isActive: b
               key={value}
               onClick={() => { setViewMode(value); setOpen(false); }}
               className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-start gap-2 ${
-                viewMode === value ? "text-amber-800 bg-amber-50" : "text-stone-600 hover:bg-stone-50"
+                viewMode === value ? "text-amber-800 bg-amber-50 dark:text-amber-300 dark:bg-amber-900/30" : "text-stone-600 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800"
               }`}
             >
               <span className="mt-0.5 w-4 shrink-0 text-center text-xs">{icon}</span>
               <span className="flex flex-col min-w-0">
                 <span className={viewMode === value ? "font-semibold" : "font-medium"}>{label}</span>
-                <span className="text-xs text-stone-400 font-normal">{desc}</span>
+                <span className="text-xs text-stone-400 dark:text-stone-500 font-normal">{desc}</span>
               </span>
               {viewMode === value && (
                 <span className="ml-auto shrink-0 text-amber-500 text-xs mt-0.5">●</span>
@@ -343,7 +347,7 @@ function NavCutModeButton() {
   return (
     <button
       onClick={() => setCutModeActive(true)}
-      className="text-xs px-3 py-1.5 rounded border border-stone-200 bg-white text-stone-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors shrink-0"
+      className="text-xs px-3 py-1.5 rounded border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-500 dark:text-stone-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-800 hover:text-red-600 dark:hover:text-red-400 transition-colors shrink-0"
       title="Enter freestyle cut mode"
     >
       ✂ Cut mode
@@ -387,7 +391,7 @@ function NavJumpSelect() {
       {isFocused ? (
         /* Locked label — no dropdown while a scene is focused */
         <span
-          className="text-xs font-medium tabular-nums px-2 py-1.5 rounded border border-amber-300 bg-amber-50 text-amber-700 w-16 text-center select-none"
+          className="text-xs font-medium tabular-nums px-2 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 w-16 text-center select-none"
           title="Scene jumper locked in focus mode"
         >
           {focusedLabel}
@@ -396,7 +400,7 @@ function NavJumpSelect() {
         <select
           value={activeSceneId}
           onChange={(e) => { const val = e.target.value; if (val) { setActiveSceneId(val); jumpToScene(val); } }}
-          className="text-xs px-2 py-1.5 border border-stone-200 rounded bg-white text-stone-600 hover:border-stone-300 focus:outline-none focus:ring-1 focus:ring-amber-400 w-16"
+          className="text-xs px-2 py-1.5 border border-stone-200 dark:border-stone-700 rounded bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 hover:border-stone-300 dark:hover:border-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-400 w-16"
         >
           <option value="">—</option>
           {scenes.map((s) => (
@@ -410,8 +414,8 @@ function NavJumpSelect() {
         title={isFocused ? "Exit focus" : "Focus current scene"}
         className={`text-sm px-1.5 py-1 rounded border transition-colors ${
           isFocused
-            ? "bg-amber-100 border-amber-300 text-amber-700 hover:bg-amber-200"
-            : "border-stone-200 text-stone-400 hover:border-stone-300 hover:text-stone-600"
+            ? "bg-amber-100 border-amber-300 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:border-amber-800 dark:text-amber-400"
+            : "border-stone-200 text-stone-400 hover:border-stone-300 hover:text-stone-600 dark:border-stone-700 dark:text-stone-500 dark:hover:border-stone-600 dark:hover:text-stone-400"
         }`}
       >
         {isFocused ? "◉" : "○"}

@@ -68,12 +68,12 @@ export default function SettingsModal({ project, onSave, onClose }: Props) {
       className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
-      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
+      <div className="bg-white dark:bg-stone-900 rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-stone-800 font-semibold text-base">Project Settings</h2>
+          <h2 className="text-stone-800 dark:text-stone-100 font-semibold text-base">Project Settings</h2>
           <button
             onClick={onClose}
-            className="text-stone-400 hover:text-stone-600 text-lg leading-none"
+            className="text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 text-lg leading-none"
             aria-label="Close settings"
           >
             ×
@@ -83,7 +83,7 @@ export default function SettingsModal({ project, onSave, onClose }: Props) {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Project name */}
           <div>
-            <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-1.5">
               Project name
             </label>
             <input
@@ -91,7 +91,7 @@ export default function SettingsModal({ project, onSave, onClose }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={project.playTitle}
-              className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+              className="w-full px-3 py-2 border border-stone-300 dark:border-stone-600 rounded-lg text-sm bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
             <p className="mt-1 text-xs text-stone-400">
               Play: {project.playTitle}
@@ -100,7 +100,7 @@ export default function SettingsModal({ project, onSave, onClose }: Props) {
 
           {/* WPM */}
           <div>
-            <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-1.5">
               Words per minute
             </label>
             <input
@@ -109,12 +109,12 @@ export default function SettingsModal({ project, onSave, onClose }: Props) {
               onChange={(e) => setWpm(e.target.value)}
               min={50}
               max={500}
-              className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+              className="w-full px-3 py-2 border border-stone-300 dark:border-stone-600 rounded-lg text-sm bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
             {wpmError ? (
               <p className="mt-1 text-xs text-red-500">{wpmError}</p>
             ) : (
-              <p className="mt-1 text-xs text-stone-400">
+              <p className="mt-1 text-xs text-stone-400 dark:text-stone-500">
                 Used to estimate running time. Typical spoken delivery: 120–150 wpm.
               </p>
             )}
@@ -122,7 +122,7 @@ export default function SettingsModal({ project, onSave, onClose }: Props) {
 
           {/* Quick-change threshold */}
           <div>
-            <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-1.5">
               Quick-change threshold (minutes)
             </label>
             <input
@@ -132,12 +132,12 @@ export default function SettingsModal({ project, onSave, onClose }: Props) {
               min={0}
               max={30}
               step={0.5}
-              className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+              className="w-full px-3 py-2 border border-stone-300 dark:border-stone-600 rounded-lg text-sm bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
             {thresholdError ? (
               <p className="mt-1 text-xs text-red-500">{thresholdError}</p>
             ) : (
-              <p className="mt-1 text-xs text-stone-400">
+              <p className="mt-1 text-xs text-stone-400 dark:text-stone-500">
                 Costume changes shorter than this are flagged as warnings in Casting.
               </p>
             )}
@@ -147,7 +147,7 @@ export default function SettingsModal({ project, onSave, onClose }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-stone-500 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors"
             >
               Cancel
             </button>

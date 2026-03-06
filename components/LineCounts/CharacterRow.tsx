@@ -22,13 +22,13 @@ export default function CharacterRow({ character, counts, isFiltered, onClick, d
   return (
     <div
       className={`flex flex-col gap-0.5 py-1 rounded px-1 -mx-1 transition-colors ${
-        onClick ? "cursor-pointer hover:bg-stone-50" : ""
-      } ${isFiltered ? "bg-amber-50" : ""}`}
+        onClick ? "cursor-pointer hover:bg-stone-50 dark:hover:bg-stone-800" : ""
+      } ${isFiltered ? "bg-amber-50 dark:bg-amber-950/50" : ""}`}
       onClick={onClick}
     >
       {/* Name + count on the same line — name wraps, count stays right-aligned */}
       <div className="flex items-baseline gap-1.5 min-w-0">
-        <span className={`text-xs leading-snug flex-1 min-w-0 ${isFiltered ? "text-amber-800 font-medium" : "text-stone-700"}`}>
+        <span className={`text-xs leading-snug flex-1 min-w-0 ${isFiltered ? "text-amber-800 dark:text-amber-200 font-medium" : "text-stone-700 dark:text-stone-200"}`}>
           {displayName ?? character.name}
         </span>
         <span className="text-xs tabular-nums text-right shrink-0">
@@ -36,7 +36,7 @@ export default function CharacterRow({ character, counts, isFiltered, onClick, d
             {afterCut.toLocaleString()}
           </span>
           {(hasCut || hasAdded) && (
-            <span className="text-stone-300"> / {original.toLocaleString()}</span>
+            <span className="text-stone-300 dark:text-stone-600"> / {original.toLocaleString()}</span>
           )}
           {hasCut && pctCut > 0 && (
             <span className="text-red-400"> −{pctCut}%</span>
@@ -47,7 +47,7 @@ export default function CharacterRow({ character, counts, isFiltered, onClick, d
         </span>
       </div>
       {/* Bar — full width below the name row */}
-      <div className="h-1 bg-stone-100 rounded-full overflow-hidden">
+      <div className="h-1 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full ${hasAdded ? "bg-green-400" : isFiltered ? "bg-amber-400" : hasCut ? "bg-red-300" : "bg-stone-400"}`}
           style={{ width: `${pctBar}%` }}

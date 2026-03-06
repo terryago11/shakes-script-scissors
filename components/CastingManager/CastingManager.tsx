@@ -94,7 +94,7 @@ export default function CastingManager({ playId }: Props) {
   }, [playId]);
 
   if (!project || !play) {
-    return <div className="text-stone-400 text-sm p-6">Loading…</div>;
+    return <div className="text-stone-400 dark:text-stone-500 text-sm p-6">Loading…</div>;
   }
 
   function handleAddActor() {
@@ -296,14 +296,14 @@ export default function CastingManager({ playId }: Props) {
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
-      <h1 className="text-2xl font-bold text-stone-800 mb-2">Casting</h1>
-      <p className="text-stone-500 text-sm mb-8">
+      <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100 mb-2">Casting</h1>
+      <p className="text-stone-500 dark:text-stone-400 text-sm mb-8">
         Assign actors to characters. One actor can play multiple characters (double-casting).
       </p>
 
       {/* Actor management */}
       <div className="mb-8">
-        <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-3">
+        <h2 className="text-sm font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-3">
           Actors
         </h2>
         <div className="flex gap-2 mb-3">
@@ -313,7 +313,7 @@ export default function CastingManager({ playId }: Props) {
             value={newActorName}
             onChange={(e) => setNewActorName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAddActor()}
-            className="flex-1 border border-stone-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+            className="flex-1 border border-stone-300 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
           />
           <button
             onClick={handleAddActor}
@@ -324,7 +324,7 @@ export default function CastingManager({ playId }: Props) {
           </button>
           <button
             onClick={handleSuggest}
-            className="px-4 py-2 text-sm border border-stone-300 text-stone-600 rounded-lg hover:bg-stone-50 transition-colors"
+            className="px-4 py-2 text-sm border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
             title="Suggest the minimum number of actors needed (greedy doubling algorithm)"
           >
             Suggest
@@ -333,8 +333,8 @@ export default function CastingManager({ playId }: Props) {
             onClick={() => setShowHelp((v) => !v)}
             className={`px-2 py-2 text-sm rounded-lg border transition-colors ${
               showHelp
-                ? "border-stone-400 bg-stone-100 text-stone-700"
-                : "border-stone-200 text-stone-400 hover:text-stone-600 hover:border-stone-300"
+                ? "border-stone-400 dark:border-stone-500 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200"
+                : "border-stone-200 dark:border-stone-700 text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:border-stone-300 dark:hover:border-stone-600"
             }`}
             title="How does Suggest work?"
             aria-pressed={showHelp}
@@ -345,19 +345,19 @@ export default function CastingManager({ playId }: Props) {
 
         {/* Algorithm help text */}
         {showHelp && (
-          <div className="mb-4 rounded-lg border border-stone-100 bg-stone-50 px-4 py-3 text-xs text-stone-500 space-y-2 leading-relaxed">
+          <div className="mb-4 rounded-lg border border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 px-4 py-3 text-xs text-stone-500 dark:text-stone-400 space-y-2 leading-relaxed">
             <p>
-              <strong className="text-stone-600">How the suggestion works:</strong>{" "}
+              <strong className="text-stone-600 dark:text-stone-300">How the suggestion works:</strong>{" "}
               Characters are treated as nodes in a graph. Two characters share an edge — and
               therefore <em>cannot</em> be doubled — if they are ever on stage simultaneously,
               or if the gap between one&apos;s exit and the other&apos;s entrance is below the
-              quick-change threshold (currently <strong className="text-stone-700">{threshold} min</strong>).
+              quick-change threshold (currently <strong className="text-stone-700 dark:text-stone-200">{threshold} min</strong>).
               The algorithm fills the largest parts first, then clusters smaller parts onto
               actors with the fewest accumulated lines, minimising the total actor count.
             </p>
             <p>
-              <strong className="text-stone-600">Character links</strong> (the{" "}
-              <span className="font-mono text-stone-600">+ link</span> button on each
+              <strong className="text-stone-600 dark:text-stone-300">Character links</strong> (the{" "}
+              <span className="font-mono text-stone-600 dark:text-stone-300">+ link</span> button on each
               character card) let you pin two characters to always share the same actor,
               regardless of quick-change constraints. Use them to encode dramaturgical
               choices — e.g. Theseus/Oberon or Hippolyta/Titania — <em>before</em> running
@@ -368,9 +368,9 @@ export default function CastingManager({ playId }: Props) {
 
         {/* Minimum cast suggestion preview */}
         {suggestedGroups && (
-          <div className="mb-4 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3">
+          <div className="mb-4 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900 px-4 py-3">
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-sm font-medium text-stone-700">
+              <span className="text-sm font-medium text-stone-700 dark:text-stone-200">
                 Suggested minimum: {suggestedGroups.length} actor{suggestedGroups.length !== 1 ? "s" : ""}
               </span>
               <div className="ml-auto flex gap-2">
@@ -382,7 +382,7 @@ export default function CastingManager({ playId }: Props) {
                 </button>
                 <button
                   onClick={() => setSuggestedGroups(null)}
-                  className="text-xs px-3 py-1.5 border border-stone-300 text-stone-600 rounded-lg hover:bg-white"
+                  className="text-xs px-3 py-1.5 border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-white dark:hover:bg-stone-800"
                 >
                   Dismiss
                 </button>
@@ -395,8 +395,8 @@ export default function CastingManager({ playId }: Props) {
                     className="w-3 h-3 rounded-full mt-0.5 shrink-0"
                     style={{ backgroundColor: defaultColors[g.actorIndex % defaultColors.length] }}
                   />
-                  <span className="text-stone-500 shrink-0">Actor {g.actorIndex + 1}:</span>
-                  <span className="text-stone-700">
+                  <span className="text-stone-500 dark:text-stone-400 shrink-0">Actor {g.actorIndex + 1}:</span>
+                  <span className="text-stone-700 dark:text-stone-200">
                     {[
                       ...new Set(
                         g.charIds.map(
@@ -440,9 +440,9 @@ export default function CastingManager({ playId }: Props) {
                 return (
                   <div
                     key={actor.id}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-red-300 bg-red-50 text-sm"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/50 text-sm"
                   >
-                    <span className="text-red-700 text-xs">
+                    <span className="text-red-700 dark:text-red-300 text-xs">
                       Remove {actor.name}
                       {assignedCount > 0 ? ` (${assignedCount} assigned char${assignedCount > 1 ? "s" : ""})` : ""}?
                     </span>
@@ -451,13 +451,13 @@ export default function CastingManager({ playId }: Props) {
                         dispatch({ type: "DELETE_ACTOR", actorId: actor.id });
                         setConfirmDeleteActorId(null);
                       }}
-                      className="text-xs text-red-600 font-medium hover:text-red-800"
+                      className="text-xs text-red-600 dark:text-red-400 font-medium hover:text-red-800 dark:hover:text-red-300"
                     >
                       Yes
                     </button>
                     <button
                       onClick={() => setConfirmDeleteActorId(null)}
-                      className="text-xs text-stone-400 hover:text-stone-600"
+                      className="text-xs text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-400"
                     >
                       Cancel
                     </button>
@@ -468,7 +468,7 @@ export default function CastingManager({ playId }: Props) {
               return (
                 <div
                   key={actor.id}
-                  className="group/chip flex items-start gap-2 px-3 py-2 rounded-lg border border-stone-200 bg-white text-sm"
+                  className="group/chip flex items-start gap-2 px-3 py-2 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm"
                 >
                   <label
                     className="w-3 h-3 rounded-full cursor-pointer shrink-0 mt-0.5 hover:ring-2 hover:ring-offset-1 hover:ring-stone-400 transition-shadow"
@@ -506,7 +506,7 @@ export default function CastingManager({ playId }: Props) {
                             }
                             setEditingActorId(null);
                           }}
-                          className="text-stone-700 bg-transparent border-b border-stone-400 focus:outline-none focus:border-amber-500 w-24 text-sm"
+                          className="text-stone-700 dark:text-stone-200 bg-transparent border-b border-stone-400 dark:border-stone-500 focus:outline-none focus:border-amber-500 w-24 text-sm"
                         />
                       ) : (
                         <span
@@ -517,8 +517,8 @@ export default function CastingManager({ playId }: Props) {
                             setEditingActorName(actor.name);
                           }}
                         >
-                          <span className="text-stone-700 hover:text-stone-900">{actor.name}</span>
-                          <span className="text-stone-300 opacity-0 group-hover/name:opacity-100 transition-opacity text-xs select-none" aria-hidden>✎</span>
+                          <span className="text-stone-700 dark:text-stone-200 hover:text-stone-900 dark:hover:text-stone-100">{actor.name}</span>
+                          <span className="text-stone-300 dark:text-stone-600 opacity-0 group-hover/name:opacity-100 transition-opacity text-xs select-none" aria-hidden>✎</span>
                         </span>
                       )}
                       <button
@@ -529,14 +529,14 @@ export default function CastingManager({ playId }: Props) {
                             dispatch({ type: "DELETE_ACTOR", actorId: actor.id });
                           }
                         }}
-                        className="text-stone-300 hover:text-red-400 ml-1 text-xs"
+                        className="text-stone-300 dark:text-stone-600 hover:text-red-400 dark:hover:text-red-500 ml-1 text-xs"
                         title="Remove actor"
                       >
                         ✕
                       </button>
                     </div>
                     {assignedCharNames.length > 0 && (
-                      <div className="text-xs text-stone-400 mt-0.5 leading-snug">
+                      <div className="text-xs text-stone-400 dark:text-stone-500 mt-0.5 leading-snug">
                         {assignedCharNames.join(", ")}
                       </div>
                     )}
@@ -552,10 +552,10 @@ export default function CastingManager({ playId }: Props) {
       {quickChangeResult && (
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-3">
-            <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wider">
+            <h2 className="text-sm font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
               Quick-change Warnings
             </h2>
-            <div className="flex items-center gap-1.5 text-xs text-stone-400 ml-auto">
+            <div className="flex items-center gap-1.5 text-xs text-stone-400 dark:text-stone-500 ml-auto">
               <span>Flag gaps under</span>
               <input
                 type="number"
@@ -569,14 +569,14 @@ export default function CastingManager({ playId }: Props) {
                     settings: { quickChangeThresholdMinutes: Number(e.target.value) },
                   })
                 }
-                className="w-14 border border-stone-200 rounded px-1.5 py-0.5 text-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-400 text-center"
+                className="w-14 border border-stone-200 dark:border-stone-700 dark:bg-stone-800 rounded px-1.5 py-0.5 text-stone-600 dark:text-stone-300 focus:outline-none focus:ring-1 focus:ring-amber-400 text-center"
               />
               <span>min</span>
             </div>
           </div>
 
           {quickChangeResult.warnings.length === 0 ? (
-            <p className="text-sm text-stone-400">
+            <p className="text-sm text-stone-400 dark:text-stone-500">
               No quick changes detected below {threshold} min.
             </p>
           ) : (
@@ -604,7 +604,7 @@ export default function CastingManager({ playId }: Props) {
                 return (
                   <div
                     key={i}
-                    className="px-4 py-3 rounded border border-amber-200 bg-amber-50 text-sm"
+                    className="px-4 py-3 rounded border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 text-sm"
                   >
                     {/* Row 1: actor · characters · gap */}
                     <div className="flex items-center gap-3">
@@ -616,21 +616,21 @@ export default function CastingManager({ playId }: Props) {
                             style={{ backgroundColor: actor.color }}
                           />
                         )}
-                        <span className="font-medium text-stone-700 shrink-0">
+                        <span className="font-medium text-stone-700 dark:text-stone-200 shrink-0">
                           {actor?.name ?? w.actorId}
                         </span>
                       </div>
-                      <span className="text-stone-500 truncate min-w-0">
+                      <span className="text-stone-500 dark:text-stone-400 truncate min-w-0">
                         {exitName} → {enterName}
                       </span>
-                      <span className="ml-auto shrink-0 font-medium text-amber-700 tabular-nums">
+                      <span className="ml-auto shrink-0 font-medium text-amber-700 dark:text-amber-300 tabular-nums">
                         {gapLabel} gap
                       </span>
                     </div>
                     {/* Row 2: act / scene / original line location */}
-                    <div className="mt-1 ml-6 text-xs text-stone-400 tabular-nums">
+                    <div className="mt-1 ml-6 text-xs text-stone-400 dark:text-stone-500 tabular-nums">
                       {exitLoc} → {enterLoc}
-                      <span className="ml-1.5 text-stone-300">(original lines)</span>
+                      <span className="ml-1.5 text-stone-300 dark:text-stone-600">(original lines)</span>
                     </div>
                   </div>
                 );
@@ -641,7 +641,7 @@ export default function CastingManager({ playId }: Props) {
       )}
 
       {/* Character assignments */}
-      <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-3">
+      <h2 className="text-sm font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-3">
         Characters
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

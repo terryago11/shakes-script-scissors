@@ -33,6 +33,8 @@ interface Props {
   onReassign?: (unitId: string, characterId: string | null) => void;
   /** Cut-level character display-name aliases */
   characterAliases?: Record<string, string>;
+  /** Called when at least one unit is restored via "restore all" */
+  onRestoreScene?: () => void;
 }
 
 export default function SceneBlock({
@@ -40,7 +42,7 @@ export default function SceneBlock({
   filteredCharacterIds, cutModeActive, sceneCounts,
   focusedSceneId, showOriginal,
   speechReassignments, charsWithEntrance, onReassign,
-  characterAliases,
+  characterAliases, onRestoreScene,
 }: Props) {
   // Default to collapsed so after act re-expand, scenes are collapsed and user can pick
   const [collapsed, setCollapsed] = useState(false);
@@ -116,16 +118,19 @@ export default function SceneBlock({
 
   function handleRestoreAll(e: React.MouseEvent) {
     e.stopPropagation();
+    let restoredAny = false;
     for (const { unit, status } of units) {
-      if (status === "cut") onToggle?.(unit.id);
+      if (status === "cut") { onToggle?.(unit.id); restoredAny = true; }
     }
     if (onClearEdits && speechEdits) {
       for (const { unit } of units) {
         if (unit.type === "speech" && speechEdits[unit.id]?.ops.length) {
           onClearEdits(unit.id);
+          restoredAny = true;
         }
       }
     }
+    if (restoredAny) onRestoreScene?.();
   }
 
   // Pre-compute per-speech scene-relative line offsets for the running counter.
@@ -155,21 +160,21 @@ export default function SceneBlock({
     <div
       id={`scene-${scene.id}`}
       className={`border rounded-lg transition-colors ${
-        isFullyCut ? "border-stone-200 bg-stone-50" : "border-stone-100 bg-white"
+        isFullyCut ? "border-stone-200 bg-stone-50 dark:border-stone-700 dark:bg-stone-900" : "border-stone-100 bg-white dark:border-stone-800 dark:bg-stone-900"
       }`}
     >
       {/* Header row: collapse button + restore-all + focus */}
       <div className={`group flex items-center rounded-lg ${isFullyCut ? "opacity-50" : ""}`}>
         <button
           onClick={() => setCollapsed((c) => !c)}
-          className="flex items-center gap-3 flex-1 text-left px-4 py-3 hover:bg-stone-50 rounded-lg"
+          className="flex items-center gap-3 flex-1 text-left px-4 py-3 hover:bg-stone-50 dark:hover:bg-stone-800 rounded-lg"
         >
-          <span className="text-xs text-stone-400">{collapsed ? "▶" : "▼"}</span>
-          <span className={`font-semibold text-sm ${isFullyCut ? "text-stone-400 line-through" : "text-stone-600"}`}>
+          <span className="text-xs text-stone-400 dark:text-stone-500">{collapsed ? "▶" : "▼"}</span>
+          <span className={`font-semibold text-sm ${isFullyCut ? "text-stone-400 dark:text-stone-500 line-through" : "text-stone-600 dark:text-stone-300"}`}>
             {scene.title}
           </span>
           {isFullyCut && (
-            <span className="text-xs text-stone-400 bg-stone-200 px-1.5 py-0.5 rounded font-normal">
+            <span className="text-xs text-stone-400 bg-stone-200 dark:text-stone-500 dark:bg-stone-700 px-1.5 py-0.5 rounded font-normal">
               fully cut
             </span>
           )}
@@ -181,7 +186,7 @@ export default function SceneBlock({
                     {fmtMins(timeMins.afterCut)}
                   </span>
                   {timeMins.afterCut < timeMins.original - 0.01 && (
-                    <span className="text-stone-300">/ {fmtMins(timeMins.original)}</span>
+                    <span className="text-stone-300 dark:text-stone-600">/ {fmtMins(timeMins.original)}</span>
                   )}
                 </>
               ) : (
@@ -191,13 +196,13 @@ export default function SceneBlock({
                   ) : (
                     <>
                       <span className="text-amber-600 font-medium">{displayKept.toLocaleString()}</span>
-                      <span className="text-stone-300">/ {displayOriginal.toLocaleString()}</span>
+                      <span className="text-stone-300 dark:text-stone-600">/ {displayOriginal.toLocaleString()}</span>
                     </>
                   )}
                   {pctCut > 0 && (
                     <span className="text-amber-500 font-medium">−{pctCut}%</span>
                   )}
-                  <span className="text-stone-300">{metric}</span>
+                  <span className="text-stone-300 dark:text-stone-600">{metric}</span>
                 </>
               )}
             </span>
@@ -208,7 +213,7 @@ export default function SceneBlock({
         {hasAnyCuts && onToggle && !cutModeActive && (
           <button
             onClick={handleRestoreAll}
-            className="opacity-0 group-hover:opacity-100 mr-3 text-xs px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 transition-all shrink-0"
+            className="opacity-0 group-hover:opacity-100 mr-3 text-xs px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 dark:border-green-800 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-700 transition-all shrink-0"
             title="Restore all cuts in this scene"
           >
             ↩ restore all

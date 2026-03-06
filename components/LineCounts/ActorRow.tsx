@@ -20,8 +20,8 @@ export default function ActorRow({ actor, counts, play, isFiltered, onClick }: P
   return (
     <div
       className={`py-1 rounded px-1 -mx-1 transition-colors ${
-        onClick ? "cursor-pointer hover:bg-stone-50" : ""
-      } ${isFiltered ? "bg-amber-50" : ""}`}
+        onClick ? "cursor-pointer hover:bg-stone-50 dark:hover:bg-stone-800" : ""
+      } ${isFiltered ? "bg-amber-50 dark:bg-amber-950/50" : ""}`}
       onClick={onClick}
     >
       <div className="flex items-center gap-2 mb-0.5">
@@ -29,26 +29,26 @@ export default function ActorRow({ actor, counts, play, isFiltered, onClick }: P
           className="w-2 h-2 rounded-full shrink-0"
           style={{ backgroundColor: actor.color }}
         />
-        <div className={`text-xs font-medium truncate ${isFiltered ? "text-amber-800" : "text-stone-700"}`}>
+        <div className={`text-xs font-medium truncate ${isFiltered ? "text-amber-800 dark:text-amber-200" : "text-stone-700 dark:text-stone-200"}`}>
           {actor.name}
         </div>
-        <div className="ml-auto text-xs text-stone-500 tabular-nums">
+        <div className="ml-auto text-xs text-stone-500 dark:text-stone-400 tabular-nums">
           <span className="font-medium">{afterCut.toLocaleString()}</span>
-          <span className="text-stone-300"> / {original.toLocaleString()}</span>
+          <span className="text-stone-300 dark:text-stone-600"> / {original.toLocaleString()}</span>
           {original > 0 && afterCut < original && (
             <span className="text-amber-600 ml-1">−{Math.round((1 - afterCut / original) * 100)}%</span>
           )}
         </div>
       </div>
       <div className="ml-4">
-        <div className="h-1 bg-stone-100 rounded-full overflow-hidden mb-0.5">
+        <div className="h-1 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden mb-0.5">
           <div
             className="h-full rounded-full"
             style={{ width: `${pct * 100}%`, backgroundColor: actor.color }}
           />
         </div>
         {charNames && (
-          <div className="text-xs text-stone-400 truncate">{charNames}</div>
+          <div className="text-xs text-stone-400 dark:text-stone-500 truncate">{charNames}</div>
         )}
       </div>
     </div>

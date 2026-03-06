@@ -94,7 +94,7 @@ export default function SceneList({
   return (
     <div className="space-y-0">
       {canReorder && (
-        <p className="text-xs text-stone-400 mb-3 flex items-center gap-1">
+        <p className="text-xs text-stone-400 dark:text-stone-500 mb-3 flex items-center gap-1">
           <span>⠿</span> Drag scenes to reorder
         </p>
       )}
@@ -130,9 +130,9 @@ export default function SceneList({
         return (
           <div key={sceneId}>
             <div
-              className={`relative py-3 border-b border-stone-100 transition-colors group ${
+              className={`relative py-3 border-b border-stone-100 dark:border-stone-800 transition-colors group ${
                 canReorder ? "cursor-grab" : ""
-              } ${isDragOver ? "bg-amber-50" : "hover:bg-stone-50/60"}`}
+              } ${isDragOver ? "bg-amber-50 dark:bg-amber-950/30" : "hover:bg-stone-50/60 dark:hover:bg-stone-800/40"}`}
               draggable={canReorder}
               onDragStart={canReorder ? (e) => handleDragStart(e, sceneId) : undefined}
               onDragOver={canReorder ? (e) => handleDragOver(e, sceneId) : undefined}
@@ -148,18 +148,18 @@ export default function SceneList({
               {/* Act label + scene title + drag handle */}
               <div className="flex items-baseline gap-2 mb-1.5">
                 {canReorder && (
-                  <span className="opacity-0 group-hover:opacity-100 text-stone-300 text-xs select-none shrink-0 transition-opacity cursor-grab">
+                  <span className="opacity-0 group-hover:opacity-100 text-stone-300 dark:text-stone-600 text-xs select-none shrink-0 transition-opacity cursor-grab">
                     ⠿
                   </span>
                 )}
-                <span className="text-xs text-stone-400 shrink-0">{act.title}</span>
-                <span className="text-sm font-medium text-stone-700 truncate">{scene.title}</span>
-                <span className="ml-auto text-xs tabular-nums text-stone-500 shrink-0">
+                <span className="text-xs text-stone-400 dark:text-stone-500 shrink-0">{act.title}</span>
+                <span className="text-sm font-medium text-stone-700 dark:text-stone-200 truncate">{scene.title}</span>
+                <span className="ml-auto text-xs tabular-nums text-stone-500 dark:text-stone-400 shrink-0">
                   {metric === "time"
                     ? formatMinutes(afterCut)
                     : afterCut.toLocaleString()}
                   {hasCuts && (
-                    <span className="text-stone-300 ml-1">
+                    <span className="text-stone-300 dark:text-stone-600 ml-1">
                       / {metric === "time" ? formatMinutes(original) : original.toLocaleString()}
                     </span>
                   )}
@@ -167,7 +167,7 @@ export default function SceneList({
               </div>
 
               {/* Cut bar */}
-              <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden mb-2">
+              <div className="h-1.5 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden mb-2">
                 <div
                   className={`h-full rounded-full transition-all ${hasCuts ? "bg-amber-400" : "bg-stone-300"}`}
                   style={{ width: `${Math.min(100, pctKept)}%` }}
