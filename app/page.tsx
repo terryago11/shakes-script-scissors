@@ -217,6 +217,54 @@ export default function HomePage() {
         </ul>
       )}
 
+      {/* Attribution footer */}
+      <footer className="mt-16 pt-6 border-t border-stone-200 text-xs text-stone-400 space-y-1">
+        <p>
+          Shakespeare texts are provided by{" "}
+          <a
+            href="https://dracor.org/shake"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-stone-600"
+          >
+            DraCor
+          </a>{" "}
+          and are based on the{" "}
+          <a
+            href="https://www.folger.edu/explore/shakespeares-works/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-stone-600"
+          >
+            Folger Shakespeare editions
+          </a>
+          , edited by Barbara Mowat, Paul Werstine, Michael Poston, and Rebecca Niles.
+          Licensed{" "}
+          <a
+            href="https://creativecommons.org/licenses/by-sa/4.0/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-stone-600"
+          >
+            CC BY-SA 4.0
+          </a>
+          .
+        </p>
+        <p>
+          ShakesScriptScissors is an open-source tool for production dramaturgy.
+          Built with{" "}
+          <a
+            href="https://nextjs.org"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-stone-600"
+          >
+            Next.js
+          </a>
+          .
+        </p>
+      </footer>
+
       {/* New project name modal */}
       {pendingPlay && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={handleCancelCreate}>

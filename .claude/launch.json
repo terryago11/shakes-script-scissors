@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "Next.js Dev",
-      "runtimeExecutable": "/Users/terryago/.nvm/versions/node/v22.9.0/bin/npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "export PATH=/Users/terryago/.nvm/versions/node/v22.9.0/bin:$PATH && npm run dev"],
       "port": 3000
     }
   ]

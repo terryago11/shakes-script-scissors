@@ -46,7 +46,7 @@ export interface PlayMeta {
   noLocal?: boolean;  // true = not in shakedracor submodule, always use DraCor API
 }
 
-/** All 38 Shakespeare plays available via DraCor (37 also in shakedracor submodule) */
+/** All 38 Shakespeare plays — 37 from DraCor corpus + TNK from Folger Digital Texts (normalized by scripts/normalize-folger-tei.py), all mirrored locally in shakedracor/tei/ */
 export const PLAYS: PlayMeta[] = [
   { id: "AWW", slug: "alls-well-that-ends-well", title: "All's Well That Ends Well" },
   { id: "Ant", slug: "antony-and-cleopatra", title: "Antony and Cleopatra" },
@@ -84,6 +84,6 @@ export const PLAYS: PlayMeta[] = [
   { id: "Tro", slug: "troilus-and-cressida", title: "Troilus and Cressida" },
   { id: "TN", slug: "twelfth-night", title: "Twelfth Night" },
   { id: "TGV", slug: "the-two-gentlemen-of-verona", localFile: "two-gentlemen-of-verona", title: "The Two Gentlemen of Verona" },
-  { id: "TNK", slug: "the-two-noble-kinsmen", noLocal: true, title: "The Two Noble Kinsmen" },
+  { id: "TNK", slug: "the-two-noble-kinsmen", title: "The Two Noble Kinsmen" },
   { id: "WT", slug: "the-winters-tale", title: "The Winter's Tale" },
 ];

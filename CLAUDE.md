@@ -289,5 +289,11 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
 
 - **Group 11**: "Save / Export ▾" nav dropdown (save JSON or export HTML); dynamic self-contained HTML mini-app export (pre-rendered data + embedded vanilla JS; three view modes Clean/Standard/Diff; character filter sidebar grouped by actor; sticky topbar with mode switcher, scene jump, print button; `@page` margin boxes baked in at export time); PDF cue scripts with `@page` headers (play title/cut name top-left, actor/characters top-right) and footer (page number + timestamp + tool attribution); white background on all print views
 
-### Not Started (Phase 3+)
-- **Stretch**: Insert text; Google Drive backup; SD "All" expansion; Settings panel (WPM UI)
+- **Group 12**: Settings modal (⚙ gear in nav → project name, WPM, quick-change threshold); copyright/attribution footer (home page) citing DraCor + Folger Editions CC BY-SA 4.0; `SECURITY.md` (allowlist API, localStorage-only, 0 `npm audit` vulns after `npm audit fix`); The Two Noble Kinsmen — not in DraCor corpus, local Folger TEI normalizer (`scripts/normalize-folger-tei.py`) converts raw Folger word-tokenized XML to DraCor-compatible format; mirrored at `shakedracor/tei/the-two-noble-kinsmen.xml`; `noLocal` flag removed; TNK loads with 3,291 lines + 42 cast members
+
+### Not Started (Phase 4+)
+- **Group 13**: Dark mode (light/dark/auto, global localStorage); UI/UX polish; Shakespeare easter eggs ("Scratch it out!" / "Scratch it back in!" animations)
+- **Group 14**: Responsive layout for tablet landscape (1024px+)
+- **Group 15**: SD "All" auto-resolve; speech splitting; insert text (freestyle + borrow-from-play)
+- **Group 16**: TEI/DraCor source verification (Folger FDT docs); methodology PDFs (dev reference); user-facing documentation (`docs/`)
+- **Stretch**: Google Drive backup; GUI/installer for non-technical users
