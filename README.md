@@ -72,7 +72,7 @@ npm run dev
 ## Tech Stack
 
 - **Next.js 16** App Router · **TypeScript** · **Tailwind CSS v4**
-- **TEI data**: [shakedracor](https://github.com/dracor-org/shakedracor) submodule (Folger Shakespeare Library texts, 37 plays). The Two Noble Kinsmen falls back to the DraCor API.
+- **TEI data**: [shakedracor](https://github.com/dracor-org/shakedracor) submodule (Folger Shakespeare Library texts, 37 plays) + *The Two Noble Kinsmen* sourced directly from [Folger Digital Texts](https://www.folgerdigitaltexts.org/) and normalized via `scripts/normalize-folger-tei.py`.
 - **Storage**: Browser `localStorage` + JSON file export/import (no database, no auth)
 
 ## Data Format
@@ -85,10 +85,21 @@ See [`CLAUDE.md`](./CLAUDE.md) for architecture overview, data flow, type system
 
 ## Updating the Text
 
-To pull the latest TEI data from DraCor:
+**DraCor plays (37 of 38)** — pull the submodule:
 
 ```bash
 git submodule update --remote shakedracor
 git add shakedracor
-git commit -m "chore: update shakedracor corpus"
+git commit -m "chore: update DraCor submodule"
 ```
+
+**The Two Noble Kinsmen (Folger source)** — re-download and re-normalize whenever the Folger Digital Texts are updated:
+
+```bash
+curl -o /tmp/TNK-raw.xml https://www.folgerdigitaltexts.org/download/xml/TNK.xml
+python3 scripts/normalize-folger-tei.py /tmp/TNK-raw.xml shakedracor/tei/the-two-noble-kinsmen.xml
+cd shakedracor && git add tei/the-two-noble-kinsmen.xml && git commit -m "chore: update TNK from Folger" && cd ..
+git add shakedracor && git commit -m "chore: update TNK submodule ref"
+```
+
+Both updates should be done together whenever play texts are refreshed.

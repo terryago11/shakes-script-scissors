@@ -8,6 +8,7 @@ import { exportProject, exportScriptHtml } from "@/lib/project/projectIO";
 import type { Cut } from "@/types/project";
 import type { Play } from "@/types/play";
 import CutSelector from "@/components/CutSelector/CutSelector";
+import SettingsModal from "@/components/SettingsModal/SettingsModal";
 import { SceneJumpProvider, useSceneJump } from "@/lib/ui/SceneJumpContext";
 import { CutModeProvider, useCutMode } from "@/lib/ui/CutModeContext";
 import { MetricProvider } from "@/lib/ui/MetricContext";
@@ -22,7 +23,7 @@ export default function ProjectLayout({
 }) {
   const { projectId } = use(params);
   const router = useRouter();
-  const { project, activeCut, loadProject } = useProject();
+  const { project, activeCut, loadProject, dispatch } = useProject();
   const pathname = usePathname();
 
   useEffect(() => {
@@ -54,6 +55,7 @@ export default function ProjectLayout({
               isScriptPage={isScriptPage}
               router={router}
               pathname={pathname}
+              dispatch={dispatch}
             />
             <div className="flex-1">{children}</div>
           </ViewModeProvider>
@@ -70,6 +72,7 @@ function ProjectNav({
   isScriptPage,
   router,
   pathname,
+  dispatch,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   project: any;
@@ -79,8 +82,32 @@ function ProjectNav({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   router: any;
   pathname: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dispatch: React.Dispatch<any>;
 }) {
   const { cutModeActive } = useCutMode();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  function handleSettingsSave(updates: {
+    name?: string;
+    wordsPerMinute?: number;
+    quickChangeThresholdMinutes?: number;
+  }) {
+    if (updates.name !== undefined) {
+      dispatch({ type: "RENAME_PROJECT", name: updates.name });
+    }
+    if (updates.wordsPerMinute !== undefined || updates.quickChangeThresholdMinutes !== undefined) {
+      dispatch({
+        type: "UPDATE_SETTINGS",
+        settings: {
+          ...(updates.wordsPerMinute !== undefined ? { wordsPerMinute: updates.wordsPerMinute } : {}),
+          ...(updates.quickChangeThresholdMinutes !== undefined
+            ? { quickChangeThresholdMinutes: updates.quickChangeThresholdMinutes }
+            : {}),
+        },
+      });
+    }
+  }
 
   const otherNavLinks = [
     { href: `/projects/${projectId}/dashboard`, label: "Dashboard" },
@@ -146,6 +173,24 @@ function ProjectNav({
 
         {/* Save / Export dropdown */}
         <SaveExportDropdown project={project} activeCut={activeCut} />
+
+        {/* Settings gear */}
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="shrink-0 text-stone-400 hover:text-stone-700 text-base px-1.5 py-1 rounded hover:bg-stone-100 transition-colors"
+          title="Project settings"
+          aria-label="Open project settings"
+        >
+          ⚙
+        </button>
+
+        {settingsOpen && (
+          <SettingsModal
+            project={project}
+            onSave={handleSettingsSave}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
       </div>
 
       {/* Cut mode overlay */}
