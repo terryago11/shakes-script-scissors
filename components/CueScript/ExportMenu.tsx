@@ -72,7 +72,7 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
       {cueScript ? (
         <CueScriptDocument cueScript={cueScript} characterNames={actorCharacterNames} />
       ) : (
-        <div className="text-stone-400 dark:text-stone-500 text-sm p-6">Select an actor above.</div>
+        <div className="text-stone-400 dark:text-stone-400 text-sm p-6">Select an actor above.</div>
       )}
     </div>
   );

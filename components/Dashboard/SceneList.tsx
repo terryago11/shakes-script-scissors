@@ -94,7 +94,7 @@ export default function SceneList({
   return (
     <div className="space-y-0">
       {canReorder && (
-        <p className="text-xs text-stone-400 dark:text-stone-500 mb-3 flex items-center gap-1">
+        <p className="text-xs text-stone-400 dark:text-stone-400 mb-3 flex items-center gap-1">
           <span>⠿</span> Drag scenes to reorder
         </p>
       )}
@@ -152,7 +152,7 @@ export default function SceneList({
                     ⠿
                   </span>
                 )}
-                <span className="text-xs text-stone-400 dark:text-stone-500 shrink-0">{act.title}</span>
+                <span className="text-xs text-stone-400 dark:text-stone-400 shrink-0">{act.title}</span>
                 <span className="text-sm font-medium text-stone-700 dark:text-stone-200 truncate">{scene.title}</span>
                 <span className="ml-auto text-xs tabular-nums text-stone-500 dark:text-stone-400 shrink-0">
                   {metric === "time"

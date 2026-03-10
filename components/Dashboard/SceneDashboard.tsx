@@ -208,7 +208,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
               className={`text-xs py-1 px-3 rounded transition-colors font-medium capitalize ${
                 metric === m
                   ? "bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 shadow-sm"
-                  : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
+                  : "text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
               }`}
             >
               {m === "time" ? "Time" : m === "lines" ? "Lines" : "Words"}
@@ -222,7 +222,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
             {formatMinutes(stageTime.totalMinutes)}
           </div>
           {hasCuts && (
-            <div className="text-sm text-stone-400 dark:text-stone-500">
+            <div className="text-sm text-stone-400 dark:text-stone-400">
               / {formatMinutes(stageTime.originalTotalMinutes)} original
             </div>
           )}

@@ -169,12 +169,12 @@ export default function SceneBlock({
           onClick={() => setCollapsed((c) => !c)}
           className="flex items-center gap-3 flex-1 text-left px-4 py-3 hover:bg-stone-50 dark:hover:bg-stone-800 rounded-lg"
         >
-          <span className="text-xs text-stone-400 dark:text-stone-500">{collapsed ? "▶" : "▼"}</span>
-          <span className={`font-semibold text-sm ${isFullyCut ? "text-stone-400 dark:text-stone-500 line-through" : "text-stone-600 dark:text-stone-300"}`}>
+          <span className="text-xs text-stone-400 dark:text-stone-400">{collapsed ? "▶" : "▼"}</span>
+          <span className={`font-semibold text-sm ${isFullyCut ? "text-stone-400 dark:text-stone-400 line-through" : "text-stone-600 dark:text-stone-300"}`}>
             {scene.title}
           </span>
           {isFullyCut && (
-            <span className="text-xs text-stone-400 bg-stone-200 dark:text-stone-500 dark:bg-stone-700 px-1.5 py-0.5 rounded font-normal">
+            <span className="text-xs text-stone-400 bg-stone-200 dark:text-stone-400 dark:bg-stone-700 px-1.5 py-0.5 rounded font-normal">
               fully cut
             </span>
           )}

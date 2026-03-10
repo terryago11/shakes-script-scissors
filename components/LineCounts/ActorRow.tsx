@@ -48,7 +48,7 @@ export default function ActorRow({ actor, counts, play, isFiltered, onClick }: P
           />
         </div>
         {charNames && (
-          <div className="text-xs text-stone-400 dark:text-stone-500 truncate">{charNames}</div>
+          <div className="text-xs text-stone-400 dark:text-stone-400 truncate">{charNames}</div>
         )}
       </div>
     </div>

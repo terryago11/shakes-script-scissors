@@ -98,14 +98,14 @@ export default function ActBlock({
         onClick={handleToggle}
         className="flex items-center gap-2 w-full text-left mb-3 group"
       >
-        <span className="text-xs text-stone-400 dark:text-stone-500 group-hover:text-stone-600 dark:group-hover:text-stone-300">
+        <span className="text-xs text-stone-400 dark:text-stone-400 group-hover:text-stone-600 dark:group-hover:text-stone-300">
           {collapsed ? "▶" : "▼"}
         </span>
         <h2 className="text-lg font-bold text-stone-700 dark:text-stone-200 uppercase tracking-wide">
           {act.title}
         </h2>
         {(counts || timeMins) && !showOriginal && (
-          <span className="ml-2 text-xs text-stone-400 dark:text-stone-500 tabular-nums font-normal normal-case tracking-normal flex items-center gap-1">
+          <span className="ml-2 text-xs text-stone-400 dark:text-stone-400 tabular-nums font-normal normal-case tracking-normal flex items-center gap-1">
             {timeMins ? (
               <>
                 <span className={timeMins.afterCut < timeMins.original - 0.01 ? "text-amber-600 font-medium" : ""}>

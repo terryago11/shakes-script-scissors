@@ -12,7 +12,7 @@ export default function CutSelector() {
 
   return (
     <div className="flex items-center gap-2">
-      <label className="text-xs text-stone-400 dark:text-stone-500 font-medium">Cut:</label>
+      <label className="text-xs text-stone-400 dark:text-stone-400 font-medium">Cut:</label>
       <select
         value={activeCutId || ""}
         onChange={(e) => dispatch({ type: "SET_ACTIVE_CUT", cutId: e.target.value })}

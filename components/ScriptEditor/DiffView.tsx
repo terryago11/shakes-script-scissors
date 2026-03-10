@@ -48,7 +48,7 @@ export default function DiffView({
   return (
     <div className="px-4 py-6">
       {/* Column header strip */}
-      <div className="flex items-center mb-4 text-xs font-medium text-stone-400 dark:text-stone-500 select-none">
+      <div className="flex items-center mb-4 text-xs font-medium text-stone-400 dark:text-stone-400 select-none">
         <div className="flex-1 px-1">Modified script</div>
         <div className="w-px bg-transparent" />
         <div className="flex-1 px-1">Original</div>
@@ -64,7 +64,7 @@ export default function DiffView({
           <div key={`${group.act.id}-${displayScenes[0].id}`} className="mb-8">
             {/* Act label — full width */}
             <div className="mb-3">
-              <span className="text-xs font-semibold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+              <span className="text-xs font-semibold uppercase tracking-widest text-stone-400 dark:text-stone-400">
                 {group.act.title}
               </span>
             </div>

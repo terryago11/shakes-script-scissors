@@ -26,8 +26,10 @@ export interface Speech {
   id: string;
   /** e.g. "#Ham" — matches Character.id */
   characterId: string;
-  /** Display name from <speaker>, e.g. "HAMLET" */
+  /** Normalized display name (cast list name uppercased, or speaker tag as fallback) */
   characterName: string;
+  /** Raw text from the TEI <speaker> tag verbatim, e.g. "GHOST OF HAMLET'S FATHER " */
+  speakerTag: string;
   lines: Line[];
   lineCount: number;
 }

@@ -94,7 +94,7 @@ export default function CastingManager({ playId }: Props) {
   }, [playId]);
 
   if (!project || !play) {
-    return <div className="text-stone-400 dark:text-stone-500 text-sm p-6">Loading…</div>;
+    return <div className="text-stone-400 dark:text-stone-400 text-sm p-6">Loading…</div>;
   }
 
   function handleAddActor() {
@@ -334,7 +334,7 @@ export default function CastingManager({ playId }: Props) {
             className={`px-2 py-2 text-sm rounded-lg border transition-colors ${
               showHelp
                 ? "border-stone-400 dark:border-stone-500 bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-200"
-                : "border-stone-200 dark:border-stone-700 text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:border-stone-300 dark:hover:border-stone-600"
+                : "border-stone-200 dark:border-stone-700 text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 hover:border-stone-300 dark:hover:border-stone-600"
             }`}
             title="How does Suggest work?"
             aria-pressed={showHelp}
@@ -457,7 +457,7 @@ export default function CastingManager({ playId }: Props) {
                     </button>
                     <button
                       onClick={() => setConfirmDeleteActorId(null)}
-                      className="text-xs text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-400"
+                      className="text-xs text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-400"
                     >
                       Cancel
                     </button>
@@ -536,7 +536,7 @@ export default function CastingManager({ playId }: Props) {
                       </button>
                     </div>
                     {assignedCharNames.length > 0 && (
-                      <div className="text-xs text-stone-400 dark:text-stone-500 mt-0.5 leading-snug">
+                      <div className="text-xs text-stone-400 dark:text-stone-400 mt-0.5 leading-snug">
                         {assignedCharNames.join(", ")}
                       </div>
                     )}
@@ -555,7 +555,7 @@ export default function CastingManager({ playId }: Props) {
             <h2 className="text-sm font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
               Quick-change Warnings
             </h2>
-            <div className="flex items-center gap-1.5 text-xs text-stone-400 dark:text-stone-500 ml-auto">
+            <div className="flex items-center gap-1.5 text-xs text-stone-400 dark:text-stone-400 ml-auto">
               <span>Flag gaps under</span>
               <input
                 type="number"
@@ -576,7 +576,7 @@ export default function CastingManager({ playId }: Props) {
           </div>
 
           {quickChangeResult.warnings.length === 0 ? (
-            <p className="text-sm text-stone-400 dark:text-stone-500">
+            <p className="text-sm text-stone-400 dark:text-stone-400">
               No quick changes detected below {threshold} min.
             </p>
           ) : (
@@ -628,7 +628,7 @@ export default function CastingManager({ playId }: Props) {
                       </span>
                     </div>
                     {/* Row 2: act / scene / original line location */}
-                    <div className="mt-1 ml-6 text-xs text-stone-400 dark:text-stone-500 tabular-nums">
+                    <div className="mt-1 ml-6 text-xs text-stone-400 dark:text-stone-400 tabular-nums">
                       {exitLoc} → {enterLoc}
                       <span className="ml-1.5 text-stone-300 dark:text-stone-600">(original lines)</span>
                     </div>

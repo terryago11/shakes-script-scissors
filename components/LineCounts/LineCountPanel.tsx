@@ -76,7 +76,7 @@ export default function LineCountPanel({
       <button
         onClick={() => handleTabClick("lines")}
         className={`flex-1 text-xs py-1 px-2 rounded transition-colors font-medium ${
-          panelTab === "lines" ? "bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 shadow-sm" : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
+          panelTab === "lines" ? "bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 shadow-sm" : "text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
         }`}
       >
         Lines
@@ -84,7 +84,7 @@ export default function LineCountPanel({
       <button
         onClick={() => handleTabClick("words")}
         className={`flex-1 text-xs py-1 px-2 rounded transition-colors font-medium ${
-          panelTab === "words" ? "bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 shadow-sm" : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
+          panelTab === "words" ? "bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 shadow-sm" : "text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
         }`}
       >
         Words
@@ -93,7 +93,7 @@ export default function LineCountPanel({
         <button
           onClick={() => handleTabClick("time")}
           className={`flex-1 text-xs py-1 px-2 rounded transition-colors font-medium ${
-            panelTab === "time" ? "bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 shadow-sm" : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
+            panelTab === "time" ? "bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 shadow-sm" : "text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
           }`}
         >
           Time
@@ -149,7 +149,7 @@ export default function LineCountPanel({
 
         {/* Running time total */}
         <div className="mb-5">
-          <div className="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-2">
+          <div className="text-xs font-semibold text-stone-400 dark:text-stone-400 uppercase tracking-wider mb-2">
             Running Time
           </div>
           <div className="flex items-baseline gap-2">
@@ -157,7 +157,7 @@ export default function LineCountPanel({
               {formatMinutes(stageTime.totalMinutes)}
             </span>
             {hasCuts && (
-              <span className="text-sm text-stone-400 dark:text-stone-500">
+              <span className="text-sm text-stone-400 dark:text-stone-400">
                 / {formatMinutes(stageTime.originalTotalMinutes)}
               </span>
             )}
@@ -168,7 +168,7 @@ export default function LineCountPanel({
             </div>
           )}
           {settings?.wordsPerMinute && (
-            <div className="text-xs text-stone-400 dark:text-stone-500 mt-1">
+            <div className="text-xs text-stone-400 dark:text-stone-400 mt-1">
               at {settings.wordsPerMinute} wpm
             </div>
           )}
@@ -177,7 +177,7 @@ export default function LineCountPanel({
         {/* By Actor */}
         {byActorTimeList.length > 0 && (
           <div className="mb-5">
-            <div className="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-2">
+            <div className="text-xs font-semibold text-stone-400 dark:text-stone-400 uppercase tracking-wider mb-2">
               On Stage By Actor
             </div>
             <div className="space-y-2">
@@ -206,7 +206,7 @@ export default function LineCountPanel({
                         />
                         <span className="text-stone-600 dark:text-stone-300 truncate">{actor?.name ?? actorId}</span>
                       </div>
-                      <span className="text-stone-400 dark:text-stone-500 shrink-0 tabular-nums">
+                      <span className="text-stone-400 dark:text-stone-400 shrink-0 tabular-nums">
                         {formatMinutes(minutes)}
                         {(actorHasCuts || actorHasAdded) && (
                           <span className="text-stone-300 dark:text-stone-600"> / {formatMinutes(originalMinutes)}</span>
@@ -243,7 +243,7 @@ export default function LineCountPanel({
 
         {/* By Character */}
         <div>
-          <div className="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-2">
+          <div className="text-xs font-semibold text-stone-400 dark:text-stone-400 uppercase tracking-wider mb-2">
             On Stage By Character
           </div>
           <div className="space-y-2">
@@ -264,7 +264,7 @@ export default function LineCountPanel({
                 <div key={characterId}>
                   <div className="flex items-baseline justify-between text-xs mb-0.5">
                     <span className="text-stone-600 dark:text-stone-300 truncate mr-2">{charName}</span>
-                    <span className="text-stone-400 dark:text-stone-500 shrink-0 tabular-nums">
+                    <span className="text-stone-400 dark:text-stone-400 shrink-0 tabular-nums">
                       {formatMinutes(minutes)}
                       {(charHasCuts || charHasAdded) && (
                         <span className="text-stone-300 dark:text-stone-600"> / {formatMinutes(originalMinutes)}</span>
@@ -293,7 +293,7 @@ export default function LineCountPanel({
               );
             })}
             {byCharList.length === 0 && (
-              <p className="text-xs text-stone-400 dark:text-stone-500">No stage time data yet.</p>
+              <p className="text-xs text-stone-400 dark:text-stone-400">No stage time data yet.</p>
             )}
           </div>
         </div>
@@ -318,7 +318,7 @@ export default function LineCountPanel({
         </div>
         <div className="flex items-baseline gap-2">
           <span className="text-2xl font-bold text-stone-800 dark:text-stone-100">{activeCounts.total.afterCut.toLocaleString()}</span>
-          <span className="text-sm text-stone-400 dark:text-stone-500">/ {activeCounts.total.original.toLocaleString()}</span>
+          <span className="text-sm text-stone-400 dark:text-stone-400">/ {activeCounts.total.original.toLocaleString()}</span>
         </div>
         {pct > 0 && (
           <div className="mt-1 text-xs text-amber-600 font-medium">{pct}% cut</div>
@@ -334,7 +334,7 @@ export default function LineCountPanel({
       {/* By Actor */}
       {actors.length > 0 && (
         <div className="mb-5">
-          <div className="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-2">
+          <div className="text-xs font-semibold text-stone-400 dark:text-stone-400 uppercase tracking-wider mb-2">
             By Actor
             {filter?.type === "actor" && (
               <button onClick={() => onFilterActor?.(null)} className="ml-2 normal-case font-normal text-amber-500 hover:text-amber-700">

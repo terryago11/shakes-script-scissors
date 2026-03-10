@@ -113,7 +113,7 @@ function WarningSection({
       <h2 className="text-sm font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-1">
         {title}
       </h2>
-      <p className="text-xs text-stone-400 dark:text-stone-500 mb-3">{description}</p>
+      <p className="text-xs text-stone-400 dark:text-stone-400 mb-3">{description}</p>
       <div className="space-y-2">
         {chars.map(({ characterId, charName, appearances, existingSds, existingSdLabel }) => {
           const isExpanded = expandedChars.has(characterId);
@@ -374,16 +374,16 @@ function NameDiagnosticsTable({
       >
         <span>{open ? "▼" : "▶"}</span>
         <span>Name Diagnostics</span>
-        <span className="font-normal text-stone-400 dark:text-stone-500">({rows.length} characters)</span>
+        <span className="font-normal text-stone-400 dark:text-stone-400">({rows.length} characters)</span>
       </button>
       {open && (
         <div className="mt-3 overflow-x-auto">
-          <p className="mb-2 text-xs text-stone-400 dark:text-stone-500">
+          <p className="mb-2 text-xs text-stone-400 dark:text-stone-400">
             Rows highlighted <span className="bg-sky-100 dark:bg-sky-950/50 px-1 rounded text-sky-700 dark:text-sky-300">blue</span> have an active alias for this cut.
           </p>
           <table className="w-full text-xs border-collapse">
             <thead>
-              <tr className="text-left text-stone-400 dark:text-stone-500 border-b border-stone-200 dark:border-stone-700">
+              <tr className="text-left text-stone-400 dark:text-stone-400 border-b border-stone-200 dark:border-stone-700">
                 <th className="pb-1 pr-4 font-medium">Character ID</th>
                 <th className="pb-1 pr-4 font-medium">Folger Cast List</th>
                 <th className="pb-1 pr-4 font-medium">Folger Speaker Name</th>
@@ -398,15 +398,15 @@ function NameDiagnosticsTable({
                   key={r.id}
                   className={r.hasAlias ? "bg-sky-50 dark:bg-sky-950/30" : i % 2 === 1 ? "bg-stone-50 dark:bg-stone-900/50" : ""}
                 >
-                  <td className="py-0.5 pr-4 font-mono text-stone-400 dark:text-stone-500">{r.id}</td>
+                  <td className="py-0.5 pr-4 font-mono text-stone-400 dark:text-stone-400">{r.id}</td>
                   <td className="py-0.5 pr-4">{r.castName ?? <span className="text-stone-300 dark:text-stone-600">—</span>}</td>
-                  <td className="py-0.5 pr-4 text-stone-400 dark:text-stone-500">
+                  <td className="py-0.5 pr-4 text-stone-400 dark:text-stone-400">
                     {r.speakerTags ?? <span className="text-stone-300">—</span>}
                   </td>
-                  <td className="py-0.5 pr-4 text-stone-400 dark:text-stone-500">
+                  <td className="py-0.5 pr-4 text-stone-400 dark:text-stone-400">
                     {r.castName ? <span className="text-stone-300 dark:text-stone-600">—</span> : r.idNorm}
                   </td>
-                  <td className="py-0.5 pr-4 text-stone-400 dark:text-stone-500">
+                  <td className="py-0.5 pr-4 text-stone-400 dark:text-stone-400">
                     {r.sdRefs && r.sdRefs.length > 0 ? (
                       <span>
                         {r.sdRefs.map(({ token, locations }, idx) => (
@@ -459,7 +459,7 @@ export default function IntegrityChecks({ play, activeCut, stageTime, characterA
   return (
     <div>
       {noExitIds.length === 0 && noEntranceIds.length === 0 ? (
-        <div className="flex items-center gap-2 py-6 text-sm text-stone-400 dark:text-stone-500">
+        <div className="flex items-center gap-2 py-6 text-sm text-stone-400 dark:text-stone-400">
           <span className="text-green-500">✓</span>
           No integrity issues found with the current cut.
         </div>

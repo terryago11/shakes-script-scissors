@@ -142,10 +142,7 @@ export default function ScriptEditor({ playId }: Props) {
   const [error, setError] = useState<string | null>(null);
   type FilterState = { type: "character"; id: string } | { type: "actor"; id: string } | null;
   const [filter, setFilter] = useState<FilterState>(null);
-  const [cutCount, setCutCount] = useState(0);
   const [easterEggVisible, setEasterEggVisible] = useState(false);
-  const [easterEggVariant, setEasterEggVariant] = useState<"cut" | "restore">("cut");
-  const CUT_THRESHOLD = 20;
   const { setScenes, setActiveSceneId, jumpingRef, focusedSceneId, setFocusedSceneId } = useSceneJump();
   const { cutModeActive, setCutModeActive } = useCutMode();
   const { viewMode } = useViewMode();
@@ -253,25 +250,10 @@ export default function ScriptEditor({ playId }: Props) {
     : null;
 
   function handleToggle(unitId: string) {
-    // Determine current status to detect a cut action for the easter egg
-    const currentStatus = activeCut?.cutMap?.[unitId] ?? "kept";
     dispatch({ type: "TOGGLE_UNIT", unitId });
-    if (currentStatus === "kept") {
-      // This is a cut action
-      setCutCount((prev) => {
-        const next = prev + 1;
-        if (next >= CUT_THRESHOLD) {
-          setEasterEggVariant("cut");
-          setEasterEggVisible(true);
-          return 0;
-        }
-        return next;
-      });
-    }
   }
 
   function handleRestoreScene() {
-    setEasterEggVariant("restore");
     setEasterEggVisible(true);
   }
 
@@ -521,7 +503,7 @@ export default function ScriptEditor({ playId }: Props) {
 
       {/* Easter egg animation */}
       <ShakespeareAnimation
-        variant={easterEggVariant}
+        variant="restore"
         visible={easterEggVisible}
         onDismiss={() => setEasterEggVisible(false)}
       />

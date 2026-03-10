@@ -106,7 +106,7 @@ export default function CharacterCard({
           ) : (
             <span
               className={`group/name flex items-center gap-1 text-sm font-semibold truncate ${
-                isFullyCut ? "text-stone-400 dark:text-stone-500 italic" : "text-stone-700 dark:text-stone-200"
+                isFullyCut ? "text-stone-400 dark:text-stone-400 italic" : "text-stone-700 dark:text-stone-200"
               }`}
             >
               <span
@@ -127,12 +127,12 @@ export default function CharacterCard({
             </span>
           )}
           {alias && !editingAlias && (
-            <span className="text-xs text-stone-400 dark:text-stone-500 italic truncate shrink-0" title={`TEI: ${character.name}`}>
+            <span className="text-xs text-stone-400 dark:text-stone-400 italic truncate shrink-0" title={`TEI: ${character.name}`}>
               ({character.name})
             </span>
           )}
           {isFullyCut && (
-            <span className="text-xs text-stone-400 dark:text-stone-500 bg-stone-100 dark:bg-stone-800 px-1.5 py-0.5 rounded font-normal shrink-0">
+            <span className="text-xs text-stone-400 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 px-1.5 py-0.5 rounded font-normal shrink-0">
               fully cut
             </span>
           )}
@@ -146,10 +146,10 @@ export default function CharacterCard({
           )}
         </div>
         {assignedActor && (
-          <div className="text-xs text-stone-400 dark:text-stone-500">{assignedActor.name}</div>
+          <div className="text-xs text-stone-400 dark:text-stone-400">{assignedActor.name}</div>
         )}
         {(lineCounts || wordCounts || stageMinutes != null) && !isFullyCut && (
-          <div className="text-xs text-stone-400 dark:text-stone-500 tabular-nums mt-0.5 flex gap-2">
+          <div className="text-xs text-stone-400 dark:text-stone-400 tabular-nums mt-0.5 flex gap-2">
             {lineCounts && lineCounts.afterCut > 0 && (
               <span>{lineCounts.afterCut.toLocaleString()} lines</span>
             )}

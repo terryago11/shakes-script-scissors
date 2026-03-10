@@ -103,7 +103,7 @@ export default function DashboardMatrix({
 
   if (orderedCharIds.length === 0) {
     return (
-      <p className="text-sm text-stone-400 dark:text-stone-500 py-4">
+      <p className="text-sm text-stone-400 dark:text-stone-400 py-4">
         No character data found for any scene in the current cut.
       </p>
     );
@@ -189,7 +189,7 @@ export default function DashboardMatrix({
               className={`text-xs py-1 px-3 rounded transition-colors font-medium ${
                 viewType === v
                   ? "bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 shadow-sm"
-                  : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
+                  : "text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
               }`}
             >
               {v === "table" ? "Table" : "Chart"}
@@ -206,7 +206,7 @@ export default function DashboardMatrix({
             </span>
             <button
               onClick={() => setFilterCharId(null)}
-              className="text-xs text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 underline"
+              className="text-xs text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 underline"
             >
               Clear filter
             </button>
@@ -248,14 +248,14 @@ export default function DashboardMatrix({
                   {formatValue(total)}
                 </div>
                 {/* Actor name — always fixed-width so counts stay in the same column */}
-                <div className="text-xs text-stone-400 dark:text-stone-500 shrink-0 w-24 truncate">
+                <div className="text-xs text-stone-400 dark:text-stone-400 shrink-0 w-24 truncate">
                   {actor ? actor.name : ""}
                 </div>
               </div>
             );
           })}
           {charTotals.length === 0 && (
-            <p className="text-sm text-stone-400 dark:text-stone-500 py-4">No data to display.</p>
+            <p className="text-sm text-stone-400 dark:text-stone-400 py-4">No data to display.</p>
           )}
         </div>
       ) : (
@@ -286,14 +286,14 @@ export default function DashboardMatrix({
                     <th
                       key="uncast"
                       colSpan={group.charIds.length}
-                      className="py-1 px-2 text-xs font-semibold text-left text-stone-400 dark:text-stone-500 border-l border-b border-stone-200 dark:border-stone-700"
+                      className="py-1 px-2 text-xs font-semibold text-left text-stone-400 dark:text-stone-400 border-l border-b border-stone-200 dark:border-stone-700"
                     >
                       Uncast
                     </th>
                   )
                 )}
                 {/* "Total" header for the totals column — spans actor row */}
-                <th className="py-1 px-2 text-xs font-semibold text-left text-stone-400 dark:text-stone-500 border-l border-b border-stone-200 dark:border-stone-700">
+                <th className="py-1 px-2 text-xs font-semibold text-left text-stone-400 dark:text-stone-400 border-l border-b border-stone-200 dark:border-stone-700">
                   Total
                 </th>
               </tr>
@@ -355,7 +355,7 @@ export default function DashboardMatrix({
                     >
                       <td className="py-1.5 pr-4 sticky left-0 bg-white dark:bg-stone-950">
                         <div className="text-xs truncate max-w-40">
-                          <span className="text-stone-400 dark:text-stone-500">{act.title}</span>
+                          <span className="text-stone-400 dark:text-stone-400">{act.title}</span>
                           <span className="text-stone-300 dark:text-stone-600 mx-1">·</span>
                           <span className="font-medium text-stone-700 dark:text-stone-200">{scene.title}</span>
                         </div>

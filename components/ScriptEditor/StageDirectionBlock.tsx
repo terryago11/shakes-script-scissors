@@ -72,7 +72,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList 
     <div className={`group flex items-start gap-3 py-1.5 px-2 rounded ${isCut ? "opacity-50" : ""}`}>
       <div className="w-1 shrink-0" />
       <div className="flex-1 min-w-0">
-        <div className={`text-sm italic text-stone-500 dark:text-stone-400 ${isCut ? "line-through text-stone-400 dark:text-stone-500" : ""}`}>
+        <div className={`text-sm italic text-stone-500 dark:text-stone-400 ${isCut ? "line-through text-stone-400 dark:text-stone-400" : ""}`}>
           {stage.text}
         </div>
         {hasChipUI && (
@@ -104,7 +104,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList 
               <select
                 value=""
                 onChange={(e) => addChar(e.target.value)}
-                className="text-xs px-1 py-0.5 rounded bg-stone-50 text-stone-400 hover:text-stone-600 border border-stone-200 hover:border-stone-300 dark:bg-stone-900 dark:text-stone-500 dark:hover:text-stone-300 dark:border-stone-700 dark:hover:border-stone-600 cursor-pointer transition-colors"
+                className="text-xs px-1 py-0.5 rounded bg-stone-50 text-stone-400 hover:text-stone-600 border border-stone-200 hover:border-stone-300 dark:bg-stone-900 dark:text-stone-400 dark:hover:text-stone-300 dark:border-stone-700 dark:hover:border-stone-600 cursor-pointer transition-colors"
                 title={`Add a character to this ${stage.stageType}`}
               >
                 <option value="">+ add</option>

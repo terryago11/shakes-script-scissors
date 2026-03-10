@@ -201,6 +201,7 @@ function parseSpeech(spNode: unknown, playId: string, index: number, castList: C
     id,
     characterId,
     characterName,
+    speakerTag: speakerTagName,
     lines,
     lineCount: lines.length,
   };
@@ -229,19 +230,16 @@ function extractCastList(teiChildren: unknown[], playId: string): Character[] {
     const itemChildren = getChildren(item);
     const roleNode = findFirst(itemChildren, "role");
     const nameNode = roleNode ? findFirst(getChildren(roleNode), "name") : null;
-    const rawName = nameNode
+    // Some castItems use <role><name>King Claudius</name></role>,
+    // others use <role>A Lord</role> (text directly in <role>, no <name> child).
+    // When the TEI provides a name, use it verbatim — it's authored by Folger editors.
+    // Only run normalizeCharacterName on the ID stem fallback (for unnamed group chars).
+    const teiName = nameNode
       ? extractAllText(getChildren(nameNode)).trim().replace(/\s+/g, " ")
-      : id.replace(/^#/, "").replace(/_.*$/, "");
-
-    // Also derive a name from the ID stem — when the TEI <name> is less specific
-    // than what the ID encodes (e.g. "Officer" vs "OFFICERS.Jailer" → "Officer Jailer"),
-    // prefer the ID-based name.
-    const idStem = id.replace(/^#/, "").replace(/_.*$/, "");
-    const nameNodeName = normalizeCharacterName(rawName);
-    const idBasedName = normalizeCharacterName(idStem);
-    const name = nameNode && idBasedName.length > nameNodeName.length
-      ? idBasedName
-      : nameNodeName;
+      : roleNode
+        ? extractAllText(getChildren(roleNode)).trim().replace(/\s+/g, " ")
+        : null;
+    const name = teiName ?? normalizeCharacterName(id.replace(/^#/, "").replace(/_.*$/, ""));
 
     if (!chars.find((c) => c.id === id)) {
       chars.push({ id, name });

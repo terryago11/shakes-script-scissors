@@ -310,12 +310,9 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
 
 - **Group 12**: Settings modal (⚙ gear in nav → project name, WPM, quick-change threshold); copyright/attribution footer (home page) citing DraCor + Folger Editions CC BY-SA 4.0; `SECURITY.md` (allowlist API, localStorage-only, 0 `npm audit` vulns after `npm audit fix`); The Two Noble Kinsmen — not in DraCor corpus, local Folger TEI normalizer (`scripts/normalize-folger-tei.py`) converts raw Folger word-tokenized XML to DraCor-compatible format; mirrored at `shakedracor/tei/the-two-noble-kinsmen.xml`; `noLocal` flag removed; TNK loads with 3,291 lines + 42 cast members
 
-### Not Started (Phase 4+)
+- **Group 13**: Dark mode (`ThemeContext` light/dark/auto, `sss_theme` localStorage key, flat sun/moon/monitor SVG toggle); settings modal expanded — project name, WPM slider with presets (Slow/Amateur/Experienced/Professional), quick-change threshold, theme toggle, Save/Export all in one gear panel; nav decluttered — Cut Selector and Save/Export dropdown moved into settings, scissors-only logo with hover-reveal Shakespeare-head swap + wiggle + "ShakesScriptScissors" label slide-in (overlay, no layout shift); flat SVG icons for all nav links + gear; project title as dashboard link with always-visible DashboardIcon; Dashboard removed from nav links; easter egg: Shakespeare face animation (speech bubble left, quill-circle right) fires on cut-mode exit ("Scratch it out!") and on scene restore-all ("Scratch it back in!"); contrast audit — `dark:text-stone-500` → `dark:text-stone-400` globally for WCAG AA compliance
 
-#### Group 13 — Dark Mode + UI Polish + Easter Eggs
-- **Dark mode**: Add `ThemeContext` in `lib/ui/ThemeContext.tsx` with `"light" | "dark" | "auto"` (default `"auto"`). Store preference in `localStorage` key `sss_theme`. Toggle UI: sun/moon/auto icon group in nav bar, left of the gear icon. Implementation: set `class="dark"` on `<html>` when dark active; `prefers-color-scheme` media query for auto. Requires audit of all Tailwind classes to add `dark:` variants across all component files. Critical files: `app/layout.tsx`, `app/projects/[projectId]/layout.tsx`, all component files.
-- **UI/UX polish pass**: Review pass after dark mode — identify and fix loading states, empty states, button affordances, spacing inconsistencies.
-- **Easter eggs**: Trigger: ≥20 cuts made in a session → small Shakespeare SVG/animation slides in from bottom-left saying "Scratch it out!" (auto-dismisses after 3s). Trigger: "Restore all" button clicked on a scene → animation says "Scratch it back in!". Implementation: CSS keyframe animation + cut counter in `ScriptEditor.tsx` or `SceneBlock.tsx`.
+### Not Started (Phase 4+)
 
 #### Group 14 — Responsive Design (Tablet Landscape Priority)
 - Target: tablet landscape (1024px) as primary breakpoint; mobile (375px) as secondary.

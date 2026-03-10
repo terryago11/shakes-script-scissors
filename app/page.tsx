@@ -166,16 +166,16 @@ export default function HomePage() {
                       {p.name || p.playTitle}
                     </div>
                     {p.name && p.name !== p.playTitle && (
-                      <div className="text-stone-400 dark:text-stone-500 text-xs">{p.playTitle}</div>
+                      <div className="text-stone-400 dark:text-stone-400 text-xs">{p.playTitle}</div>
                     )}
-                    <div className="text-stone-400 dark:text-stone-500 text-xs mt-0.5">
+                    <div className="text-stone-400 dark:text-stone-400 text-xs mt-0.5">
                       Last saved {new Date(p.updatedAt).toLocaleDateString()}
                     </div>
                   </button>
                   {/* Save button */}
                   <button
                     onClick={(e) => handleSaveProject(p.id, e)}
-                    className="shrink-0 px-3 border-l border-stone-200 dark:border-stone-700 text-stone-400 dark:text-stone-500 hover:bg-stone-50 dark:hover:bg-stone-800 hover:text-stone-600 dark:hover:text-stone-300 transition-colors text-xs flex flex-col items-center justify-center gap-0.5"
+                    className="shrink-0 px-3 border-l border-stone-200 dark:border-stone-700 text-stone-400 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 hover:text-stone-600 dark:hover:text-stone-300 transition-colors text-xs flex flex-col items-center justify-center gap-0.5"
                     title="Save project file"
                   >
                     <span className="text-base leading-none">↓</span>
@@ -201,7 +201,7 @@ export default function HomePage() {
       />
 
       {loading ? (
-        <div className="text-stone-400 dark:text-stone-500 text-sm">Loading plays…</div>
+        <div className="text-stone-400 dark:text-stone-400 text-sm">Loading plays…</div>
       ) : (
         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {filtered.map((play) => (
@@ -222,7 +222,7 @@ export default function HomePage() {
       )}
 
       {/* Attribution footer */}
-      <footer className="mt-16 pt-6 border-t border-stone-200 dark:border-stone-800 text-xs text-stone-400 dark:text-stone-500 space-y-1">
+      <footer className="mt-16 pt-6 border-t border-stone-200 dark:border-stone-800 text-xs text-stone-400 dark:text-stone-400 space-y-1">
         <p>
           Shakespeare texts (37 plays) are provided by{" "}
           <a
