@@ -30,6 +30,12 @@ interface Props {
   speechLineOffset?: number;
   /** Cut-level character display-name aliases */
   characterAliases?: Record<string, string>;
+  /** "part1" = dashed bottom border; "part2" = merge button + "cont." label */
+  splitRole?: "part1" | "part2";
+  /** Called when user clicks the split zone between two lines */
+  onSplit?: (unitId: string, atLineIndex: number) => void;
+  /** Called when user merges Part 2 back; receives the Part 2 line IDs for cleanup */
+  onMerge?: (unitId: string, part2LineIds: string[]) => void;
 }
 
 export default function SpeechBlock({
@@ -48,6 +54,9 @@ export default function SpeechBlock({
   onReassign,
   speechLineOffset,
   characterAliases,
+  splitRole,
+  onSplit,
+  onMerge,
 }: Props) {
   const { viewMode } = useViewMode();
   const isCut = status === "cut";
@@ -154,8 +163,11 @@ export default function SpeechBlock({
     }
   }
 
+  // Split zones are only shown when: not readonly, not cut, a handler exists, not in cut mode, not in diff
+  const canSplit = !readonly && !isCut && !!onSplit && !cutModeActive && viewMode !== "diff" && speech.lines.length > 1;
+
   return (
-    <div className="group flex gap-3 py-2 px-2 rounded">
+    <div className={`group flex gap-3 py-2 px-2 rounded ${splitRole === "part1" ? "border-b border-dashed border-stone-300 dark:border-stone-600 pb-3 mb-0.5" : ""}`}>
       {/* Actor color bar */}
       <div
         className={`w-1 rounded-full shrink-0 mt-1 ${isCut ? "opacity-30" : ""}`}
@@ -222,6 +234,13 @@ export default function SpeechBlock({
             </span>
           )}
 
+          {/* Part 2 "cont." label */}
+          {splitRole === "part2" && !isCut && (
+            <span className="text-[10px] text-stone-400 dark:text-stone-500 italic font-normal normal-case tracking-normal shrink-0">
+              cont.
+            </span>
+          )}
+
           {!isContinuation && (
             <span className="text-xs font-normal text-stone-400 dark:text-stone-400 normal-case tracking-normal shrink-0">
               {hasCuts && displayKept < displayOriginal ? (
@@ -247,6 +266,20 @@ export default function SpeechBlock({
               ↩ restore
             </button>
           )}
+
+          {/* Part 2 merge button — shown on hover for split Part 2 */}
+          {splitRole === "part2" && !isCut && !!onMerge && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMerge!(speech.id, speech.lines.map((l) => l.id));
+              }}
+              className="opacity-0 group-hover:opacity-100 text-xs px-1.5 py-0.5 rounded border border-stone-300 bg-stone-50 text-stone-500 hover:bg-stone-100 hover:border-stone-400 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-400 dark:hover:bg-stone-700 transition-all shrink-0"
+              title="Merge Part 2 back into Part 1"
+            >
+              ↩ merge
+            </button>
+          )}
         </div>
 
         {/* Lines — compact view with inline diff */}
@@ -257,12 +290,12 @@ export default function SpeechBlock({
               : "text-red-400 opacity-60 line-through"
             : "text-stone-800 dark:text-stone-100"
         }`}>
-          {speech.lines.map((line) => {
+          {speech.lines.flatMap((line, lineIndex) => {
             const lineStatus = lineStatusMap.get(line.id) ?? "kept";
             const isLineCut = !isCut && lineStatus === "cut";
 
             // In clean mode, skip cut lines entirely
-            if (isLineCut && viewMode === "clean") return null;
+            if (isLineCut && viewMode === "clean") return [];
 
             const ops = speechEdit?.ops ?? [];
             const segments = (!isCut && !isLineCut && ops.length > 0)
@@ -287,7 +320,7 @@ export default function SpeechBlock({
               line.text
             );
 
-            return (
+            const lineEl = (
               <div
                 key={line.id}
                 data-line-id={line.id}
@@ -307,6 +340,25 @@ export default function SpeechBlock({
                 )}
               </div>
             );
+
+            // Split zone between lines — only when canSplit and not after the last line
+            if (canSplit && lineIndex < speech.lines.length - 1) {
+              return [
+                lineEl,
+                <div
+                  key={`split-${line.id}`}
+                  className="group/split flex items-center gap-0.5 -my-px opacity-0 hover:opacity-100 cursor-pointer transition-opacity"
+                  onClick={(e) => { e.stopPropagation(); onSplit!(speech.id, lineIndex + 1); }}
+                  title={`Split here — Part 1 ends at this line, Part 2 starts at the next`}
+                >
+                  <div className="flex-1 h-px bg-stone-300 dark:bg-stone-600" />
+                  <span className="text-[9px] text-stone-400 group-hover/split:text-amber-600 dark:group-hover/split:text-amber-400 select-none leading-none px-1 font-sans not-italic">✂</span>
+                  <div className="flex-1 h-px bg-stone-300 dark:bg-stone-600" />
+                </div>,
+              ];
+            }
+
+            return [lineEl];
           })}
         </div>
       </div>

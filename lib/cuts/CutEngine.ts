@@ -1,4 +1,5 @@
 import type { Play, Scene, ScriptUnit } from "@/types/play";
+import { expandSplits, expandInsertions } from "./expandUtils";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import type { LineCounts, LineWithStatus, ScriptUnitWithStatus, CountPair, SceneCounts } from "@/types/cut";
 import { applyEditsToLine, segmentsToText } from "./applyEdits";
@@ -65,13 +66,22 @@ export function computeCuts(
       byScene[scene.id] = { lines: { original: 0, afterCut: 0 }, words: { original: 0, afterCut: 0 } };
       const unitsWithStatus: ScriptUnitWithStatus[] = [];
 
-      for (const unit of scene.units) {
+      // Expand splits and insertions before iterating so each part is processed independently
+      const expandedUnits = expandInsertions(
+        expandSplits(scene.units, cut.speechSplits),
+        cut.insertions,
+        play.castList
+      );
+
+      for (const unit of expandedUnits) {
         const status: "kept" | "cut" = cut.cutMap[unit.id] === "cut" ? "cut" : "kept";
 
         if (unit.type === "speech") {
           // afterCut lines/words are attributed to the reassigned character (if any);
           // original counts always stay with the speech's original character.
           const effectiveCharId = speechReassignments[unit.id] ?? unit.characterId;
+          // Insertions (synthetic speeches from cut.insertions) have no original line count
+          const isInsertion = !!(cut.insertions?.[unit.id]);
 
           if (!byCharacter[unit.characterId]) {
             byCharacter[unit.characterId] = { original: 0, afterCut: 0 };
@@ -114,14 +124,16 @@ export function computeCuts(
             }
           }
 
-          byCharacter[unit.characterId].original += unit.lineCount;
-          totalOriginal += unit.lineCount;
-          wordsByCharacter[unit.characterId].original += speechOriginalWords;
-          totalWordsOriginal += speechOriginalWords;
-          byScene[scene.id].lines.original += unit.lineCount;
-          byAct[act.id].lines.original += unit.lineCount;
-          byScene[scene.id].words.original += speechOriginalWords;
-          byAct[act.id].words.original += speechOriginalWords;
+          if (!isInsertion) {
+            byCharacter[unit.characterId].original += unit.lineCount;
+            totalOriginal += unit.lineCount;
+            wordsByCharacter[unit.characterId].original += speechOriginalWords;
+            totalWordsOriginal += speechOriginalWords;
+            byScene[scene.id].lines.original += unit.lineCount;
+            byAct[act.id].lines.original += unit.lineCount;
+            byScene[scene.id].words.original += speechOriginalWords;
+            byAct[act.id].words.original += speechOriginalWords;
+          }
 
           if (effectiveStatus === "kept") {
             // Single pass: compute both word count and effective line count.
@@ -254,6 +266,25 @@ export function getAllUnitsInOrder(play: Play): ScriptUnit[] {
   for (const act of play.acts) {
     for (const scene of act.scenes) {
       units.push(...scene.units);
+    }
+  }
+  return units;
+}
+
+/**
+ * Get all effective ScriptUnits in play order, with speech splits and insertions expanded.
+ * Use this instead of getAllUnitsInOrder when you have a Cut (e.g. in CueScriptBuilder, HTML exporter).
+ */
+export function getEffectiveUnitsInOrder(play: Play, cut: Cut): ScriptUnit[] {
+  const units: ScriptUnit[] = [];
+  for (const act of play.acts) {
+    for (const scene of act.scenes) {
+      const expanded = expandInsertions(
+        expandSplits(scene.units, cut.speechSplits),
+        cut.insertions,
+        play.castList
+      );
+      units.push(...expanded);
     }
   }
   return units;

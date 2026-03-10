@@ -9,9 +9,11 @@ interface Props {
   status: "kept" | "cut";
   onToggle: (() => void) | null;
   castList: Character[];
+  /** Characters computed to be on stage just before this exit SD — enables the Auto-fill button */
+  onStageAtSd?: Set<string>;
 }
 
-export default function StageDirectionBlock({ stage, status, onToggle, castList }: Props) {
+export default function StageDirectionBlock({ stage, status, onToggle, castList, onStageAtSd }: Props) {
   const { activeCut, dispatch } = useProject();
 
   const isCut = status === "cut";
@@ -66,7 +68,25 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList 
     });
   }
 
-  const hasChipUI = showChips && (effectiveChars.length > 0 || removedChars.length > 0 || addableChars.length > 0);
+  // Auto-fill is available on exit SDs when the on-stage set is known and:
+  // - the SD has no effective characters (empty "Exeunt"), OR
+  // - the SD text matches "all" / "exeunt" (mass exit that may be incomplete)
+  const showAutoFill =
+    showChips &&
+    stage.stageType === "exit" &&
+    (onStageAtSd?.size ?? 0) > 0 &&
+    (effectiveChars.length === 0 || /\ball\b|\bexeunt\b/i.test(stage.text));
+
+  function handleAutoFill() {
+    if (!onStageAtSd) return;
+    dispatch({
+      type: "SET_SD_CHARACTERS",
+      stageId: stage.id,
+      characters: [...onStageAtSd],
+    });
+  }
+
+  const hasChipUI = showChips && (effectiveChars.length > 0 || removedChars.length > 0 || addableChars.length > 0 || showAutoFill);
 
   return (
     <div className={`group flex items-start gap-3 py-1.5 px-2 rounded ${isCut ? "opacity-50" : ""}`}>
@@ -99,6 +119,16 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList 
                 {charName(charId)}
               </button>
             ))}
+            {/* Auto-fill from on-stage set — for empty/all-exit SDs */}
+            {showAutoFill && (
+              <button
+                onClick={handleAutoFill}
+                className="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-900/50 transition-colors"
+                title="Auto-fill with all characters currently on stage"
+              >
+                ⟳ auto-fill
+              </button>
+            )}
             {/* Add characters not originally in this SD */}
             {addableChars.length > 0 && (
               <select

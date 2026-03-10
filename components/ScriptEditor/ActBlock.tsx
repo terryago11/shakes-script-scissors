@@ -5,6 +5,7 @@ import type { Act, Character, Scene } from "@/types/play";
 import type { Actor, ActorAssignment } from "@/types/project";
 import type { ScriptUnitWithStatus, LineCounts } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
+import type { Insertion } from "@/types/insertion";
 import { useMetric } from "@/lib/ui/MetricContext";
 import SceneBlock from "./SceneBlock";
 import PauseIndicator from "./PauseIndicator";
@@ -35,6 +36,16 @@ interface Props {
   onReassign?: (unitId: string, characterId: string | null) => void;
   /** Cut-level character display-name aliases */
   characterAliases?: Record<string, string>;
+  /** stageId → effective character list overrides; passed down to SceneBlock for SD Auto-fill */
+  stageDirectionEdits?: Record<string, string[]>;
+  /** unitId → split params — passed down to SceneBlock to derive splitRole on each SpeechBlock */
+  speechSplits?: Record<string, { splitAtLineIndex: number; newCharacterId?: string }>;
+  onSplit?: (unitId: string, atLineIndex: number) => void;
+  onMerge?: (unitId: string, part2LineIds: string[]) => void;
+  /** All insertions for the active cut — forwarded to SceneBlock */
+  insertions?: Record<string, Insertion>;
+  onAddInsertion?: (insertion: Insertion) => void;
+  onRemoveInsertion?: (insertionId: string, lineIds: string[]) => void;
   /** Called when at least one unit is restored in a scene */
   onRestoreScene?: () => void;
 }
@@ -44,7 +55,10 @@ export default function ActBlock({
   filteredCharacterIds, cutModeActive, lineCounts,
   focusedSceneId, showOriginal, pauses,
   speechReassignments, charsWithEntrance, onReassign,
-  characterAliases, onRestoreScene,
+  characterAliases, stageDirectionEdits,
+  speechSplits, onSplit, onMerge,
+  insertions, onAddInsertion, onRemoveInsertion,
+  onRestoreScene,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   // Generation increments each time act collapses → SceneBlocks remount in collapsed state
@@ -159,6 +173,13 @@ export default function ActBlock({
                   charsWithEntrance={charsWithEntrance}
                   onReassign={showOriginal ? undefined : onReassign}
                   characterAliases={showOriginal ? undefined : characterAliases}
+                  stageDirectionEdits={showOriginal ? undefined : stageDirectionEdits}
+                  speechSplits={showOriginal ? undefined : speechSplits}
+                  onSplit={showOriginal ? undefined : onSplit}
+                  onMerge={showOriginal ? undefined : onMerge}
+                  insertions={showOriginal ? undefined : insertions}
+                  onAddInsertion={showOriginal ? undefined : onAddInsertion}
+                  onRemoveInsertion={showOriginal ? undefined : onRemoveInsertion}
                   onRestoreScene={showOriginal ? undefined : onRestoreScene}
                 />
                 {pauseEntry && (

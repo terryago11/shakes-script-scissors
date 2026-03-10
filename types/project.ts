@@ -61,4 +61,17 @@ export interface Cut {
    * encode dramaturgical choices (e.g. Theseus/Oberon) before running Suggest.
    */
   characterLinks?: Array<[string, string]>;
+  /**
+   * Speech splits: divides a Speech into two independently cuttable parts.
+   * Part 1 keeps the original unitId. Part 2 uses "${unitId}:s2".
+   * lines[0..splitAtLineIndex-1] = part 1; lines[splitAtLineIndex..] = part 2.
+   */
+  speechSplits?: Record<string, {
+    /** Part 2 starts at this index into speech.lines[] */
+    splitAtLineIndex: number;
+    /** If set, Part 2 is attributed to this character instead of the original */
+    newCharacterId?: string;
+  }>;
+  /** Inserted speeches keyed by insertion ID. Each appears after a specific unit. */
+  insertions?: Record<string, import("./insertion").Insertion>;
 }

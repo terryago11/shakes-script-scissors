@@ -1,7 +1,7 @@
 import type { Play, Speech, StageDirection } from "@/types/play";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import type { CueScript, CueEntry } from "@/types/cut";
-import { getAllUnitsInOrder } from "./CutEngine";
+import { getEffectiveUnitsInOrder } from "./CutEngine";
 import { getEffectiveCharacters } from "./StageTimeEngine";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
 import { applyEditsToLine, segmentsToText } from "./applyEdits";
@@ -33,7 +33,7 @@ export function buildCueScript(
   const speechEdits = cut.speechEdits ?? {};
   const stageDirectionEdits = cut.stageDirectionEdits ?? {};
 
-  const allUnits = getAllUnitsInOrder(play);
+  const allUnits = getEffectiveUnitsInOrder(play, cut);
   const entries: CueEntry[] = [];
 
   let lastOtherSpeechText: string | null = null;

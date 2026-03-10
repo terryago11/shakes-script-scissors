@@ -1,5 +1,6 @@
-import type { Play, StageDirection } from "@/types/play";
+import type { Play, StageDirection, ScriptUnit } from "@/types/play";
 import type { Cut, ProjectSettings } from "@/types/project";
+import { expandSplits, expandInsertions } from "./expandUtils";
 
 const AVG_WORDS_PER_LINE = 8;
 const DEFAULT_WPM = 135;
@@ -35,6 +36,33 @@ export interface StageTimeResult {
 /** Returns the effective character list for an SD, applying any overrides from the cut. */
 export function getEffectiveCharacters(sd: StageDirection, edits?: Record<string, string[]>): string[] {
   return edits?.[sd.id] ?? sd.characters;
+}
+
+/**
+ * Compute the set of characters on stage immediately before `sceneUnits[targetIndex]`.
+ * Walks raw TEI units (cut-independent) so entrances/exits are tracked regardless of cut status.
+ * Used by StageDirectionBlock to pre-fill the SD character chip editor for exit SDs.
+ */
+export function getOnStageAtUnit(
+  sceneUnits: ScriptUnit[],
+  targetIndex: number,
+  edits?: Record<string, string[]>
+): Set<string> {
+  const onStage = new Set<string>();
+  for (let i = 0; i < targetIndex; i++) {
+    const unit = sceneUnits[i];
+    if (unit.type !== "stage") continue;
+    if (unit.stageType === "entrance") {
+      for (const charId of getEffectiveCharacters(unit, edits)) {
+        onStage.add(charId);
+      }
+    } else if (unit.stageType === "exit") {
+      for (const charId of getEffectiveCharacters(unit, edits)) {
+        onStage.delete(charId);
+      }
+    }
+  }
+  return onStage;
 }
 
 function ensureChar(byChar: Record<string, CharacterStageTime>, charId: string): CharacterStageTime {
@@ -76,7 +104,12 @@ export function computeStageTime(
     const scene = sceneById.get(sceneId);
     if (!scene) continue;
 
-    const units = scene.units;
+    // Expand splits and insertions so each part is attributed independently
+    const expandedUnits = expandInsertions(
+      expandSplits(scene.units, cut.speechSplits),
+      cut.insertions,
+      play.castList
+    );
 
     // ── On-stage sets — populated ONLY by entrance/exit SDs, no fallback ────
     // onStageOrig: driven by original SD characters (sd.characters), unaffected by edits
@@ -85,7 +118,7 @@ export function computeStageTime(
     const onStageOrig = new Set<string>();
 
     // ── Walk units in document order ─────────────────────────────────────────
-    for (const unit of units) {
+    for (const unit of expandedUnits) {
       if (unit.type === "stage") {
         if (unit.stageType === "entrance") {
           // Original: always use the raw SD characters
@@ -107,14 +140,18 @@ export function computeStageTime(
           }
         }
       } else if (unit.type === "speech") {
-        // ── Original: accumulate for ALL speeches ──────────────────────────
-        const origMinutes = (unit.lineCount * AVG_WORDS_PER_LINE) / wpm;
-        originalTotalMinutes += origMinutes;
-        if (!sceneOrigMinByChar[sceneId]) sceneOrigMinByChar[sceneId] = {};
-        for (const charId of onStageOrig) {
-          const entry = ensureChar(byCharacter, charId);
-          entry.originalMinutes += origMinutes;
-          sceneOrigMinByChar[sceneId][charId] = (sceneOrigMinByChar[sceneId][charId] ?? 0) + origMinutes;
+        // ── Original: accumulate for all non-insertion speeches ────────────
+        // Insertions have no "original" — they're new text that didn't exist in the uncut play.
+        const isInsertion = !!(cut.insertions?.[unit.id]);
+        if (!isInsertion) {
+          const origMinutes = (unit.lineCount * AVG_WORDS_PER_LINE) / wpm;
+          originalTotalMinutes += origMinutes;
+          if (!sceneOrigMinByChar[sceneId]) sceneOrigMinByChar[sceneId] = {};
+          for (const charId of onStageOrig) {
+            const entry = ensureChar(byCharacter, charId);
+            entry.originalMinutes += origMinutes;
+            sceneOrigMinByChar[sceneId][charId] = (sceneOrigMinByChar[sceneId][charId] ?? 0) + origMinutes;
+          }
         }
 
         // ── Cut: only for kept speeches ────────────────────────────────────

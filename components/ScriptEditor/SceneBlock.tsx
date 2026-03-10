@@ -5,10 +5,14 @@ import type { Character, Scene } from "@/types/play";
 import type { Actor, ActorAssignment } from "@/types/project";
 import type { ScriptUnitWithStatus, SceneCounts } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
+import type { Insertion } from "@/types/insertion";
 import { useMetric } from "@/lib/ui/MetricContext";
 import { useViewMode } from "@/lib/ui/ViewModeContext";
+import { getOnStageAtUnit } from "@/lib/cuts/StageTimeEngine";
 import SpeechBlock from "./SpeechBlock";
 import StageDirectionBlock from "./StageDirectionBlock";
+import InsertionBlock from "./InsertionBlock";
+import InsertionModal from "./InsertionModal";
 
 interface Props {
   scene: Scene;
@@ -33,6 +37,18 @@ interface Props {
   onReassign?: (unitId: string, characterId: string | null) => void;
   /** Cut-level character display-name aliases */
   characterAliases?: Record<string, string>;
+  /** stageId → effective character list overrides; used to compute on-stage set for SD Auto-fill */
+  stageDirectionEdits?: Record<string, string[]>;
+  /** unitId → { splitAtLineIndex, newCharacterId? } — drives splitRole prop on SpeechBlock */
+  speechSplits?: Record<string, { splitAtLineIndex: number; newCharacterId?: string }>;
+  /** Called when user clicks a split zone in SpeechBlock */
+  onSplit?: (unitId: string, atLineIndex: number) => void;
+  /** Called when user clicks merge on a Part 2 SpeechBlock */
+  onMerge?: (unitId: string, part2LineIds: string[]) => void;
+  /** All insertions for the active cut — SceneBlock renders ones whose afterUnitId is in this scene */
+  insertions?: Record<string, Insertion>;
+  onAddInsertion?: (insertion: Insertion) => void;
+  onRemoveInsertion?: (insertionId: string, lineIds: string[]) => void;
   /** Called when at least one unit is restored via "restore all" */
   onRestoreScene?: () => void;
 }
@@ -42,10 +58,14 @@ export default function SceneBlock({
   filteredCharacterIds, cutModeActive, sceneCounts,
   focusedSceneId, showOriginal,
   speechReassignments, charsWithEntrance, onReassign,
-  characterAliases, onRestoreScene,
+  characterAliases, stageDirectionEdits,
+  speechSplits, onSplit, onMerge,
+  insertions, onAddInsertion, onRemoveInsertion,
+  onRestoreScene,
 }: Props) {
   // Default to collapsed so after act re-expand, scenes are collapsed and user can pick
   const [collapsed, setCollapsed] = useState(false);
+  const [insertionModalAfterUnitId, setInsertionModalAfterUnitId] = useState<string | null>(null);
   const { metric, wpm } = useMetric();
 
   function fmtMins(m: number): string {
@@ -156,6 +176,22 @@ export default function SceneBlock({
     return map;
   })();
 
+  // Insert zones are available when not in showOriginal / cutMode / diff modes and a handler exists
+  const canInsert = !showOriginal && !cutModeActive && viewMode !== "diff" && !!onAddInsertion;
+
+  // Pre-compute on-stage character set for each exit SD (enables Auto-fill button)
+  // Uses raw scene.units (cut-independent) so the on-stage set reflects actual entrances/exits.
+  const onStageAtExitSd: Map<string, Set<string>> = (() => {
+    if (showOriginal) return new Map();
+    const map = new Map<string, Set<string>>();
+    scene.units.forEach((unit, idx) => {
+      if (unit.type === "stage" && unit.stageType === "exit") {
+        map.set(unit.id, getOnStageAtUnit(scene.units, idx, stageDirectionEdits));
+      }
+    });
+    return map;
+  })();
+
   return (
     <div
       id={`scene-${scene.id}`}
@@ -223,50 +259,113 @@ export default function SceneBlock({
 
       {!collapsed && (
         <div className="px-4 pb-4 space-y-0.5">
-          {units.map(({ unit, status, lineStatuses }) => {
+          {units.flatMap(({ unit, status, lineStatuses }) => {
             const isFiltering = filteredCharacterIds && filteredCharacterIds.size > 0;
+            const elements: React.ReactNode[] = [];
+
             if (unit.type === "speech") {
-              if (isFiltering && !filteredCharacterIds!.has(unit.characterId)) return null;
-              return (
-                <SpeechBlock
-                  key={unit.id}
-                  speech={unit}
-                  status={showOriginal ? "kept" : status}
-                  actorColor={charColor[unit.characterId]}
-                  onToggle={showOriginal ? null : (onToggle ? () => onToggle(unit.id) : null)}
-                  lineStatuses={showOriginal ? undefined : lineStatuses}
-                  speechEdit={showOriginal ? undefined : speechEdits?.[unit.id]}
-                  onClearEdits={showOriginal ? undefined : onClearEdits}
-                  isContinuation={continuationIds.has(unit.id)}
-                  cutModeActive={showOriginal ? false : cutModeActive}
-                  castList={castList}
-                  speechReassignment={showOriginal ? undefined : (speechReassignments?.[unit.id] ?? null)}
-                  charsWithEntrance={charsWithEntrance}
-                  onReassign={showOriginal ? undefined : onReassign}
-                  speechLineOffset={showOriginal ? undefined : speechStartLines.get(unit.id)}
-                  characterAliases={showOriginal ? undefined : characterAliases}
-                />
-              );
+              if (isFiltering && !filteredCharacterIds!.has(unit.characterId)) return [];
+
+              // Check if this is a synthetic insertion unit
+              const insertionData = !showOriginal && insertions ? insertions[unit.id] : undefined;
+
+              if (insertionData) {
+                elements.push(
+                  <InsertionBlock
+                    key={unit.id}
+                    insertion={insertionData}
+                    castList={castList}
+                    characterAliases={showOriginal ? undefined : characterAliases}
+                    onRemove={onRemoveInsertion
+                      ? (id) => onRemoveInsertion(id, insertionData.lines.map((l) => l.id))
+                      : () => {}}
+                  />
+                );
+              } else {
+                // Determine split role: check if this is Part 1 (has a split entry) or Part 2 (id ends with :s2)
+                const isPart2 = unit.id.endsWith(":s2");
+                const originalId = isPart2 ? unit.id.slice(0, -3) : unit.id;
+                const splitRole = !showOriginal && speechSplits
+                  ? isPart2 ? "part2" : speechSplits[unit.id] ? "part1" : undefined
+                  : undefined;
+                elements.push(
+                  <SpeechBlock
+                    key={unit.id}
+                    speech={unit}
+                    status={showOriginal ? "kept" : status}
+                    actorColor={charColor[unit.characterId]}
+                    onToggle={showOriginal ? null : (onToggle ? () => onToggle(unit.id) : null)}
+                    lineStatuses={showOriginal ? undefined : lineStatuses}
+                    speechEdit={showOriginal ? undefined : speechEdits?.[unit.id]}
+                    onClearEdits={showOriginal ? undefined : onClearEdits}
+                    isContinuation={continuationIds.has(unit.id)}
+                    cutModeActive={showOriginal ? false : cutModeActive}
+                    castList={castList}
+                    speechReassignment={showOriginal ? undefined : (speechReassignments?.[unit.id] ?? null)}
+                    charsWithEntrance={charsWithEntrance}
+                    onReassign={showOriginal ? undefined : onReassign}
+                    speechLineOffset={showOriginal ? undefined : speechStartLines.get(unit.id)}
+                    characterAliases={showOriginal ? undefined : characterAliases}
+                    splitRole={splitRole}
+                    onSplit={showOriginal ? undefined : onSplit}
+                    onMerge={showOriginal ? undefined : (isPart2 ? onMerge ? (unitId, lineIds) => onMerge(originalId, lineIds) : undefined : onMerge)}
+                  />
+                );
+              }
             } else {
               if (isFiltering) {
                 // Show entrance/exit SDs that mention a filtered character; hide all others
                 const hasFilteredChar = filteredCharacterIds && unit.characters.some((id) => filteredCharacterIds.has(id));
-                if (!hasFilteredChar) return null;
+                if (!hasFilteredChar) return [];
               }
               // In clean mode, hide cut SDs — but not when showOriginal (we want all in original column)
-              if (status === "cut" && viewMode === "clean" && !showOriginal) return null;
-              return (
+              if (status === "cut" && viewMode === "clean" && !showOriginal) return [];
+              elements.push(
                 <StageDirectionBlock
                   key={unit.id}
                   stage={unit}
                   status={showOriginal ? "kept" : status}
                   onToggle={showOriginal ? null : (onToggle ? () => onToggle(unit.id) : null)}
                   castList={castList}
+                  onStageAtSd={showOriginal ? undefined : onStageAtExitSd.get(unit.id)}
                 />
               );
             }
+
+            // Insert zone — thin hover-reveal strip after each unit
+            if (canInsert) {
+              elements.push(
+                <div
+                  key={`insert-zone-${unit.id}`}
+                  className="group/insert h-2 hover:h-7 transition-[height] flex items-center overflow-hidden"
+                >
+                  <button
+                    className="opacity-0 group-hover/insert:opacity-100 transition-opacity text-xs px-2 py-0.5 rounded border border-green-300 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-700 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 w-full text-left"
+                    onClick={(e) => { e.stopPropagation(); setInsertionModalAfterUnitId(unit.id); }}
+                  >
+                    + Insert here
+                  </button>
+                </div>
+              );
+            }
+
+            return elements;
           })}
         </div>
+      )}
+
+      {/* Insertion modal — rendered outside the collapsed check so it stays mounted */}
+      {insertionModalAfterUnitId && (
+        <InsertionModal
+          afterUnitId={insertionModalAfterUnitId}
+          castList={castList}
+          characterAliases={characterAliases}
+          onInsert={(insertion) => {
+            onAddInsertion?.(insertion);
+            setInsertionModalAfterUnitId(null);
+          }}
+          onCancel={() => setInsertionModalAfterUnitId(null)}
+        />
       )}
     </div>
   );

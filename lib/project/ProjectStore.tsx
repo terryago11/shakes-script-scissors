@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from "react";
 import type { Project, Actor, ActorAssignment, Cut, ProjectSettings } from "@/types/project";
 import type { SpeechEdit, EditOp } from "@/types/edit";
+import type { Insertion, InsertedLine } from "@/types/insertion";
 import { generateId, defaultColors } from "./projectUtils";
 
 const CURRENT_VERSION = 1;
@@ -40,7 +41,12 @@ type ProjectAction =
   | { type: "REASSIGN_SPEECH"; unitId: string; characterId: string | null }
   | { type: "SET_CHARACTER_ALIAS"; characterId: string; alias: string | null }
   | { type: "TOGGLE_CHARACTER_LINK"; charIdA: string; charIdB: string }
-  | { type: "BULK_SET_CAST"; actors: Actor[]; assignments: ActorAssignment[] };
+  | { type: "BULK_SET_CAST"; actors: Actor[]; assignments: ActorAssignment[] }
+  | { type: "SPLIT_SPEECH"; unitId: string; splitAtLineIndex: number; newCharacterId?: string }
+  | { type: "MERGE_SPEECH"; unitId: string; part2LineIds: string[] }
+  | { type: "ADD_INSERTION"; insertion: Insertion }
+  | { type: "REMOVE_INSERTION"; insertionId: string; lineIds: string[] }
+  | { type: "UPDATE_INSERTION"; insertionId: string; characterId: string; lines: InsertedLine[] };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
   if (!state.project && action.type !== "LOAD" && action.type !== "REPLACE_PROJECT") {
@@ -149,6 +155,12 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         characterAliases: source?.characterAliases ? { ...source.characterAliases } : undefined,
         characterLinks: source?.characterLinks
           ? source.characterLinks.map(([a, b]) => [a, b] as [string, string])
+          : undefined,
+        speechSplits: source?.speechSplits
+          ? Object.fromEntries(Object.entries(source.speechSplits).map(([k, v]) => [k, { ...v }]))
+          : undefined,
+        insertions: source?.insertions
+          ? Object.fromEntries(Object.entries(source.insertions).map(([k, v]) => [k, { ...v, lines: [...v.lines] }]))
           : undefined,
       };
       const newProject = {
@@ -336,6 +348,102 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
           updatedAt: now(),
         },
       };
+    }
+
+    case "SPLIT_SPEECH": {
+      const part2Id = `${action.unitId}:s2`;
+      return updateActiveCut(state, (c) => ({
+        ...c,
+        speechSplits: {
+          ...(c.speechSplits ?? {}),
+          [action.unitId]: {
+            splitAtLineIndex: action.splitAtLineIndex,
+            ...(action.newCharacterId ? { newCharacterId: action.newCharacterId } : {}),
+          },
+        },
+        cutMap: { ...c.cutMap, [part2Id]: "kept" },
+      }));
+    }
+
+    case "MERGE_SPEECH": {
+      const part2Id = `${action.unitId}:s2`;
+      return updateActiveCut(state, (c) => {
+        const newSplits = { ...(c.speechSplits ?? {}) };
+        delete newSplits[action.unitId];
+
+        const newCutMap = { ...c.cutMap };
+        delete newCutMap[part2Id];
+
+        const newLineCutMap = { ...(c.lineCutMap ?? {}) };
+        for (const lineId of action.part2LineIds) {
+          delete newLineCutMap[lineId];
+        }
+
+        const newEdits = { ...(c.speechEdits ?? {}) };
+        delete newEdits[part2Id];
+
+        const newReassignments = { ...(c.speechReassignments ?? {}) };
+        delete newReassignments[part2Id];
+
+        return {
+          ...c,
+          speechSplits: Object.keys(newSplits).length > 0 ? newSplits : undefined,
+          cutMap: newCutMap,
+          lineCutMap: Object.keys(newLineCutMap).length > 0 ? newLineCutMap : undefined,
+          speechEdits: Object.keys(newEdits).length > 0 ? newEdits : undefined,
+          speechReassignments: Object.keys(newReassignments).length > 0 ? newReassignments : undefined,
+        };
+      });
+    }
+
+    case "ADD_INSERTION": {
+      return updateActiveCut(state, (c) => ({
+        ...c,
+        insertions: {
+          ...(c.insertions ?? {}),
+          [action.insertion.id]: action.insertion,
+        },
+        cutMap: { ...c.cutMap, [action.insertion.id]: "kept" },
+      }));
+    }
+
+    case "REMOVE_INSERTION": {
+      return updateActiveCut(state, (c) => {
+        const newInsertions = { ...(c.insertions ?? {}) };
+        delete newInsertions[action.insertionId];
+
+        const newCutMap = { ...c.cutMap };
+        delete newCutMap[action.insertionId];
+
+        const newLineCutMap = { ...(c.lineCutMap ?? {}) };
+        for (const lineId of action.lineIds) {
+          delete newLineCutMap[lineId];
+        }
+
+        return {
+          ...c,
+          insertions: Object.keys(newInsertions).length > 0 ? newInsertions : undefined,
+          cutMap: newCutMap,
+          lineCutMap: Object.keys(newLineCutMap).length > 0 ? newLineCutMap : undefined,
+        };
+      });
+    }
+
+    case "UPDATE_INSERTION": {
+      return updateActiveCut(state, (c) => {
+        if (!c.insertions?.[action.insertionId]) return c;
+        return {
+          ...c,
+          insertions: {
+            ...c.insertions,
+            [action.insertionId]: {
+              ...c.insertions[action.insertionId],
+              characterId: action.characterId,
+              lines: action.lines,
+            },
+          },
+        };
+      });
     }
 
     default:

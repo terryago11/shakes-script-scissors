@@ -266,6 +266,22 @@ export default function ScriptEditor({ playId }: Props) {
     dispatch({ type: "REASSIGN_SPEECH", unitId, characterId });
   }
 
+  function handleSplit(unitId: string, atLineIndex: number) {
+    dispatch({ type: "SPLIT_SPEECH", unitId, splitAtLineIndex: atLineIndex });
+  }
+
+  function handleMerge(unitId: string, part2LineIds: string[]) {
+    dispatch({ type: "MERGE_SPEECH", unitId, part2LineIds });
+  }
+
+  function handleAddInsertion(insertion: import("@/types/insertion").Insertion) {
+    dispatch({ type: "ADD_INSERTION", insertion });
+  }
+
+  function handleRemoveInsertion(insertionId: string, lineIds: string[]) {
+    dispatch({ type: "REMOVE_INSERTION", insertionId, lineIds });
+  }
+
   function handleScriptMouseUp() {
     if (!cutModeActive || !scriptColRef.current) return;
     const sel = window.getSelection();
@@ -407,6 +423,13 @@ export default function ScriptEditor({ playId }: Props) {
     charsWithEntrance,
     onReassign: handleReassign,
     characterAliases: activeCut.characterAliases,
+    stageDirectionEdits: activeCut.stageDirectionEdits,
+    speechSplits: activeCut.speechSplits,
+    onSplit: handleSplit,
+    onMerge: handleMerge,
+    insertions: activeCut.insertions,
+    onAddInsertion: handleAddInsertion,
+    onRemoveInsertion: handleRemoveInsertion,
     onRestoreScene: handleRestoreScene,
   };
 
