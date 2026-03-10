@@ -143,6 +143,7 @@ export default function ScriptEditor({ playId }: Props) {
   type FilterState = { type: "character"; id: string } | { type: "actor"; id: string } | null;
   const [filter, setFilter] = useState<FilterState>(null);
   const [easterEggVisible, setEasterEggVisible] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
   const { setScenes, setActiveSceneId, jumpingRef, focusedSceneId, setFocusedSceneId } = useSceneJump();
   const { cutModeActive, setCutModeActive } = useCutMode();
   const { viewMode } = useViewMode();
@@ -482,9 +483,9 @@ export default function ScriptEditor({ playId }: Props) {
         )}
       </div>
 
-      {/* Line count panel — hidden in diff mode */}
+      {/* Line count panel — desktop: right sidebar; hidden in diff mode */}
       {viewMode !== "diff" && (
-        <div className="no-print w-72 shrink-0 border-l border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-14 self-start h-[calc(100vh-3.5rem)] overflow-y-auto">
+        <div className="no-print hidden lg:block w-72 shrink-0 border-l border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-14 self-start h-[calc(100vh-3.5rem)] overflow-y-auto">
           <LineCountPanel
             play={play}
             lineCounts={focusedLineCounts ?? lineCounts}
@@ -499,6 +500,36 @@ export default function ScriptEditor({ playId }: Props) {
             characterAliases={activeCut.characterAliases}
           />
         </div>
+      )}
+
+      {/* Line count panel — tablet bottom drawer (md: only, hidden on desktop and mobile) */}
+      {viewMode !== "diff" && panelOpen && (
+        <div className="lg:hidden no-print fixed bottom-0 inset-x-0 z-40 h-64 bg-white dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800 overflow-y-auto shadow-lg">
+          <LineCountPanel
+            play={play}
+            lineCounts={focusedLineCounts ?? lineCounts}
+            actors={project.actors}
+            assignments={project.assignments}
+            filter={filter}
+            onFilterCharacter={handleFilterCharacter}
+            onFilterActor={handleFilterActor}
+            stageTime={focusedStageTime ?? stageTime}
+            settings={project.settings}
+            isFocused={!!focusedSceneId}
+            characterAliases={activeCut.characterAliases}
+          />
+        </div>
+      )}
+
+      {/* Drawer toggle — tablet only (md: to lg:) */}
+      {viewMode !== "diff" && (
+        <button
+          className="no-print hidden md:block lg:hidden fixed bottom-4 right-4 z-50 px-3 py-2 text-sm font-medium rounded-full shadow-md bg-amber-100 dark:bg-amber-900/50 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors"
+          onClick={() => setPanelOpen((o) => !o)}
+          aria-label={panelOpen ? "Close line counts" : "Show line counts"}
+        >
+          {panelOpen ? "✕ Close" : "≡ Info"}
+        </button>
       )}
 
       {/* Easter egg animation */}
