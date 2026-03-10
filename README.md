@@ -43,6 +43,7 @@ ShakesScriptScissors lets you work through any of the 37 Folger Shakespeare text
 ### Appearance
 - **Dark mode** — the tool respects your system preference automatically, or you can pin it to light or dark using the sun/moon/monitor toggle on the home page or in the settings panel
 - **Settings panel** — click the ⚙ gear in the nav to access project name, words-per-minute (slider with presets), quick-change threshold, theme, and save/export options all in one place
+- **Responsive layout** — works on tablet landscape (1024px) as the primary target; on smaller screens the nav collapses script controls behind a `☰` menu, nav link labels hide to icon-only, and the line-count panel shifts to a bottom drawer toggled by an `≡ Info` pill; the script editor goes full-width; the scene dashboard tabs scroll horizontally
 
 **The tool currently runs locally** — there's no website to visit yet. Ask a developer on your team to set it up (see the Setup section below). Once it's running, you just open a browser and use it like any other web app. Your work is saved automatically in the browser and can be exported as a file for safekeeping.
 

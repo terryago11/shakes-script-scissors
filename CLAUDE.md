@@ -312,16 +312,9 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
 
 - **Group 13**: Dark mode (`ThemeContext` light/dark/auto, `sss_theme` localStorage key, flat sun/moon/monitor SVG toggle); settings modal expanded — project name, WPM slider with presets (Slow/Amateur/Experienced/Professional), quick-change threshold, theme toggle, Save/Export all in one gear panel; nav decluttered — Cut Selector and Save/Export dropdown moved into settings, scissors-only logo with hover-reveal Shakespeare-head swap + wiggle + "ShakesScriptScissors" label slide-in (overlay, no layout shift); flat SVG icons for all nav links + gear; project title as dashboard link with always-visible DashboardIcon; Dashboard removed from nav links; easter egg: Shakespeare face animation (speech bubble left, quill-circle right) fires on cut-mode exit ("Scratch it out!") and on scene restore-all ("Scratch it back in!"); contrast audit — `dark:text-stone-500` → `dark:text-stone-400` globally for WCAG AA compliance
 
-### Not Started (Phase 4+)
+- **Group 14**: Responsive design — tablet landscape (1024px = `lg:`) as primary breakpoint, mobile (375px) as secondary; nav bar collapses ✂ Cut mode + scene jump behind `☰` hamburger dropdown below `lg:`, nav link labels hide below `md:`, project title responsive `max-w` with truncation; `LineCountPanel` sidebar `hidden lg:block` on desktop, bottom drawer on tablet toggled by floating `≡ Info` pill (`hidden md:block lg:hidden`), fully hidden on mobile; script editor full-width on tablet; `SceneDashboard` header `flex-wrap` + subtabs `overflow-x-auto`; `CastingManager` character grid adds `xl:grid-cols-3`; all via Tailwind `md:`/`lg:`/`xl:` breakpoints + minimal `useState` for drawer toggle
 
-#### Group 14 — Responsive Design (Tablet Landscape Priority)
-- Target: tablet landscape (1024px) as primary breakpoint; mobile (375px) as secondary.
-- Nav bar: collapse scene jump + cut selector behind hamburger on small screens.
-- `LineCountPanel`: collapsed to bottom drawer on tablet, hidden on mobile.
-- Script editor: full-width on tablet.
-- Dashboard matrix: horizontal scroll on small screens.
-- CastingManager: stack character cards vertically on mobile.
-- Approach: Tailwind `md:` / `lg:` breakpoints throughout; no JS layout switching needed.
+### Not Started (Phase 4+)
 
 #### Group 15 — Script Features
 - **SD "All" expansion**: Walk exit SDs where `sd.characters` is empty or matches `/\ball\b|\bexeunt\b/i`. Add "Auto-fill from on-stage" button in `StageDirectionBlock.tsx` that pre-fills the SD character editor with the computed on-stage set (non-destructive, user confirms). Critical files: `lib/cuts/StageTimeEngine.ts`, `components/ScriptEditor/StageDirectionBlock.tsx`.
