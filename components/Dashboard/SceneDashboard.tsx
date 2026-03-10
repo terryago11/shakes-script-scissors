@@ -189,9 +189,9 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
   ];
 
   return (
-    <div className="max-w-screen-xl mx-auto px-6 py-8">
+    <div className="max-w-screen-xl mx-auto px-4 md:px-6 py-8">
       {/* Header row: title · metric toggle · running time */}
-      <div className="flex items-center justify-between mb-4 gap-6">
+      <div className="flex flex-wrap items-center justify-between mb-4 gap-3 md:gap-6">
         <div className="shrink-0">
           <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100 mb-1">Scene Dashboard</h1>
           <p className="text-stone-500 dark:text-stone-400 text-sm">
@@ -235,8 +235,8 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
       </div>
 
       {/* Subtabs row */}
-      <div className="flex mb-6">
-        <div className="flex border border-stone-200 dark:border-stone-700 rounded-md overflow-hidden">
+      <div className="overflow-x-auto mb-6">
+        <div className="flex min-w-max border border-stone-200 dark:border-stone-700 rounded-md overflow-hidden">
           {tabs.map(({ key, label }) => (
             <button
               key={key}

@@ -121,6 +121,16 @@ export default function ProjectLayout({
   );
 }
 
+function HamburgerIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  );
+}
+
 function ProjectNav({
   project,
   activeCut,
@@ -145,6 +155,17 @@ function ProjectNav({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exportingHtml, setExportingHtml] = useState(false);
   const [easterEggVisible, setEasterEggVisible] = useState(false);
+  const [hamburgerOpen, setHamburgerOpen] = useState(false);
+  const hamburgerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!hamburgerOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (hamburgerRef.current && !hamburgerRef.current.contains(e.target as Node)) setHamburgerOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [hamburgerOpen]);
 
   // Trigger easter egg whenever cut mode is exited (button or Escape)
   const prevCutModeActive = useRef(false);
@@ -261,7 +282,7 @@ function ProjectNav({
         {/* Project title — links to dashboard */}
         <Link
           href={`/projects/${projectId}/dashboard`}
-          className="group flex flex-col justify-center shrink-0 max-w-xs"
+          className="group flex flex-col justify-center min-w-0 max-w-[100px] sm:max-w-xs"
           title={project.name ? `${project.playTitle} — go to dashboard` : "Go to dashboard"}
         >
           <div className="flex items-center gap-1">
@@ -298,24 +319,48 @@ function ProjectNav({
                 }`}
               >
                 <Icon />
-                {label}
+                <span className="hidden md:inline">{label}</span>
               </Link>
             );
           })}
         </nav>
 
-        {/* Script-page controls */}
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Script-page controls — desktop only */}
         {isScriptPage && (
-          <>
+          <div className="hidden lg:flex items-center gap-1">
             <NavCutModeButton />
             <NavJumpSelect />
-          </>
+          </div>
         )}
 
-        {/* Settings gear — pushed to the right */}
+        {/* Hamburger — tablet/mobile, script page only */}
+        {isScriptPage && (
+          <div ref={hamburgerRef} className="relative lg:hidden">
+            <button
+              onClick={() => setHamburgerOpen((o) => !o)}
+              className="p-1.5 rounded text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+              title="Script controls"
+              aria-label="Script controls menu"
+            >
+              <HamburgerIcon />
+            </button>
+            {hamburgerOpen && (
+              <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg shadow-lg p-3 z-50 flex flex-col gap-3">
+                <div className="text-xs text-stone-400 dark:text-stone-500 uppercase tracking-wider font-semibold">Script controls</div>
+                <NavCutModeButton />
+                <NavJumpSelect />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Settings gear */}
         <button
           onClick={() => setSettingsOpen(true)}
-          className="ml-auto shrink-0 text-stone-400 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200 p-1.5 rounded hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+          className="shrink-0 text-stone-400 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200 p-1.5 rounded hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
           title="Settings"
           aria-label="Open settings"
         >
@@ -385,7 +430,7 @@ function NavScriptMenu({ projectId, isActive, Icon }: { projectId: string; isAct
         }`}
       >
         <Icon />
-        Script
+        <span className="hidden md:inline">Script</span>
         <span className="text-xs opacity-70">{currentIcon}</span>
         <span className="text-xs opacity-40">▾</span>
       </button>
