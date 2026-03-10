@@ -528,7 +528,7 @@ export default function ScriptEditor({ playId }: Props) {
           onClick={() => setPanelOpen((o) => !o)}
           aria-label={panelOpen ? "Close line counts" : "Show line counts"}
         >
-          {panelOpen ? "✕ Close" : "≡ Lines"}
+          {panelOpen ? "✕ Close" : "≡ Info"}
         </button>
       )}
 
