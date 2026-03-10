@@ -48,7 +48,7 @@ export default function DiffView({
   return (
     <div className="px-4 py-6">
       {/* Column header strip */}
-      <div className="flex items-center mb-4 text-xs font-medium text-stone-400 select-none">
+      <div className="flex items-center mb-4 text-xs font-medium text-stone-400 dark:text-stone-400 select-none">
         <div className="flex-1 px-1">Modified script</div>
         <div className="w-px bg-transparent" />
         <div className="flex-1 px-1">Original</div>
@@ -64,7 +64,7 @@ export default function DiffView({
           <div key={`${group.act.id}-${displayScenes[0].id}`} className="mb-8">
             {/* Act label — full width */}
             <div className="mb-3">
-              <span className="text-xs font-semibold uppercase tracking-widest text-stone-400">
+              <span className="text-xs font-semibold uppercase tracking-widest text-stone-400 dark:text-stone-400">
                 {group.act.title}
               </span>
             </div>
@@ -131,12 +131,12 @@ export default function DiffView({
               return (
                 <div key={scene.id} className="mb-6">
                   {/* Scene title — full width */}
-                  <div className="font-semibold text-sm text-stone-600 mb-1 pb-1.5 border-b border-stone-200">
+                  <div className="font-semibold text-sm text-stone-600 dark:text-stone-300 mb-1 pb-1.5 border-b border-stone-200 dark:border-stone-700">
                     {scene.title}
                   </div>
 
                   {/* Paired rows — each unit is one flex row; height syncs naturally */}
-                  <div className="border border-stone-100 rounded-lg overflow-hidden divide-y divide-stone-50">
+                  <div className="border border-stone-100 dark:border-stone-800 rounded-lg overflow-hidden divide-y divide-stone-50 dark:divide-stone-900">
                     {units.map(({ unit, status, lineStatuses }) => {
                       const isFiltering = filteredCharacterIds && filteredCharacterIds.size > 0;
 
@@ -153,7 +153,7 @@ export default function DiffView({
                         return (
                           <div
                             key={unit.id}
-                            className={`flex items-stretch ${isCut ? "bg-red-50/30" : ""}`}
+                            className={`flex items-stretch ${isCut ? "bg-red-50/30 dark:bg-red-950/20" : ""}`}
                           >
                             {/* Left: modified view — outer context is viewMode="diff" */}
                             <div
@@ -181,12 +181,12 @@ export default function DiffView({
                             </div>
 
                             {/* Vertical divider */}
-                            <div className="w-px bg-stone-100 shrink-0" />
+                            <div className="w-px bg-stone-100 dark:bg-stone-800 shrink-0" />
 
                             {/* Right: original — forceValue="standard" so no diff markup */}
                             <ViewModeProvider forceValue="standard">
                               <div
-                                className={`flex-1 min-w-0 bg-stone-50/50 ${
+                                className={`flex-1 min-w-0 bg-stone-50/50 dark:bg-stone-900/50 ${
                                   !hasChanges ? "opacity-50" : ""
                                 }`}
                               >
@@ -215,7 +215,7 @@ export default function DiffView({
                         return (
                           <div
                             key={unit.id}
-                            className={`flex items-stretch ${isCut ? "bg-red-50/30" : ""}`}
+                            className={`flex items-stretch ${isCut ? "bg-red-50/30 dark:bg-red-950/20" : ""}`}
                           >
                             {/* Left */}
                             <div
@@ -234,12 +234,12 @@ export default function DiffView({
                             </div>
 
                             {/* Divider */}
-                            <div className="w-px bg-stone-100 shrink-0" />
+                            <div className="w-px bg-stone-100 dark:bg-stone-800 shrink-0" />
 
                             {/* Right: original (readonly, no edits applied) */}
                             <ViewModeProvider forceValue="standard">
                               <div
-                                className={`flex-1 min-w-0 bg-stone-50/50 ${
+                                className={`flex-1 min-w-0 bg-stone-50/50 dark:bg-stone-900/50 ${
                                   !isCut ? "opacity-50" : ""
                                 }`}
                               >

@@ -193,22 +193,22 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
       {/* Header row: title · metric toggle · running time */}
       <div className="flex items-center justify-between mb-4 gap-6">
         <div className="shrink-0">
-          <h1 className="text-2xl font-bold text-stone-800 mb-1">Scene Dashboard</h1>
-          <p className="text-stone-500 text-sm">
+          <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100 mb-1">Scene Dashboard</h1>
+          <p className="text-stone-500 dark:text-stone-400 text-sm">
             {effectiveSceneOrder.length} scenes · {project.actors.length} actors
           </p>
         </div>
 
         {/* Metric tabs — inline with header */}
-        <div className="flex gap-1 p-0.5 bg-stone-100 rounded-md">
+        <div className="flex gap-1 p-0.5 bg-stone-100 dark:bg-stone-800 rounded-md">
           {(["lines", "words", "time"] as const).map((m) => (
             <button
               key={m}
               onClick={() => setMetric(m)}
               className={`text-xs py-1 px-3 rounded transition-colors font-medium capitalize ${
                 metric === m
-                  ? "bg-white text-stone-700 shadow-sm"
-                  : "text-stone-400 hover:text-stone-600"
+                  ? "bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 shadow-sm"
+                  : "text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
               }`}
             >
               {m === "time" ? "Time" : m === "lines" ? "Lines" : "Words"}
@@ -218,11 +218,11 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
 
         {/* Running time summary */}
         <div className="text-right shrink-0">
-          <div className="text-2xl font-bold text-stone-800 tabular-nums">
+          <div className="text-2xl font-bold text-stone-800 dark:text-stone-100 tabular-nums">
             {formatMinutes(stageTime.totalMinutes)}
           </div>
           {hasCuts && (
-            <div className="text-sm text-stone-400">
+            <div className="text-sm text-stone-400 dark:text-stone-400">
               / {formatMinutes(stageTime.originalTotalMinutes)} original
             </div>
           )}
@@ -236,15 +236,15 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
 
       {/* Subtabs row */}
       <div className="flex mb-6">
-        <div className="flex border border-stone-200 rounded-md overflow-hidden">
+        <div className="flex border border-stone-200 dark:border-stone-700 rounded-md overflow-hidden">
           {tabs.map(({ key, label }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`text-xs py-1.5 px-4 transition-colors font-medium border-r border-stone-200 last:border-r-0 ${
+              className={`text-xs py-1.5 px-4 transition-colors font-medium border-r border-stone-200 dark:border-stone-700 last:border-r-0 ${
                 tab === key
-                  ? "bg-stone-700 text-white"
-                  : "bg-white text-stone-500 hover:bg-stone-50 hover:text-stone-700"
+                  ? "bg-stone-700 dark:bg-stone-600 text-white"
+                  : "bg-white dark:bg-stone-900 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200"
               }`}
             >
               {label}

@@ -40,6 +40,10 @@ ShakesScriptScissors lets you work through any of the 37 Folger Shakespeare text
 - **Export cut as HTML** — download a self-contained `.html` file of the full cut script that opens in any browser without a server; the file includes three view modes (Clean, Standard with strikethrough, Diff side-by-side), a character filter sidebar grouped by actor, a sticky header with scene-jump navigation, and a Print button; all print headers and footers are baked into the file at export time
 - **Save / Open Project** — download your cut as a `.sss.json` file and reopen it later; share with collaborators or import on another machine
 
+### Appearance
+- **Dark mode** — the tool respects your system preference automatically, or you can pin it to light or dark using the sun/moon/monitor toggle on the home page or in the settings panel
+- **Settings panel** — click the ⚙ gear in the nav to access project name, words-per-minute (slider with presets), quick-change threshold, theme, and save/export options all in one place
+
 **The tool currently runs locally** — there's no website to visit yet. Ask a developer on your team to set it up (see the Setup section below). Once it's running, you just open a browser and use it like any other web app. Your work is saved automatically in the browser and can be exported as a file for safekeeping.
 
 ## Setup

@@ -35,6 +35,8 @@ interface Props {
   onReassign?: (unitId: string, characterId: string | null) => void;
   /** Cut-level character display-name aliases */
   characterAliases?: Record<string, string>;
+  /** Called when at least one unit is restored in a scene */
+  onRestoreScene?: () => void;
 }
 
 export default function ActBlock({
@@ -42,7 +44,7 @@ export default function ActBlock({
   filteredCharacterIds, cutModeActive, lineCounts,
   focusedSceneId, showOriginal, pauses,
   speechReassignments, charsWithEntrance, onReassign,
-  characterAliases,
+  characterAliases, onRestoreScene,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   // Generation increments each time act collapses → SceneBlocks remount in collapsed state
@@ -96,21 +98,21 @@ export default function ActBlock({
         onClick={handleToggle}
         className="flex items-center gap-2 w-full text-left mb-3 group"
       >
-        <span className="text-xs text-stone-400 group-hover:text-stone-600">
+        <span className="text-xs text-stone-400 dark:text-stone-400 group-hover:text-stone-600 dark:group-hover:text-stone-300">
           {collapsed ? "▶" : "▼"}
         </span>
-        <h2 className="text-lg font-bold text-stone-700 uppercase tracking-wide">
+        <h2 className="text-lg font-bold text-stone-700 dark:text-stone-200 uppercase tracking-wide">
           {act.title}
         </h2>
         {(counts || timeMins) && !showOriginal && (
-          <span className="ml-2 text-xs text-stone-400 tabular-nums font-normal normal-case tracking-normal flex items-center gap-1">
+          <span className="ml-2 text-xs text-stone-400 dark:text-stone-400 tabular-nums font-normal normal-case tracking-normal flex items-center gap-1">
             {timeMins ? (
               <>
                 <span className={timeMins.afterCut < timeMins.original - 0.01 ? "text-amber-600 font-medium" : ""}>
                   {fmtMins(timeMins.afterCut)}
                 </span>
                 {timeMins.afterCut < timeMins.original - 0.01 && (
-                  <span className="text-stone-300">/ {fmtMins(timeMins.original)}</span>
+                  <span className="text-stone-300 dark:text-stone-600">/ {fmtMins(timeMins.original)}</span>
                 )}
               </>
             ) : (
@@ -118,7 +120,7 @@ export default function ActBlock({
                 {counts!.original !== counts!.afterCut ? (
                   <>
                     <span className="text-amber-600 font-medium">{counts!.afterCut.toLocaleString()}</span>
-                    <span className="text-stone-300">/ {counts!.original.toLocaleString()}</span>
+                    <span className="text-stone-300 dark:text-stone-600">/ {counts!.original.toLocaleString()}</span>
                   </>
                 ) : (
                   <span>{counts!.afterCut.toLocaleString()}</span>
@@ -126,7 +128,7 @@ export default function ActBlock({
                 {pctCut > 0 && (
                   <span className="text-amber-500 font-medium">−{pctCut}%</span>
                 )}
-                <span className="text-stone-300">{metric}</span>
+                <span className="text-stone-300 dark:text-stone-600">{metric}</span>
               </>
             )}
           </span>
@@ -157,6 +159,7 @@ export default function ActBlock({
                   charsWithEntrance={charsWithEntrance}
                   onReassign={showOriginal ? undefined : onReassign}
                   characterAliases={showOriginal ? undefined : characterAliases}
+                  onRestoreScene={showOriginal ? undefined : onRestoreScene}
                 />
                 {pauseEntry && (
                   <PauseIndicator name={pauseEntry.name} minutes={pauseEntry.minutes} />

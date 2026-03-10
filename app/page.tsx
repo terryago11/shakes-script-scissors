@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useProject, listStoredProjectIds, loadProjectFromStorage, type ProjectSummary } from "@/lib/project/ProjectStore";
 import { importProjectFromFile, exportProject } from "@/lib/project/projectIO";
 import type { PlayMeta } from "@/lib/folger/FolgerClient";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function HomePage() {
   const router = useRouter();
@@ -97,10 +98,13 @@ export default function HomePage() {
   return (
     <main className="max-w-4xl mx-auto px-6 py-12">
       <div className="mb-10">
-        <h1 className="text-4xl font-bold text-stone-800 mb-2">
-          ✂ ShakesScriptScissors
-        </h1>
-        <p className="text-stone-500 text-lg">
+        <div className="flex items-start justify-between mb-2">
+          <h1 className="text-4xl font-bold text-stone-800 dark:text-stone-100">
+            ✂ ShakesScriptScissors
+          </h1>
+          <ThemeToggle />
+        </div>
+        <p className="text-stone-500 dark:text-stone-400 text-lg">
           Cut Shakespeare scripts, track line counts, generate cue scripts.
         </p>
       </div>
@@ -108,7 +112,7 @@ export default function HomePage() {
       <div className="flex gap-3 mb-8">
         <button
           onClick={handleImport}
-          className="px-4 py-2 rounded-lg border border-stone-400 bg-white text-stone-700 hover:bg-stone-50 text-sm font-semibold shadow-sm"
+          className="px-4 py-2 rounded-lg border border-stone-400 dark:border-stone-600 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 text-sm font-semibold shadow-sm"
         >
           ↑ Open Project
         </button>
@@ -120,22 +124,22 @@ export default function HomePage() {
       {storedProjects.length > 0 && (
         <section className="mb-10">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-stone-700">
+            <h2 className="text-xl font-semibold text-stone-700 dark:text-stone-200">
               Locally Cached Projects
             </h2>
             {/* Clear local cache — two-step confirm */}
             {clearConfirm ? (
               <span className="flex items-center gap-2 text-sm">
-                <span className="text-stone-500">Delete all local data?</span>
+                <span className="text-stone-500 dark:text-stone-400">Delete all local data?</span>
                 <button
                   onClick={handleClearAll}
-                  className="px-2 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200 font-medium"
+                  className="px-2 py-0.5 rounded bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-950 font-medium"
                 >
                   Yes, delete
                 </button>
                 <button
                   onClick={() => setClearConfirm(false)}
-                  className="px-2 py-0.5 rounded bg-stone-100 text-stone-500 hover:bg-stone-200"
+                  className="px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700"
                 >
                   Cancel
                 </button>
@@ -152,26 +156,26 @@ export default function HomePage() {
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {storedProjects.map((p) => (
               <li key={p.id}>
-                <div className="flex rounded-lg border border-stone-200 bg-white overflow-hidden hover:border-amber-300 transition-colors group">
+                <div className="flex rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 overflow-hidden hover:border-amber-300 dark:hover:border-amber-700 transition-colors group">
                   {/* Main open area */}
                   <button
                     onClick={() => router.push(`/projects/${p.id}`)}
-                    className="flex-1 text-left px-4 py-3 hover:bg-amber-50 transition-colors"
+                    className="flex-1 text-left px-4 py-3 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
                   >
-                    <div className="text-stone-800 text-sm font-medium">
+                    <div className="text-stone-800 dark:text-stone-100 text-sm font-medium">
                       {p.name || p.playTitle}
                     </div>
                     {p.name && p.name !== p.playTitle && (
-                      <div className="text-stone-400 text-xs">{p.playTitle}</div>
+                      <div className="text-stone-400 dark:text-stone-400 text-xs">{p.playTitle}</div>
                     )}
-                    <div className="text-stone-400 text-xs mt-0.5">
+                    <div className="text-stone-400 dark:text-stone-400 text-xs mt-0.5">
                       Last saved {new Date(p.updatedAt).toLocaleDateString()}
                     </div>
                   </button>
                   {/* Save button */}
                   <button
                     onClick={(e) => handleSaveProject(p.id, e)}
-                    className="shrink-0 px-3 border-l border-stone-200 text-stone-400 hover:bg-stone-50 hover:text-stone-600 transition-colors text-xs flex flex-col items-center justify-center gap-0.5"
+                    className="shrink-0 px-3 border-l border-stone-200 dark:border-stone-700 text-stone-400 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 hover:text-stone-600 dark:hover:text-stone-300 transition-colors text-xs flex flex-col items-center justify-center gap-0.5"
                     title="Save project file"
                   >
                     <span className="text-base leading-none">↓</span>
@@ -184,7 +188,7 @@ export default function HomePage() {
         </section>
       )}
 
-      <h2 className="text-xl font-semibold text-stone-700 mb-4">
+      <h2 className="text-xl font-semibold text-stone-700 dark:text-stone-200 mb-4">
         Start a new project — choose a play
       </h2>
 
@@ -193,11 +197,11 @@ export default function HomePage() {
         placeholder="Search plays…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full mb-4 px-4 py-2 border border-stone-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+        className="w-full mb-4 px-4 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm bg-white dark:bg-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
       />
 
       {loading ? (
-        <div className="text-stone-400 text-sm">Loading plays…</div>
+        <div className="text-stone-400 dark:text-stone-400 text-sm">Loading plays…</div>
       ) : (
         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {filtered.map((play) => (
@@ -206,8 +210,8 @@ export default function HomePage() {
                 onClick={() => handleSelectPlay(play)}
                 className={`w-full text-left px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
                   pendingPlay?.id === play.id
-                    ? "border-amber-400 bg-amber-50 text-amber-900"
-                    : "border-stone-200 bg-white hover:bg-amber-50 hover:border-amber-300 text-stone-800"
+                    ? "border-amber-400 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                    : "border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 hover:bg-amber-50 dark:hover:bg-amber-950/20 hover:border-amber-300 dark:hover:border-amber-800 text-stone-800 dark:text-stone-200"
                 }`}
               >
                 {play.title}
@@ -218,7 +222,7 @@ export default function HomePage() {
       )}
 
       {/* Attribution footer */}
-      <footer className="mt-16 pt-6 border-t border-stone-200 text-xs text-stone-400 space-y-1">
+      <footer className="mt-16 pt-6 border-t border-stone-200 dark:border-stone-800 text-xs text-stone-400 dark:text-stone-400 space-y-1">
         <p>
           Shakespeare texts (37 plays) are provided by{" "}
           <a
@@ -286,13 +290,13 @@ export default function HomePage() {
       {/* New project name modal */}
       {pendingPlay && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={handleCancelCreate}>
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold text-stone-800 mb-1">New project</h3>
-            <p className="text-sm text-stone-500 mb-4">
+          <div className="bg-white dark:bg-stone-900 rounded-xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-stone-800 dark:text-stone-100 mb-1">New project</h3>
+            <p className="text-sm text-stone-500 dark:text-stone-400 mb-4">
               {pendingPlay.title}
             </p>
             <form onSubmit={handleConfirmCreate}>
-              <label className="block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-1.5">
                 Project name
               </label>
               <input
@@ -301,14 +305,14 @@ export default function HomePage() {
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
                 placeholder={pendingPlay.title}
-                className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 mb-4"
+                className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 rounded-lg text-sm bg-white dark:bg-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-400 mb-4"
                 autoFocus
               />
               <div className="flex gap-2 justify-end">
                 <button
                   type="button"
                   onClick={handleCancelCreate}
-                  className="px-4 py-2 text-sm text-stone-500 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>

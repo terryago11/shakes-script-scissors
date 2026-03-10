@@ -128,10 +128,10 @@ export default function SpeechBlock({
     ? "text-red-400 opacity-60 line-through"
     : reassignedChar
       ? "text-red-400 line-through"
-      : isContinuation ? "text-stone-300" : "text-stone-600";
+      : isContinuation ? "text-stone-300 dark:text-stone-600" : "text-stone-600 dark:text-stone-300";
   const nameColorStyle = isCut || isContinuation || reassignedChar ? undefined : actorColor || undefined;
   const nameContent = isContinuation && !isCut
-    ? <span className="font-normal italic normal-case tracking-normal text-stone-300">{resolvedSpeakerName.toLowerCase()} cont.</span>
+    ? <span className="font-normal italic normal-case tracking-normal text-stone-300 dark:text-stone-600">{resolvedSpeakerName.toLowerCase()} cont.</span>
     : <>{resolvedSpeakerName}</>;
 
   // Running line counter: every 5 lines, show scene-relative line number.
@@ -180,7 +180,7 @@ export default function SpeechBlock({
                   setShowReassign(false);
                 }}
                 defaultValue={speechReassignment ?? "__original__"}
-                className="text-xs border border-amber-300 rounded px-1 py-0.5 bg-white text-stone-700 focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
+                className="text-xs border border-amber-300 rounded px-1 py-0.5 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
                 onClick={(e) => e.stopPropagation()}
               >
                 <option value="__original__">— Original ({resolvedSpeakerName}) —</option>
@@ -196,13 +196,13 @@ export default function SpeechBlock({
               </select>
             ) : (
               <span
-                className="group/charname relative shrink-0 cursor-pointer rounded px-0.5 -mx-0.5 border border-transparent hover:border-stone-300 hover:bg-stone-50 transition-colors"
+                className="group/charname relative shrink-0 cursor-pointer rounded px-0.5 -mx-0.5 border border-transparent hover:border-stone-300 hover:bg-stone-50 dark:hover:border-stone-600 dark:hover:bg-stone-800 transition-colors"
                 onClick={(e) => { e.stopPropagation(); setShowReassign(true); }}
                 title="Click to reassign this speech to another character"
               >
                 {/* Tiny icon floats above the name on hover */}
                 <span className="absolute -top-3 inset-x-0 flex justify-center opacity-0 group-hover/charname:opacity-100 transition-opacity pointer-events-none">
-                  <span className="text-[9px] text-stone-400 leading-none">⇄</span>
+                  <span className="text-[9px] text-stone-400 dark:text-stone-400 leading-none">⇄</span>
                 </span>
                 <span className={`text-xs font-bold uppercase tracking-wider ${nameClass}`} style={{ color: nameColorStyle }}>
                   {nameContent}
@@ -217,13 +217,13 @@ export default function SpeechBlock({
 
           {/* Reassignment indicator — green insertion style */}
           {reassignedChar && !isCut && (
-            <span className="text-xs text-green-700 font-bold uppercase tracking-wider shrink-0">
+            <span className="text-xs text-green-700 dark:text-green-400 font-bold uppercase tracking-wider shrink-0">
               {resolvedReassignedName}
             </span>
           )}
 
           {!isContinuation && (
-            <span className="text-xs font-normal text-stone-400 normal-case tracking-normal shrink-0">
+            <span className="text-xs font-normal text-stone-400 dark:text-stone-400 normal-case tracking-normal shrink-0">
               {hasCuts && displayKept < displayOriginal ? (
                 <><span className="text-amber-600">{displayKept.toLocaleString()}</span><span> / {displayOriginal.toLocaleString()}{metricLabel}</span></>
               ) : (
@@ -241,7 +241,7 @@ export default function SpeechBlock({
                 if (hasWordEdits || hasLineCuts) { onClearEdits?.(speech.id); }
                 if (reassignedChar) { onReassign?.(speech.id, null); }
               }}
-              className="opacity-0 group-hover:opacity-100 text-xs px-1.5 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 transition-all shrink-0"
+              className="opacity-0 group-hover:opacity-100 text-xs px-1.5 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 dark:border-green-800 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-700 transition-all shrink-0"
               title="Restore this speech"
             >
               ↩ restore
@@ -253,9 +253,9 @@ export default function SpeechBlock({
         <div className={`font-serif text-sm leading-relaxed ${
           isCut
             ? viewMode === "diff"
-              ? "text-red-500 line-through bg-red-50 rounded px-1"
+              ? "text-red-500 line-through bg-red-50 dark:bg-red-950/50 rounded px-1"
               : "text-red-400 opacity-60 line-through"
-            : "text-stone-800"
+            : "text-stone-800 dark:text-stone-100"
         }`}>
           {speech.lines.map((line) => {
             const lineStatus = lineStatusMap.get(line.id) ?? "kept";
@@ -276,12 +276,12 @@ export default function SpeechBlock({
                 if (seg.type === "cut") {
                   if (viewMode === "clean") return null;
                   return viewMode === "diff"
-                    ? <del key={i} className="text-red-500 bg-red-50 rounded">{seg.text}</del>
+                    ? <del key={i} className="text-red-500 bg-red-50 dark:bg-red-950/50 rounded">{seg.text}</del>
                     : <del key={i} className="text-red-400 opacity-60">{seg.text}</del>;
                 }
                 if (seg.type === "insert") return viewMode === "diff"
-                  ? <ins key={i} className="text-green-700 bg-green-50 no-underline rounded px-0.5">{seg.text}</ins>
-                  : <ins key={i} className="text-green-600 no-underline underline decoration-green-400">{seg.text}</ins>;
+                  ? <ins key={i} className="text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/50 no-underline rounded px-0.5">{seg.text}</ins>
+                  : <ins key={i} className="text-green-600 dark:text-green-400 no-underline underline decoration-green-400">{seg.text}</ins>;
               })
             ) : (
               line.text
@@ -295,13 +295,13 @@ export default function SpeechBlock({
                 data-cut={isCut ? "true" : undefined}
                 className={`flex items-baseline gap-1 ${isLineCut
                   ? viewMode === "diff"
-                    ? "line-through text-red-500 bg-red-50 rounded px-0.5"
+                    ? "line-through text-red-500 bg-red-50 dark:bg-red-950/50 rounded px-0.5"
                     : "line-through text-red-400 opacity-60"
                   : ""}`}
               >
                 <span className="flex-1">{lineContent}</span>
                 {lineNum != null && (
-                  <span className="text-sm text-stone-700 tabular-nums select-none shrink-0 font-normal not-italic leading-none">
+                  <span className="text-sm text-stone-700 dark:text-stone-300 tabular-nums select-none shrink-0 font-normal not-italic leading-none">
                     {lineNum}
                   </span>
                 )}

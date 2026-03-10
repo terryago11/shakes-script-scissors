@@ -79,12 +79,12 @@ export default function CharacterCard({
   }
 
   return (
-    <div className={`border rounded-lg bg-white px-4 py-3 flex items-center gap-3 ${
-      isFullyCut ? "border-stone-100 opacity-50" : "border-stone-200"
+    <div className={`border rounded-lg bg-white dark:bg-stone-900 px-4 py-3 flex items-center gap-3 ${
+      isFullyCut ? "border-stone-100 dark:border-stone-800 opacity-50" : "border-stone-200 dark:border-stone-700"
     }`}>
       {/* Actor color swatch */}
       <div
-        className="w-3 h-3 rounded-full shrink-0 border border-stone-200"
+        className="w-3 h-3 rounded-full shrink-0 border border-stone-200 dark:border-stone-700"
         style={{ backgroundColor: assignedActor?.color || "#e5e7eb" }}
       />
 
@@ -101,16 +101,16 @@ export default function CharacterCard({
                 else if (e.key === "Escape") setEditingAlias(false);
               }}
               onBlur={commitEdit}
-              className="text-sm font-semibold text-stone-700 bg-transparent border-b border-amber-400 focus:outline-none w-32"
+              className="text-sm font-semibold text-stone-700 dark:text-stone-200 bg-transparent border-b border-amber-400 focus:outline-none w-32"
             />
           ) : (
             <span
               className={`group/name flex items-center gap-1 text-sm font-semibold truncate ${
-                isFullyCut ? "text-stone-400 italic" : "text-stone-700"
+                isFullyCut ? "text-stone-400 dark:text-stone-400 italic" : "text-stone-700 dark:text-stone-200"
               }`}
             >
               <span
-                className={onSetAlias ? "cursor-text hover:text-stone-900" : ""}
+                className={onSetAlias ? "cursor-text hover:text-stone-900 dark:hover:text-stone-100" : ""}
                 title={onSetAlias ? "Click to rename" : undefined}
                 onClick={onSetAlias && !isFullyCut ? startEdit : undefined}
               >
@@ -118,7 +118,7 @@ export default function CharacterCard({
               </span>
               {onSetAlias && !isFullyCut && (
                 <span
-                  className="text-stone-300 opacity-0 group-hover/name:opacity-100 transition-opacity text-xs select-none"
+                  className="text-stone-300 dark:text-stone-600 opacity-0 group-hover/name:opacity-100 transition-opacity text-xs select-none"
                   aria-hidden
                 >
                   ✎
@@ -127,12 +127,12 @@ export default function CharacterCard({
             </span>
           )}
           {alias && !editingAlias && (
-            <span className="text-xs text-stone-400 italic truncate shrink-0" title={`TEI: ${character.name}`}>
+            <span className="text-xs text-stone-400 dark:text-stone-400 italic truncate shrink-0" title={`TEI: ${character.name}`}>
               ({character.name})
             </span>
           )}
           {isFullyCut && (
-            <span className="text-xs text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded font-normal shrink-0">
+            <span className="text-xs text-stone-400 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 px-1.5 py-0.5 rounded font-normal shrink-0">
               fully cut
             </span>
           )}
@@ -146,10 +146,10 @@ export default function CharacterCard({
           )}
         </div>
         {assignedActor && (
-          <div className="text-xs text-stone-400">{assignedActor.name}</div>
+          <div className="text-xs text-stone-400 dark:text-stone-400">{assignedActor.name}</div>
         )}
         {(lineCounts || wordCounts || stageMinutes != null) && !isFullyCut && (
-          <div className="text-xs text-stone-400 tabular-nums mt-0.5 flex gap-2">
+          <div className="text-xs text-stone-400 dark:text-stone-400 tabular-nums mt-0.5 flex gap-2">
             {lineCounts && lineCounts.afterCut > 0 && (
               <span>{lineCounts.afterCut.toLocaleString()} lines</span>
             )}
@@ -170,12 +170,12 @@ export default function CharacterCard({
               return (
                 <span
                   key={id}
-                  className="inline-flex items-center gap-0.5 text-xs bg-sky-50 text-sky-600 border border-sky-200 rounded-full px-2 py-0.5"
+                  className="inline-flex items-center gap-0.5 text-xs bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800 rounded-full px-2 py-0.5"
                 >
                   🔗 {linkedName}
                   <button
                     onClick={() => onToggleLink(id)}
-                    className="text-sky-400 hover:text-sky-700 leading-none ml-0.5"
+                    className="text-sky-400 dark:text-sky-500 hover:text-sky-700 dark:hover:text-sky-300 leading-none ml-0.5"
                     title={`Remove link with ${linkedName}`}
                   >
                     ×
@@ -192,7 +192,7 @@ export default function CharacterCard({
                   setShowLinkSelect(false);
                 }}
                 onBlur={() => setShowLinkSelect(false)}
-                className="text-xs border border-stone-300 rounded px-1.5 py-0.5 bg-white text-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                className="text-xs border border-stone-300 dark:border-stone-600 rounded px-1.5 py-0.5 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
               >
                 <option value="" disabled>Link with…</option>
                 {allActiveChars
@@ -204,7 +204,7 @@ export default function CharacterCard({
             ) : (
               <button
                 onClick={() => setShowLinkSelect(true)}
-                className="text-xs text-stone-300 hover:text-stone-500 transition-colors"
+                className="text-xs text-stone-300 dark:text-stone-600 hover:text-stone-500 dark:hover:text-stone-400 transition-colors"
                 title="Pin this character to always share an actor with another (used by Suggest)"
               >
                 + link
@@ -218,10 +218,10 @@ export default function CharacterCard({
         value={assignedActorId || ""}
         onChange={(e) => onAssign(e.target.value || null)}
         disabled={isFullyCut}
-        className={`text-xs border rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:cursor-not-allowed ${
+        className={`text-xs border rounded px-2 py-1 bg-white dark:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:cursor-not-allowed ${
           assignmentConflicts
-            ? "border-amber-400 text-amber-700"
-            : "border-stone-300 text-stone-600"
+            ? "border-amber-400 text-amber-700 dark:text-amber-400"
+            : "border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300"
         }`}
       >
         <option value="">Unassigned</option>

@@ -103,7 +103,7 @@ export default function DashboardMatrix({
 
   if (orderedCharIds.length === 0) {
     return (
-      <p className="text-sm text-stone-400 py-4">
+      <p className="text-sm text-stone-400 dark:text-stone-400 py-4">
         No character data found for any scene in the current cut.
       </p>
     );
@@ -181,15 +181,15 @@ export default function DashboardMatrix({
       {/* Toolbar: view toggle + filter indicator */}
       <div className="flex items-center justify-between mb-3 gap-4">
         {/* Table / Chart toggle */}
-        <div className="flex gap-1 p-0.5 bg-stone-100 rounded-md w-fit">
+        <div className="flex gap-1 p-0.5 bg-stone-100 dark:bg-stone-800 rounded-md w-fit">
           {(["table", "chart"] as const).map((v) => (
             <button
               key={v}
               onClick={() => setViewType(v)}
               className={`text-xs py-1 px-3 rounded transition-colors font-medium ${
                 viewType === v
-                  ? "bg-white text-stone-700 shadow-sm"
-                  : "text-stone-400 hover:text-stone-600"
+                  ? "bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 shadow-sm"
+                  : "text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
               }`}
             >
               {v === "table" ? "Table" : "Chart"}
@@ -200,13 +200,13 @@ export default function DashboardMatrix({
         {/* Filter indicator */}
         {filterCharId && (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-stone-500">
+            <span className="text-xs text-stone-500 dark:text-stone-400">
               Filtering to scenes with{" "}
               <span className="font-medium">{resolveCharacterName(filterCharId, characterAliases, characters)}</span>
             </span>
             <button
               onClick={() => setFilterCharId(null)}
-              className="text-xs text-stone-400 hover:text-stone-600 underline"
+              className="text-xs text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 underline"
             >
               Clear filter
             </button>
@@ -231,7 +231,7 @@ export default function DashboardMatrix({
                   {charDisplayName}
                 </div>
                 {/* Bar */}
-                <div className="flex-1 h-5 bg-stone-100 rounded overflow-hidden">
+                <div className="flex-1 h-5 bg-stone-100 dark:bg-stone-800 rounded overflow-hidden">
                   <div
                     className="h-full rounded transition-all"
                     style={{
@@ -248,14 +248,14 @@ export default function DashboardMatrix({
                   {formatValue(total)}
                 </div>
                 {/* Actor name — always fixed-width so counts stay in the same column */}
-                <div className="text-xs text-stone-400 shrink-0 w-24 truncate">
+                <div className="text-xs text-stone-400 dark:text-stone-400 shrink-0 w-24 truncate">
                   {actor ? actor.name : ""}
                 </div>
               </div>
             );
           })}
           {charTotals.length === 0 && (
-            <p className="text-sm text-stone-400 py-4">No data to display.</p>
+            <p className="text-sm text-stone-400 dark:text-stone-400 py-4">No data to display.</p>
           )}
         </div>
       ) : (
@@ -265,13 +265,13 @@ export default function DashboardMatrix({
             <thead>
               {/* Row 1: Actor group spanning headers — left-aligned */}
               <tr>
-                <th className="sticky left-0 bg-white min-w-44 border-b border-stone-200 py-1" />
+                <th className="sticky left-0 bg-white dark:bg-stone-950 min-w-44 border-b border-stone-200 dark:border-stone-700 py-1" />
                 {colGroups.map((group) =>
                   group.actor ? (
                     <th
                       key={group.actor.id}
                       colSpan={group.charIds.length}
-                      className="py-1 px-2 text-xs font-semibold text-left border-l border-b border-stone-200"
+                      className="py-1 px-2 text-xs font-semibold text-left border-l border-b border-stone-200 dark:border-stone-700"
                       style={{ color: group.actor.color }}
                     >
                       <div className="flex items-center justify-start gap-1">
@@ -286,21 +286,21 @@ export default function DashboardMatrix({
                     <th
                       key="uncast"
                       colSpan={group.charIds.length}
-                      className="py-1 px-2 text-xs font-semibold text-left text-stone-400 border-l border-b border-stone-200"
+                      className="py-1 px-2 text-xs font-semibold text-left text-stone-400 dark:text-stone-400 border-l border-b border-stone-200 dark:border-stone-700"
                     >
                       Uncast
                     </th>
                   )
                 )}
                 {/* "Total" header for the totals column — spans actor row */}
-                <th className="py-1 px-2 text-xs font-semibold text-left text-stone-400 border-l border-b border-stone-200">
+                <th className="py-1 px-2 text-xs font-semibold text-left text-stone-400 dark:text-stone-400 border-l border-b border-stone-200 dark:border-stone-700">
                   Total
                 </th>
               </tr>
 
               {/* Row 2: Character headers (clickable to filter) */}
-              <tr className="border-b-2 border-stone-200">
-                <th className="sticky left-0 bg-white py-1.5 text-left text-xs font-semibold text-stone-500 uppercase tracking-wider pr-4 min-w-44">
+              <tr className="border-b-2 border-stone-200 dark:border-stone-700">
+                <th className="sticky left-0 bg-white dark:bg-stone-950 py-1.5 text-left text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider pr-4 min-w-44">
                   Scene
                 </th>
                 {orderedCharIds.map((charId) => {
@@ -313,8 +313,8 @@ export default function DashboardMatrix({
                     <th
                       key={charId}
                       className={`py-1.5 px-2 text-xs font-medium text-center min-w-20 max-w-28 cursor-pointer select-none transition-colors ${
-                        isGroupStart ? "border-l border-stone-200" : ""
-                      } ${isFiltered ? "bg-amber-50" : "hover:bg-stone-50"}`}
+                        isGroupStart ? "border-l border-stone-200 dark:border-stone-700" : ""
+                      } ${isFiltered ? "bg-amber-50 dark:bg-amber-950/50" : "hover:bg-stone-50 dark:hover:bg-stone-800/50"}`}
                       style={{ color: actor ? actor.color : "#a8a29e" }}
                       onClick={() => handleColClick(charId)}
                       title={`Click to filter to scenes with ${charDisplayName}`}
@@ -329,7 +329,7 @@ export default function DashboardMatrix({
                   );
                 })}
                 {/* "Total" header for totals column */}
-                <th className="py-1.5 px-2 text-xs font-semibold text-center text-stone-500 border-l border-stone-200 min-w-20">
+                <th className="py-1.5 px-2 text-xs font-semibold text-center text-stone-500 dark:text-stone-400 border-l border-stone-200 dark:border-stone-700 min-w-20">
                   Total
                 </th>
               </tr>
@@ -349,15 +349,15 @@ export default function DashboardMatrix({
                 return (
                   <React.Fragment key={sceneId}>
                     <tr
-                      className={`border-b border-stone-100 transition-colors ${
-                        isCut ? "opacity-30" : "hover:bg-stone-50/70"
+                      className={`border-b border-stone-100 dark:border-stone-800 transition-colors ${
+                        isCut ? "opacity-30" : "hover:bg-stone-50/70 dark:hover:bg-stone-800/50"
                       }`}
                     >
-                      <td className="py-1.5 pr-4 sticky left-0 bg-white">
+                      <td className="py-1.5 pr-4 sticky left-0 bg-white dark:bg-stone-950">
                         <div className="text-xs truncate max-w-40">
-                          <span className="text-stone-400">{act.title}</span>
-                          <span className="text-stone-300 mx-1">·</span>
-                          <span className="font-medium text-stone-700">{scene.title}</span>
+                          <span className="text-stone-400 dark:text-stone-400">{act.title}</span>
+                          <span className="text-stone-300 dark:text-stone-600 mx-1">·</span>
+                          <span className="font-medium text-stone-700 dark:text-stone-200">{scene.title}</span>
                         </div>
                       </td>
                       {orderedCharIds.map((charId) => {
@@ -371,8 +371,8 @@ export default function DashboardMatrix({
                         return (
                           <td
                             key={charId}
-                            className={`py-1.5 px-2 text-center border-r border-stone-50 ${
-                              isGroupStart ? "border-l border-stone-100" : ""
+                            className={`py-1.5 px-2 text-center border-r border-stone-50 dark:border-stone-900 ${
+                              isGroupStart ? "border-l border-stone-100 dark:border-stone-800" : ""
                             }`}
                             title={
                               present
@@ -391,26 +391,26 @@ export default function DashboardMatrix({
                                 {display}
                               </span>
                             ) : (
-                              <span className="text-stone-200 text-xs">·</span>
+                              <span className="text-stone-200 dark:text-stone-700 text-xs">·</span>
                             )}
                           </td>
                         );
                       })}
                       {/* Row total */}
-                      <td className="py-1.5 px-2 text-center border-l border-stone-100">
+                      <td className="py-1.5 px-2 text-center border-l border-stone-100 dark:border-stone-800">
                         {rowTotal > 0 ? (
-                          <span className="text-xs tabular-nums font-semibold text-stone-500">
+                          <span className="text-xs tabular-nums font-semibold text-stone-500 dark:text-stone-400">
                             {formatValue(rowTotal)}
                           </span>
                         ) : (
-                          <span className="text-stone-200 text-xs">·</span>
+                          <span className="text-stone-200 dark:text-stone-700 text-xs">·</span>
                         )}
                       </td>
                     </tr>
                     {pause && (
                       <tr>
                         <td colSpan={orderedCharIds.length + 2} className="py-1 px-3">
-                          <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-1">
+                          <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded px-3 py-1">
                             <span>⏸</span>
                             <span className="font-medium">{pause.name}</span>
                             <span className="text-amber-500">{pause.minutes} min</span>
@@ -425,8 +425,8 @@ export default function DashboardMatrix({
 
             {/* Totals footer row */}
             <tfoot>
-              <tr className="border-t-2 border-stone-200 bg-stone-50/80">
-                <td className="py-1.5 pr-4 sticky left-0 bg-stone-50 text-xs font-semibold text-stone-500 uppercase tracking-wider">
+              <tr className="border-t-2 border-stone-200 dark:border-stone-700 bg-stone-50/80 dark:bg-stone-900/80">
+                <td className="py-1.5 pr-4 sticky left-0 bg-stone-50 dark:bg-stone-900 text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
                   Total
                 </td>
                 {orderedCharIds.map((charId) => {
@@ -438,8 +438,8 @@ export default function DashboardMatrix({
                   return (
                     <td
                       key={charId}
-                      className={`py-1.5 px-2 text-center border-r border-stone-100 ${
-                        isGroupStart ? "border-l border-stone-200" : ""
+                      className={`py-1.5 px-2 text-center border-r border-stone-100 dark:border-stone-800 ${
+                        isGroupStart ? "border-l border-stone-200 dark:border-stone-700" : ""
                       }`}
                     >
                       {total > 0 ? (
@@ -453,14 +453,14 @@ export default function DashboardMatrix({
                           {formatValue(total)}
                         </span>
                       ) : (
-                        <span className="text-stone-300 text-xs">—</span>
+                        <span className="text-stone-300 dark:text-stone-600 text-xs">—</span>
                       )}
                     </td>
                   );
                 })}
                 {/* Grand total */}
-                <td className="py-1.5 px-2 text-center border-l border-stone-200">
-                  <span className="text-xs tabular-nums font-bold text-stone-600">
+                <td className="py-1.5 px-2 text-center border-l border-stone-200 dark:border-stone-700">
+                  <span className="text-xs tabular-nums font-bold text-stone-600 dark:text-stone-300">
                     {formatValue(grandTotal)}
                   </span>
                 </td>

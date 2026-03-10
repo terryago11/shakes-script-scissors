@@ -45,7 +45,7 @@ export default function CueScriptDocument({ cueScript, characterNames = [] }: Pr
 `.trim();
 
   return (
-    <div className="font-serif max-w-2xl mx-auto px-8 py-10 print:px-6 print:py-4">
+    <div className="font-serif max-w-2xl mx-auto px-8 py-10 print:px-6 print:py-4 print:bg-white print:text-black">
       {/* Print-only @page styles */}
       <style dangerouslySetInnerHTML={{ __html: pageCSS }} />
 

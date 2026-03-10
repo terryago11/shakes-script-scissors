@@ -47,12 +47,12 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Controls — hidden when printing */}
-      <div className="no-print px-6 py-4 border-b border-stone-200 bg-white flex items-center gap-4">
-        <label className="text-sm font-medium text-stone-700 shrink-0">Actor Cue Script</label>
+      <div className="no-print px-6 py-4 border-b border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 flex items-center gap-4">
+        <label className="text-sm font-medium text-stone-700 dark:text-stone-200 shrink-0">Actor Cue Script</label>
         <select
           value={selectedActorId}
           onChange={(e) => setSelectedActorId(e.target.value)}
-          className="border border-stone-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+          className="border border-stone-300 dark:border-stone-600 rounded px-3 py-1.5 text-sm bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-400"
         >
           {actors.map((a) => (
             <option key={a.id} value={a.id}>
@@ -72,7 +72,7 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
       {cueScript ? (
         <CueScriptDocument cueScript={cueScript} characterNames={actorCharacterNames} />
       ) : (
-        <div className="text-stone-400 text-sm p-6">Select an actor above.</div>
+        <div className="text-stone-400 dark:text-stone-400 text-sm p-6">Select an actor above.</div>
       )}
     </div>
   );

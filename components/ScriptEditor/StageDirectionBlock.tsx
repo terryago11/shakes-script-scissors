@@ -72,7 +72,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList 
     <div className={`group flex items-start gap-3 py-1.5 px-2 rounded ${isCut ? "opacity-50" : ""}`}>
       <div className="w-1 shrink-0" />
       <div className="flex-1 min-w-0">
-        <div className={`text-sm italic text-stone-500 ${isCut ? "line-through text-stone-400" : ""}`}>
+        <div className={`text-sm italic text-stone-500 dark:text-stone-400 ${isCut ? "line-through text-stone-400 dark:text-stone-400" : ""}`}>
           {stage.text}
         </div>
         {hasChipUI && (
@@ -82,7 +82,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList 
               <button
                 key={charId}
                 onClick={() => removeChar(charId)}
-                className="text-xs px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+                className="text-xs px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-red-50 hover:text-red-600 dark:bg-stone-700 dark:text-stone-300 dark:hover:bg-red-950/50 dark:hover:text-red-400 transition-colors"
                 title={`Remove ${charName(charId)} from this ${stage.stageType}`}
               >
                 {charName(charId)} ×
@@ -93,7 +93,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList 
               <button
                 key={charId}
                 onClick={() => restoreChar(charId)}
-                className="text-xs px-1.5 py-0.5 rounded bg-stone-50 text-stone-300 hover:text-stone-500 line-through transition-colors"
+                className="text-xs px-1.5 py-0.5 rounded bg-stone-50 text-stone-300 hover:text-stone-500 dark:bg-stone-900 dark:text-stone-600 dark:hover:text-stone-400 line-through transition-colors"
                 title={`Restore ${charName(charId)} to this ${stage.stageType}`}
               >
                 {charName(charId)}
@@ -104,7 +104,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList 
               <select
                 value=""
                 onChange={(e) => addChar(e.target.value)}
-                className="text-xs px-1 py-0.5 rounded bg-stone-50 text-stone-400 hover:text-stone-600 border border-stone-200 hover:border-stone-300 cursor-pointer transition-colors"
+                className="text-xs px-1 py-0.5 rounded bg-stone-50 text-stone-400 hover:text-stone-600 border border-stone-200 hover:border-stone-300 dark:bg-stone-900 dark:text-stone-400 dark:hover:text-stone-300 dark:border-stone-700 dark:hover:border-stone-600 cursor-pointer transition-colors"
                 title={`Add a character to this ${stage.stageType}`}
               >
                 <option value="">+ add</option>
@@ -119,7 +119,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList 
       {!readonly && isCut && (
         <button
           onClick={onToggle ?? undefined}
-          className="opacity-0 group-hover:opacity-100 self-center text-xs px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 transition-all shrink-0"
+          className="opacity-0 group-hover:opacity-100 self-center text-xs px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 dark:border-green-800 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-700 transition-all shrink-0"
           title="Restore stage direction"
         >
           ↩ restore
