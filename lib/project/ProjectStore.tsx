@@ -46,7 +46,9 @@ type ProjectAction =
   | { type: "MERGE_SPEECH"; unitId: string; part2LineIds: string[] }
   | { type: "ADD_INSERTION"; insertion: Insertion }
   | { type: "REMOVE_INSERTION"; insertionId: string; lineIds: string[] }
-  | { type: "UPDATE_INSERTION"; insertionId: string; characterId: string; lines: InsertedLine[] };
+  | { type: "UPDATE_INSERTION"; insertionId: string; characterId: string; lines: InsertedLine[] }
+  | { type: "SET_STAGE_DURATION"; stageId: string; minutes: number }
+  | { type: "CLEAR_STAGE_DURATION"; stageId: string };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
   if (!state.project && action.type !== "LOAD" && action.type !== "REPLACE_PROJECT") {
@@ -162,6 +164,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         insertions: source?.insertions
           ? Object.fromEntries(Object.entries(source.insertions).map(([k, v]) => [k, { ...v, lines: [...v.lines] }]))
           : undefined,
+        stageDurations: source?.stageDurations ? { ...source.stageDurations } : undefined,
       };
       const newProject = {
         ...p,
@@ -442,6 +445,24 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
               lines: action.lines,
             },
           },
+        };
+      });
+    }
+
+    case "SET_STAGE_DURATION": {
+      return updateActiveCut(state, (c) => ({
+        ...c,
+        stageDurations: { ...(c.stageDurations ?? {}), [action.stageId]: action.minutes },
+      }));
+    }
+
+    case "CLEAR_STAGE_DURATION": {
+      return updateActiveCut(state, (c) => {
+        const newDurations = { ...(c.stageDurations ?? {}) };
+        delete newDurations[action.stageId];
+        return {
+          ...c,
+          stageDurations: Object.keys(newDurations).length > 0 ? newDurations : undefined,
         };
       });
     }

@@ -139,6 +139,30 @@ export function computeStageTime(
             onStage.delete(charId);
           }
         }
+
+        // ── Song/dance duration — extra minutes added by the director ─────────
+        const sdDuration = cut.stageDurations?.[unit.id];
+        if (sdDuration && sdDuration > 0) {
+          // Add to cut running time + all on-stage characters (cut version)
+          const sdIsKept = (cut.cutMap[unit.id] ?? "kept") === "kept";
+          if (sdIsKept) {
+            totalMinutes += sdDuration;
+            if (!sceneMinByChar[sceneId]) sceneMinByChar[sceneId] = {};
+            for (const charId of onStage) {
+              const entry = ensureChar(byCharacter, charId);
+              entry.minutes += sdDuration;
+              sceneMinByChar[sceneId][charId] = (sceneMinByChar[sceneId][charId] ?? 0) + sdDuration;
+            }
+          }
+          // Always add to original running time (SD exists in the original play)
+          originalTotalMinutes += sdDuration;
+          if (!sceneOrigMinByChar[sceneId]) sceneOrigMinByChar[sceneId] = {};
+          for (const charId of onStageOrig) {
+            const entry = ensureChar(byCharacter, charId);
+            entry.originalMinutes += sdDuration;
+            sceneOrigMinByChar[sceneId][charId] = (sceneOrigMinByChar[sceneId][charId] ?? 0) + sdDuration;
+          }
+        }
       } else if (unit.type === "speech") {
         // ── Original: accumulate for all non-insertion speeches ────────────
         // Insertions have no "original" — they're new text that didn't exist in the uncut play.

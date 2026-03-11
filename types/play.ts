@@ -10,6 +10,8 @@ export interface Act {
   number: number;
   title: string;
   scenes: Scene[];
+  /** "act" (default / undefined), "prologue", "epilogue", or "induction" */
+  divType?: "act" | "prologue" | "epilogue" | "induction";
 }
 
 export interface Scene {
@@ -17,6 +19,8 @@ export interface Scene {
   number: number;
   title: string;
   units: ScriptUnit[];
+  /** "scene" (default / undefined), "chorus", "epilogue", or "prologue" */
+  sceneType?: "scene" | "chorus" | "epilogue" | "prologue";
 }
 
 export type ScriptUnit = Speech | StageDirection;
@@ -49,6 +53,7 @@ export interface StageDirection {
   characters: string[];
   stageType?: "entrance" | "exit" | "business" | "delivery";
   isSong?: boolean;
+  isDance?: boolean;
 }
 
 export interface Character {

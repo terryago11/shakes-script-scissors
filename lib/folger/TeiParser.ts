@@ -54,65 +54,142 @@ export function parseTei(xml: string, playId: string): Play {
   if (!bodyNode) throw new Error("No <body> element found");
   const bodyChildren = getChildren(bodyNode);
 
-  const actDivs = collectByAttr(bodyChildren, "div", "@_type", "act");
+  // Collect top-level structural divs in document order: acts + prologues + epilogues + inductions
+  const TOP_DIV_TYPES = ["act", "prologue", "epilogue", "induction"];
+  const topDivs = collectByAttrValues(bodyChildren, "div", "@_type", TOP_DIV_TYPES);
+
   let speechIndex = 0;
   let stageIndex = 0;
 
-  const acts: Act[] = actDivs.map((actDiv, actIdx) => {
-    const actNum = parseInt(getAttr(actDiv, "@_n") || String(actIdx + 1), 10);
-    const actChildren = getChildren(actDiv);
-    const actHead = extractText(findFirst(actChildren, "head")) || `Act ${actNum}`;
-    const sceneDivs = collectByAttr(actChildren, "div", "@_type", "scene");
-
-    const scenes: Scene[] = sceneDivs.map((sceneDiv, sceneIdx) => {
-      const sceneNum = parseInt(getAttr(sceneDiv, "@_n") || String(sceneIdx + 1), 10);
-      const sceneChildren2 = getChildren(sceneDiv);
-      const sceneHead = extractText(findFirst(sceneChildren2, "head")) || `Scene ${sceneNum}`;
-      const sceneId = `${playId}-a${actNum}-s${sceneNum}`;
-
-      const units: ScriptUnit[] = [];
-
-      // Walk the scene children in order (use already-computed sceneChildren2)
-      for (const child of sceneChildren2) {
-        const tagName = getTagName(child);
-
-        if (tagName === "stage") {
-          const id = `${playId}-stg-${stageIndex++}`;
-          const text = extractAllText(getChildren(child));
-          const who = getAttr(child, "@_who") || "";
-          const characters = who
-            .split(/\s+/)
-            .filter((w) => w.startsWith("#"))
-            .map((w) => w);
-          const stageType = getAttr(child, "@_type") as StageDirection["stageType"] | undefined;
-          const isSong = /\bsong\b|\bsings\b|\bsinging\b/i.test(text) || undefined;
-          units.push({ type: "stage", id, text, characters, stageType, isSong });
-        } else if (tagName === "sp") {
-          try {
-            const speech = parseSpeech(child, playId, speechIndex, castList);
-            speechIndex++;
-            units.push(speech);
-          } catch (e) {
-            console.warn(`[TeiParser] Skipping malformed speech in ${sceneId}:`, e);
-          }
+  // Helper: parse <stage> and <sp> children from a node list into ScriptUnit[]
+  function parseSceneUnits(children: unknown[], sceneId: string): ScriptUnit[] {
+    const units: ScriptUnit[] = [];
+    for (const child of children) {
+      const tagName = getTagName(child);
+      if (tagName === "stage") {
+        const id = `${playId}-stg-${stageIndex++}`;
+        const text = extractAllText(getChildren(child));
+        const who = getAttr(child, "@_who") || "";
+        const characters = who.split(/\s+/).filter((w) => w.startsWith("#"));
+        const stageType = getAttr(child, "@_type") as StageDirection["stageType"] | undefined;
+        const isSong = /\bsong\b|\bsings\b|\bsinging\b/i.test(text) || undefined;
+        const isDance = /\bdance\b|\bdances\b|\bdancing\b/i.test(text) || undefined;
+        units.push({ type: "stage", id, text, characters, stageType, isSong, isDance });
+      } else if (tagName === "sp") {
+        try {
+          const speech = parseSpeech(child, playId, speechIndex, castList);
+          speechIndex++;
+          units.push(speech);
+        } catch (e) {
+          console.warn(`[TeiParser] Skipping malformed speech in ${sceneId}:`, e);
         }
       }
+    }
+    return units;
+  }
 
-      return {
-        id: sceneId,
-        number: sceneNum,
-        title: sceneHead.trim(),
-        units,
-      };
-    });
+  const acts: Act[] = [];
+  let actFallbackN = 0;
 
-    return {
-      id: `${playId}-a${actNum}`,
+  for (const topDiv of topDivs) {
+    const divType = getAttr(topDiv, "@_type") ?? "act";
+    const divChildren = getChildren(topDiv);
+    const divHeadText = extractText(findFirst(divChildren, "head")) ?? "";
+
+    // Determine act identity based on divType
+    let actId: string;
+    let actNum: number;
+    let actTitle: string;
+    let actDivType: Act["divType"];
+
+    if (divType === "act") {
+      actFallbackN++;
+      actNum = parseInt(getAttr(topDiv, "@_n") || String(actFallbackN), 10);
+      actId = `${playId}-a${actNum}`;
+      actTitle = divHeadText || `Act ${actNum}`;
+      actDivType = undefined; // "act" is the default
+    } else if (divType === "prologue") {
+      actNum = 0;
+      actId = `${playId}-prologue`;
+      actTitle = divHeadText || "Prologue";
+      actDivType = "prologue";
+    } else if (divType === "induction") {
+      actNum = 0;
+      actId = `${playId}-induction`;
+      actTitle = divHeadText || "Induction";
+      actDivType = "induction";
+    } else {
+      // "epilogue"
+      actNum = 999;
+      actId = `${playId}-epilogue`;
+      actTitle = divHeadText || "Epilogue";
+      actDivType = "epilogue";
+    }
+
+    // Collect scene, chorus, epilogue, and prologue divs within this structural div
+    // (e.g. Henry V: choruses + epilogue are nested inside act divs)
+    const SCENE_DIV_TYPES = ["scene", "chorus", "epilogue", "prologue"];
+    const sceneDivs = collectByAttrValues(divChildren, "div", "@_type", SCENE_DIV_TYPES);
+
+    let scenes: Scene[];
+
+    if (sceneDivs.length === 0) {
+      // No inner scene divs — whole div is one synthetic scene
+      // (e.g. Henry V Prologue: direct <sp>/<stage> children, no <div type="scene">)
+      const syntheticId = `${actId}-s1`;
+      const units = parseSceneUnits(divChildren, syntheticId);
+      scenes = units.length > 0
+        ? [{ id: syntheticId, number: 1, title: actTitle, units }]
+        : [];
+    } else {
+      let sceneFallbackN = 0;
+      let chorusIdx = 0;
+      scenes = sceneDivs.map((sceneDiv) => {
+        const sceneType = getAttr(sceneDiv, "@_type") ?? "scene";
+        const isChorus = sceneType === "chorus";
+        const isEpilogue = sceneType === "epilogue";
+        const isPrologue = sceneType === "prologue";
+        const isSpecial = isChorus || isEpilogue || isPrologue;
+        if (!isSpecial) sceneFallbackN++;
+        const sceneNum = parseInt(getAttr(sceneDiv, "@_n") || String(sceneFallbackN), 10);
+        const sceneChildren = getChildren(sceneDiv);
+        const defaultTitle = isChorus ? "Chorus"
+          : isEpilogue ? "Epilogue"
+          : isPrologue ? "Prologue"
+          : `Scene ${sceneNum}`;
+        const sceneHeadText = extractText(findFirst(sceneChildren, "head")) || defaultTitle;
+        const sceneId = isChorus
+          ? `${actId}-chorus${chorusIdx++}`
+          : isEpilogue
+          ? `${actId}-epilogue`
+          : isPrologue
+          ? `${actId}-prologue`
+          : `${actId}-s${sceneNum}`;
+
+        const units = parseSceneUnits(sceneChildren, sceneId);
+
+        const scene: Scene = {
+          id: sceneId,
+          number: isSpecial ? 0 : sceneNum,
+          title: sceneHeadText.trim(),
+          units,
+        };
+        if (isChorus) scene.sceneType = "chorus";
+        else if (isEpilogue) scene.sceneType = "epilogue";
+        else if (isPrologue) scene.sceneType = "prologue";
+        return scene;
+      });
+    }
+
+    const act: Act = {
+      id: actId,
       number: actNum,
-      title: actHead.trim(),
+      title: actTitle.trim(),
       scenes,
     };
-  });
+    if (actDivType) act.divType = actDivType;
+    acts.push(act);
+  }
 
   return { id: playId, title, acts, castList };
 }
@@ -536,6 +613,28 @@ function collectByAttr(
     } else {
       const children = getChildren(node);
       results.push(...collectByAttr(children, tagName, attr, value));
+    }
+  }
+  return results;
+}
+
+/** Like collectByAttr but accepts multiple allowable values (in document order). */
+function collectByAttrValues(
+  nodes: unknown[],
+  tagName: string,
+  attr: string,
+  values: string[]
+): unknown[] {
+  const results: unknown[] = [];
+  for (const node of nodes) {
+    if (!node || typeof node !== "object") continue;
+    const tag = getTagName(node);
+    const val = getAttr(node, attr) ?? "";
+    if (tag === tagName && values.includes(val)) {
+      results.push(node);
+      // Don't recurse into matching nodes so we don't find nested acts/scenes
+    } else {
+      results.push(...collectByAttrValues(getChildren(node), tagName, attr, values));
     }
   }
   return results;

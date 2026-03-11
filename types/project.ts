@@ -74,4 +74,9 @@ export interface Cut {
   }>;
   /** Inserted speeches keyed by insertion ID. Each appears after a specific unit. */
   insertions?: Record<string, import("./insertion").Insertion>;
+  /**
+   * Song/dance stage direction durations: stageId → extra minutes to add to scene/show time.
+   * Set via the "+ time" editor on highlighted song/dance SDs.
+   */
+  stageDurations?: Record<string, number>;
 }

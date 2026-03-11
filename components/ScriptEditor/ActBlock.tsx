@@ -116,7 +116,10 @@ export default function ActBlock({
           {collapsed ? "▶" : "▼"}
         </span>
         <h2 className="text-lg font-bold text-stone-700 dark:text-stone-200 uppercase tracking-wide">
-          {act.title}
+          {act.divType === "prologue" ? "PROLOGUE"
+            : act.divType === "epilogue" ? "EPILOGUE"
+            : act.divType === "induction" ? "INDUCTION"
+            : act.title}
         </h2>
         {(counts || timeMins) && !showOriginal && (
           <span className="ml-2 text-xs text-stone-400 dark:text-stone-400 tabular-nums font-normal normal-case tracking-normal flex items-center gap-1">

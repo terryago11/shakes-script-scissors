@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { Character, StageDirection } from "@/types/play";
 import { useProject } from "@/lib/project/ProjectStore";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
@@ -9,12 +10,14 @@ interface Props {
   status: "kept" | "cut";
   onToggle: (() => void) | null;
   castList: Character[];
-  /** Characters computed to be on stage just before this exit SD — enables the Auto-fill button */
+  /** Characters computed to be on stage just before this exit SD — enables the Sync exits button */
   onStageAtSd?: Set<string>;
 }
 
 export default function StageDirectionBlock({ stage, status, onToggle, castList, onStageAtSd }: Props) {
   const { activeCut, dispatch } = useProject();
+  const [editingDuration, setEditingDuration] = useState(false);
+  const [durationInput, setDurationInput] = useState("");
 
   const isCut = status === "cut";
   const readonly = onToggle === null;
@@ -68,7 +71,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
     });
   }
 
-  // Auto-fill is available on exit SDs when the on-stage set is known and:
+  // Sync exits: available on exit SDs when the on-stage set is known and:
   // - the SD has no effective characters (empty "Exeunt"), OR
   // - the SD text matches "all" / "exeunt" (mass exit that may be incomplete)
   const showAutoFill =
@@ -88,13 +91,115 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
 
   const hasChipUI = showChips && (effectiveChars.length > 0 || removedChars.length > 0 || addableChars.length > 0 || showAutoFill);
 
+  // Song / dance detection
+  const isSong = stage.isSong === true;
+  const isDance = stage.isDance === true;
+  const isSpecial = isSong || isDance;
+
+  // Duration editor (only for song/dance SDs that are kept and editable)
+  const canEditDuration = isSpecial && !isCut && !readonly;
+  const currentDuration = activeCut?.stageDurations?.[stage.id];
+
+  function handleSaveDuration() {
+    const mins = parseFloat(durationInput);
+    if (!isNaN(mins) && mins > 0) {
+      dispatch({ type: "SET_STAGE_DURATION", stageId: stage.id, minutes: mins });
+    } else {
+      dispatch({ type: "CLEAR_STAGE_DURATION", stageId: stage.id });
+    }
+    setEditingDuration(false);
+    setDurationInput("");
+  }
+
+  function handleClearDuration() {
+    dispatch({ type: "CLEAR_STAGE_DURATION", stageId: stage.id });
+  }
+
+  function handleDurationKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") handleSaveDuration();
+    if (e.key === "Escape") { setEditingDuration(false); setDurationInput(""); }
+  }
+
+  // Derive text color for the SD based on type
+  const sdTextColor = isSong
+    ? "text-violet-600 dark:text-violet-400"
+    : isDance
+    ? "text-cyan-600 dark:text-cyan-400"
+    : "text-stone-500 dark:text-stone-400";
+
+  const sdPrefix = isSong ? "♪ " : isDance ? "⊛ " : "";
+
   return (
     <div className={`group flex items-start gap-3 py-1.5 px-2 rounded ${isCut ? "opacity-50" : ""}`}>
       <div className="w-1 shrink-0" />
       <div className="flex-1 min-w-0">
-        <div className={`text-sm italic text-stone-500 dark:text-stone-400 ${isCut ? "line-through text-stone-400 dark:text-stone-400" : ""}`}>
-          {stage.text}
+        <div className={`text-sm italic ${sdTextColor} ${isCut ? "line-through text-stone-400 dark:text-stone-400" : ""}`}>
+          {sdPrefix}{stage.text}
+          {/* Duration badge */}
+          {canEditDuration && currentDuration && !editingDuration && (
+            <span className="not-italic ml-1.5 text-xs text-amber-600 dark:text-amber-400">
+              (+{currentDuration % 1 === 0 ? currentDuration : currentDuration.toFixed(1)}m)
+            </span>
+          )}
         </div>
+
+        {/* Duration editor row — for song/dance SDs */}
+        {canEditDuration && (
+          <div className="mt-0.5 flex items-center gap-1.5">
+            {editingDuration ? (
+              <>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={durationInput}
+                  onChange={(e) => setDurationInput(e.target.value)}
+                  onBlur={handleSaveDuration}
+                  onKeyDown={handleDurationKeyDown}
+                  autoFocus
+                  className="w-14 text-xs px-1 py-0.5 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  placeholder="0"
+                />
+                <span className="text-xs text-stone-400 dark:text-stone-500">min</span>
+                <button
+                  onMouseDown={(e) => { e.preventDefault(); handleSaveDuration(); }}
+                  className="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-900/50 transition-colors"
+                >
+                  save
+                </button>
+              </>
+            ) : (
+              <>
+                {currentDuration ? (
+                  <>
+                    <button
+                      onClick={() => { setDurationInput(String(currentDuration)); setEditingDuration(true); }}
+                      className="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-900/50 transition-colors"
+                    >
+                      {currentDuration % 1 === 0 ? currentDuration : currentDuration.toFixed(1)}m
+                    </button>
+                    <button
+                      onClick={handleClearDuration}
+                      className="text-xs text-stone-300 hover:text-stone-500 dark:text-stone-600 dark:hover:text-stone-400 transition-colors"
+                      title="Remove duration"
+                    >
+                      ×
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => { setDurationInput(""); setEditingDuration(true); }}
+                    className="opacity-0 group-hover:opacity-100 text-xs text-stone-300 hover:text-amber-600 dark:text-stone-600 dark:hover:text-amber-400 transition-all"
+                    title={`Add extra time for this ${isSong ? "song" : "dance"}`}
+                  >
+                    + time
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {hasChipUI && (
           <div className="flex flex-wrap gap-1 mt-1">
             {/* Active characters — click × to remove */}
@@ -119,14 +224,14 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
                 {charName(charId)}
               </button>
             ))}
-            {/* Auto-fill from on-stage set — for empty/all-exit SDs */}
+            {/* Sync exits from on-stage set — for empty/all-exit SDs */}
             {showAutoFill && (
               <button
                 onClick={handleAutoFill}
                 className="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-900/50 transition-colors"
-                title="Auto-fill with all characters currently on stage"
+                title="Sync exit characters from on-stage tracking (based on entrance SDs)"
               >
-                ⟳ auto-fill
+                ⟳ sync exits
               </button>
             )}
             {/* Add characters not originally in this SD */}

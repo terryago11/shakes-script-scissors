@@ -207,8 +207,14 @@ export default function SceneBlock({
         >
           <span className="text-xs text-stone-400 dark:text-stone-400">{collapsed ? "▶" : "▼"}</span>
           <span className={`font-semibold text-sm ${isFullyCut ? "text-stone-400 dark:text-stone-400 line-through" : "text-stone-600 dark:text-stone-300"}`}>
-            {scene.title}
+            {scene.sceneType === "chorus" ? "CHORUS"
+              : scene.sceneType === "epilogue" ? "EPILOGUE"
+              : scene.sceneType === "prologue" ? "PROLOGUE"
+              : scene.title}
           </span>
+          {(scene.sceneType === "chorus" || scene.sceneType === "epilogue" || scene.sceneType === "prologue") && (
+            <span className="text-xs text-stone-400 dark:text-stone-500 font-normal italic">{scene.sceneType}</span>
+          )}
           {isFullyCut && (
             <span className="text-xs text-stone-400 bg-stone-200 dark:text-stone-400 dark:bg-stone-700 px-1.5 py-0.5 rounded font-normal">
               fully cut
