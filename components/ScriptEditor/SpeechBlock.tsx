@@ -314,7 +314,8 @@ export default function SpeechBlock({
             const isLineSong = !isCut && !isLineCut && line.isSong === true;
             // Poem B-rhyme indent: odd-position lines in poem stanzas (e.g. Folger quatrain layout)
             const isLinePoem = !isCut && !isLineCut && line.poemIndent === true;
-            // Split-line indent: part="F" lines complete a verse line started by a previous speaker
+            // Split-line indent: part="F"/part="I"+prev lines continue a shared verse line.
+            // Indent width is proportional to accumulated preceding-part character count.
             const isLinePart = !isCut && !isLineCut && line.partIndent === true;
 
             // In clean mode, skip cut lines entirely
@@ -357,9 +358,13 @@ export default function SpeechBlock({
                     ? "text-violet-700 dark:text-violet-300 italic pl-4"
                     : isLinePoem
                       ? "pl-6"
-                      : isLinePart
-                        ? "pl-6"
-                        : ""}`}
+                      : ""}`}
+                style={isLinePart ? {
+                  // 0.5ch per preceding character gives a proportional indent that
+                  // visually "completes" the shared verse line across speakers.
+                  // Falls back to 1.5ch (~pl-6) when partIndentChars is absent.
+                  paddingLeft: `${((line.partIndentChars ?? 3) * 0.5).toFixed(1)}ch`,
+                } : undefined}
               >
                 <span className="flex-1">{lineContent}</span>
                 {lineNum != null && (

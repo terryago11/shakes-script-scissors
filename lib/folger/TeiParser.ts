@@ -66,6 +66,9 @@ export function parseTei(xml: string, playId: string): Play {
     const units: ScriptUnit[] = [];
     // Track when a <label> element says "Song" immediately before a <sp>
     let precedingLabelIsSong = false;
+    // Shared verse line chain: accumulates text of part="I" lines so part="F"/"I"+prev
+    // fragments can be indented proportionally. Resets per scene (shared lines don't span scenes).
+    const partCtx = { accumulatedText: "" };
     for (const child of children) {
       const tagName = getTagName(child);
       if (tagName === "label") {
@@ -113,9 +116,9 @@ export function parseTei(xml: string, playId: string): Play {
         const inSongContext = precedingLabelIsSong;
         precedingLabelIsSong = false; // reset — label applies to the immediately following speech only
         try {
-          const speech = parseSpeech(child, playId, speechIndex, castList, inSongContext);
+          const speechUnits = parseSpeech(child, playId, speechIndex, castList, inSongContext, partCtx);
           speechIndex++;
-          units.push(speech);
+          units.push(...speechUnits);
         } catch (e) {
           console.warn(`[TeiParser] Skipping malformed speech in ${sceneId}:`, e);
         }
@@ -244,6 +247,19 @@ const POEM_LG_TYPES = new Set([
   "sestet", "octave", "refrain", "distich", "strophe",
 ]);
 
+/**
+ * Parse a <sp> element into one or more ScriptUnit objects.
+ *
+ * Returns an array because a single <sp> can contain embedded <stage> elements
+ * (e.g. "Enter Macbeth with bloody daggers." mid-speech), splitting it into
+ * [Speech(lines-before), StageDirection, Speech(lines-after), ...].
+ *
+ * Pre-speech <stage> elements (before the first <l>) are absorbed into the
+ * speaker tag as "[text]" so they render inline: "MACBETH, [within]".
+ *
+ * partCtx carries the accumulated text of part="I" lines across speeches
+ * so part="F"/part="I"+prev fragments can be proportionally indented.
+ */
 function parseSpeech(
   spNode: unknown,
   playId: string,
@@ -251,7 +267,9 @@ function parseSpeech(
   castList: Character[],
   /** True when a scene-level <label>Song.</label> immediately precedes this speech */
   inSongContext = false,
-): Speech {
+  /** Shared-line chain context — persists across speeches within a scene */
+  partCtx: { accumulatedText: string } = { accumulatedText: "" },
+): ScriptUnit[] {
   const id = getAttr(spNode, "@_xml:id") || `${playId}-sp-${index}`;
   const who = getAttr(spNode, "@_who") || "";
   // Take the first character ID if multiple speakers
@@ -259,7 +277,8 @@ function parseSpeech(
 
   const spChildren = getChildren(spNode);
   const speakerNode = findFirst(spChildren, "speaker");
-  const speakerTagName = speakerNode
+  // Start with verbatim speaker tag text
+  let speakerTagName = speakerNode
     ? extractAllText(getChildren(speakerNode)).trim()
     : characterId.replace(/^#/, "").toUpperCase();
 
@@ -267,92 +286,188 @@ function parseSpeech(
   const castEntry = castList.find((c) => c.id === characterId);
   const characterName = castEntry ? castEntry.name.toUpperCase() : speakerTagName;
 
-  const lines: Line[] = [];
-  let lineIndex = 0;
   void inSongContext; // reserved for future use (label context flows through POEM_LG_TYPES exclusion)
+
+  // Segments: each embedded mid-speech <stage> creates a boundary.
+  // segments[i] = lines for speech part i; embSds[i] = stage node emitted after segment i.
+  const segments: Line[][] = [[]];
+  const embSds: unknown[] = [];
+  let lineIndex = 0;
+  let hasAnyLines = false; // true once the first <l>/<p>/<lg>/... is encountered
 
   for (const child of spChildren) {
     const tag = getTagName(child);
+    if (tag === "speaker") continue;
+
+    if (tag === "stage") {
+      if (!hasAnyLines) {
+        // ── Pre-speech stage: absorb into speaker tag as "[text]" ──────────────
+        // e.g. <stage type="location">, within</stage> → "MACBETH, [within]"
+        const sdText = extractAllText(getChildren(child)).trim();
+        if (sdText) {
+          // Preserve a leading comma from the original TEI text (", within" pattern)
+          if (sdText.startsWith(",")) {
+            speakerTagName += `, [${sdText.slice(1).trim()}]`;
+          } else {
+            speakerTagName += ` [${sdText}]`;
+          }
+        }
+      } else {
+        // ── Mid-speech stage: split the speech here ─────────────────────────────
+        embSds.push(child);
+        segments.push([]);
+      }
+      continue;
+    }
+
     if (tag === "l") {
-      // Verse line: <l xml:id="ftln-NNNN" n="1.1.1" part="I|F">text</l>
-      // part="F" (Final) → line completes a verse line started by a previous speaker → indent
+      // Verse line: <l xml:id="ftln-NNNN" n="1.1.1" part="I|F" prev="#ftln-N">text</l>
+      //
+      // Shared verse line encoding (DraCor):
+      //   part="I" (no prev)  → first fragment; start accumulating; no indent
+      //   part="I" + prev=    → middle fragment; indent by accumulated length, then append text
+      //   part="F"            → final fragment; indent by accumulated length, then reset
+      //   (no part)           → reset accumulation
       const lineId = getAttr(child, "@_xml:id") || `${id}-l-${lineIndex}`;
       const n = getAttr(child, "@_n") || "";
       const ftln = parseFtln(lineId, n);
       const partAttr = getAttr(child, "@_part") ?? "";
+      const prevAttr = getAttr(child, "@_prev") ?? "";
       const text = extractAllText(getChildren(child)).trim();
       if (text) {
         const line: Line = { id: lineId, ftln, text };
-        if (partAttr === "F") line.partIndent = true;
-        lines.push(line);
+        if (partAttr === "I" && !prevAttr) {
+          // First fragment — start chain, no indent on this line
+          partCtx.accumulatedText = text;
+        } else if (partAttr === "I" && prevAttr) {
+          // Middle fragment — indent by accumulated so far, then extend chain
+          line.partIndent = true;
+          if (partCtx.accumulatedText) line.partIndentChars = partCtx.accumulatedText.length;
+          partCtx.accumulatedText = partCtx.accumulatedText + " " + text;
+        } else if (partAttr === "F") {
+          // Final fragment — indent by full accumulated chain
+          line.partIndent = true;
+          if (partCtx.accumulatedText) line.partIndentChars = partCtx.accumulatedText.length;
+          partCtx.accumulatedText = "";
+        } else {
+          // Non-shared line resets the chain
+          partCtx.accumulatedText = "";
+        }
+        segments[segments.length - 1].push(line);
         lineIndex++;
+        hasAnyLines = true;
       }
     } else if (tag === "p") {
-      // Prose paragraph may contain multiple <lb> markers, each marking one line.
-      // <p xml:id="p-...">
-      //   <lb xml:id="ftln-N" n="x.y.z"/>line one text <lb xml:id="ftln-M"/>line two text
-      // </p>
-      // Split at each <lb> boundary to produce one Line per lb.
+      // Prose paragraph — split at <lb> markers
       const pChildren = getChildren(child);
       const proseLines = splitProseByLb(pChildren, id, lineIndex);
       for (const pl of proseLines) {
         if (pl.text) {
-          lines.push(pl);
+          segments[segments.length - 1].push(pl);
           lineIndex++;
+          hasAnyLines = true;
         }
       }
-    }
-    // <ab> (prose wrapper) - treat same as <l>
-    else if (tag === "ab") {
+      partCtx.accumulatedText = "";
+    } else if (tag === "ab") {
+      // <ab> prose wrapper — treat as single line
       const lineId = getAttr(child, "@_xml:id") || `${id}-ab-${lineIndex}`;
       const n = getAttr(child, "@_n") || "";
       const ftln = parseFtln(lineId, n);
       const text = extractAllText(getChildren(child)).trim();
       if (text) {
-        lines.push({ id: lineId, ftln, text });
+        segments[segments.length - 1].push({ id: lineId, ftln, text });
         lineIndex++;
+        hasAnyLines = true;
       }
-    }
-    // <lg> (line group / stanza) — songs vs poems distinguished by type attribute:
-    //   - Rhyme-scheme codes ("AABBcDDc", "aaB", "song", or empty) → song → mark lines as isSong
-    //   - Poem descriptors ("quatrain", "couplet", …) → poem → don't mark as isSong
-    // DraCor/Folger TEI uses rhyme scheme codes for songs and descriptor names for poems,
-    // so any <lg type> NOT in POEM_LG_TYPES is treated as a song stanza.
-    else if (tag === "lg") {
+      partCtx.accumulatedText = "";
+    } else if (tag === "lg") {
+      // <lg> line group / stanza — songs vs poems
       const lgType = (getAttr(child, "@_type") ?? "").toLowerCase();
       const isSongStanza = !POEM_LG_TYPES.has(lgType);
       const lgLines = extractLgLines(child, id, lineIndex, isSongStanza);
       for (const ll of lgLines) {
         if (ll.text) {
-          lines.push(ll);
+          segments[segments.length - 1].push(ll);
           lineIndex++;
+          hasAnyLines = true;
         }
       }
-    }
-    // <q> (quotation block) - treat its children as lines (not songs)
-    else if (tag === "q") {
+      partCtx.accumulatedText = "";
+    } else if (tag === "q") {
+      // <q> quotation block — treat as verse lines, not songs
       const qLines = extractLgLines(child, id, lineIndex, false);
       for (const ql of qLines) {
         if (ql.text) {
-          lines.push(ql);
+          segments[segments.length - 1].push(ql);
           lineIndex++;
+          hasAnyLines = true;
         }
       }
+      partCtx.accumulatedText = "";
     }
   }
 
-  const speech: Speech = {
-    type: "speech",
-    id,
-    characterId,
-    characterName,
-    speakerTag: speakerTagName,
-    lines,
-    lineCount: lines.length,
-  };
-  // Speech is flagged as a song if at least one of its lines is a song line
-  if (lines.some((l) => l.isSong)) speech.isSong = true;
-  return speech;
+  // ── Build result array ───────────────────────────────────────────────────────
+  const result: ScriptUnit[] = [];
+  const hasSplit = embSds.length > 0;
+
+  for (let si = 0; si < segments.length; si++) {
+    const segLines = segments[si];
+    if (segLines.length === 0) continue;
+
+    // Use original ID when there's no split (backward compatible);
+    // use ${id}-p${si} suffix when the speech is split by embedded SDs.
+    const segId = hasSplit ? `${id}-p${si}` : id;
+    const speech: Speech = {
+      type: "speech",
+      id: segId,
+      characterId,
+      characterName,
+      speakerTag: speakerTagName,
+      lines: segLines,
+      lineCount: segLines.length,
+    };
+    if (segLines.some((l) => l.isSong)) speech.isSong = true;
+    result.push(speech);
+
+    // Emit the embedded SD that follows this segment (if any)
+    if (si < embSds.length) {
+      const stageNode = embSds[si];
+      const stageType = getAttr(stageNode, "@_type") as StageDirection["stageType"] | undefined;
+      const stageText = extractAllText(getChildren(stageNode)).trim();
+      const stageWho = getAttr(stageNode, "@_who") || "";
+      const stageChars = [...new Set(stageWho.split(/\s+/).filter((w) => w.startsWith("#")))];
+      const isContentSd = !stageType || stageType === "business" || stageType === "delivery";
+      const isSong = (isContentSd && /\bsong\b|\bsings\b|\bsinging\b/i.test(stageText)) || undefined;
+      const isDance = (isContentSd && /\bdance\b|\bdances\b|\bdancing\b/i.test(stageText)) || undefined;
+      result.push({
+        type: "stage",
+        id: `${id}-emb-stg-${si}`,
+        text: stageText,
+        characters: stageChars,
+        stageType,
+        isSong,
+        isDance,
+      });
+    }
+  }
+
+  // Edge case: no lines at all (speech has only speaker tag + pre-speech SDs)
+  // Still emit a zero-line speech so the delivery note is visible.
+  if (result.length === 0) {
+    result.push({
+      type: "speech",
+      id,
+      characterId,
+      characterName,
+      speakerTag: speakerTagName,
+      lines: [],
+      lineCount: 0,
+    });
+  }
+
+  return result;
 }
 
 function extractTitle(teiChildren: unknown[]): string {

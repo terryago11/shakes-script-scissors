@@ -49,8 +49,11 @@ export interface Line {
   isSong?: boolean;
   /** True when this line is a B-rhyme (even 1-indexed position) in a poem stanza — rendered indented */
   poemIndent?: boolean;
-  /** True when this line has part="F" — it completes a verse line started by a previous speaker */
+  /** True when this line has part="F" or part="I"+prev= — it continues a shared verse line */
   partIndent?: boolean;
+  /** Character count of all preceding parts in the shared-line chain.
+   *  Used for proportional ch-based indent so the fragment visually "completes" the line. */
+  partIndentChars?: number;
 }
 
 export interface StageDirection {
