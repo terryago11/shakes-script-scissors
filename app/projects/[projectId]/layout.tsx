@@ -489,9 +489,9 @@ function NavCutModeExitButton() {
   );
 }
 
-/** Condensed scene jump select — labels like "1:1", "2:3" */
+/** Condensed scene jump select — labels like "1:1", "2:3", "pr:1", "3:ch" */
 function NavJumpSelect() {
-  const { scenes, activeSceneId, setActiveSceneId, jumpToScene, focusedSceneId, setFocusedSceneId } = useSceneJump();
+  const { scenes, activeSceneId, setActiveSceneId, jumpToScene, focusedSceneId, setFocusedSceneId, hiddenSceneIds } = useSceneJump();
   if (scenes.length === 0) return null;
 
   const isFocused = !!focusedSceneId;
@@ -525,7 +525,9 @@ function NavJumpSelect() {
         >
           <option value="">—</option>
           {scenes.map((s) => (
-            <option key={s.id} value={s.id}>{s.label}</option>
+            <option key={s.id} value={s.id} disabled={hiddenSceneIds.has(s.id)}>
+              {hiddenSceneIds.has(s.id) ? `— ${s.label}` : s.label}
+            </option>
           ))}
         </select>
       )}

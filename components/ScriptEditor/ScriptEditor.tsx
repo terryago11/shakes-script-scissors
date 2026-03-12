@@ -144,7 +144,7 @@ export default function ScriptEditor({ playId }: Props) {
   const [filter, setFilter] = useState<FilterState>(null);
   const [easterEggVisible, setEasterEggVisible] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
-  const { setScenes, setActiveSceneId, jumpingRef, focusedSceneId, setFocusedSceneId } = useSceneJump();
+  const { setScenes, setActiveSceneId, jumpingRef, focusedSceneId, setFocusedSceneId, setHiddenSceneIds } = useSceneJump();
   const { cutModeActive, setCutModeActive } = useCutMode();
   const { viewMode } = useViewMode();
   const { setWpm } = useMetric();
@@ -176,11 +176,21 @@ export default function ScriptEditor({ playId }: Props) {
       .then((data: Play) => {
         setPlay(data);
         setLoading(false);
-        // Short labels: "1:1", "1:2", "2:1" …
+        // Short labels: "1:1", "1:2", "2:1" — special acts/scenes use type abbreviations:
+        //   prologue act → "pr", epilogue → "ep", induction → "in"
+        //   chorus scene → "ch" (e.g. "3:ch"), scene epilogue/prologue → "ep"/"pr"
         const scenesList: { id: string; label: string }[] = [];
-        data.acts.forEach((act, ai) => {
+        data.acts.forEach((act) => {
+          const actPrefix = act.divType === "prologue" ? "pr"
+            : act.divType === "epilogue" ? "ep"
+            : act.divType === "induction" ? "in"
+            : String(act.number);
           act.scenes.forEach((scene, si) => {
-            scenesList.push({ id: scene.id, label: `${ai + 1}:${si + 1}` });
+            const sceneLabel = scene.sceneType === "chorus" ? "ch"
+              : scene.sceneType === "epilogue" ? "ep"
+              : scene.sceneType === "prologue" ? "pr"
+              : String(si + 1);
+            scenesList.push({ id: scene.id, label: `${actPrefix}:${sceneLabel}` });
           });
         });
         setScenes(scenesList);
@@ -193,6 +203,36 @@ export default function ScriptEditor({ playId }: Props) {
         setLoading(false);
       });
   }, [playId, setScenes]);
+
+  // Update hidden scene IDs in the context when the character/actor filter changes.
+  // Hidden scenes are those where the filtered character has no speeches.
+  useEffect(() => {
+    if (!play) return;
+    if (!filter) {
+      setHiddenSceneIds(new Set());
+      return;
+    }
+    // Resolve filter to a set of character IDs (actor filter → map to characters)
+    const charIds = new Set<string>();
+    if (filter.type === "character") {
+      charIds.add(filter.id);
+    } else {
+      project?.assignments
+        .filter((a) => a.actorId === filter.id)
+        .forEach((a) => charIds.add(a.characterId));
+    }
+    if (charIds.size === 0) { setHiddenSceneIds(new Set()); return; }
+    const hidden = new Set<string>();
+    for (const act of play.acts) {
+      for (const scene of act.scenes) {
+        const hasChar = scene.units.some(
+          (u) => u.type === "speech" && charIds.has(u.characterId)
+        );
+        if (!hasChar) hidden.add(scene.id);
+      }
+    }
+    setHiddenSceneIds(hidden);
+  }, [filter, play, project?.assignments, setHiddenSceneIds]);
 
   // Track which scene is at the top of the viewport
   useEffect(() => {

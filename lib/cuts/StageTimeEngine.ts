@@ -100,6 +100,16 @@ export function computeStageTime(
     }
   }
 
+  // ── Persistent on-stage tracking across the whole show ──────────────────────
+  // Characters are added at entrance SDs and removed at exit SDs. They remain
+  // on stage across scene boundaries until they explicitly exit (just as in the
+  // theater — "no entrance" means onstage from scene start; "no exit" means
+  // onstage until the end of the show or until their exit SD fires).
+  // onStageOrig: driven by original SD characters (sd.characters), unaffected by edits
+  // onStage:     driven by effective characters (edits override sd.characters for cut version)
+  const onStage = new Set<string>();
+  const onStageOrig = new Set<string>();
+
   for (const sceneId of effectiveSceneOrder) {
     const scene = sceneById.get(sceneId);
     if (!scene) continue;
@@ -110,28 +120,6 @@ export function computeStageTime(
       cut.insertions,
       play.castList
     );
-
-    // ── On-stage sets — populated ONLY by entrance/exit SDs, no fallback ────
-    // onStageOrig: driven by original SD characters (sd.characters), unaffected by edits
-    // onStage:     driven by effective characters (edits override sd.characters for cut version)
-    const onStage = new Set<string>();
-    const onStageOrig = new Set<string>();
-
-    // ── Fallback sets for song/dance duration distribution ────────────────────
-    // When a scene has no entrance SDs (common in Shakespeare — characters are "already on stage"),
-    // onStage will be empty and song durations won't distribute to any characters. To handle this,
-    // we pre-compute the set of all speakers in this scene as a fallback: if onStage is empty when
-    // a song/dance duration is encountered, we distribute to all scene speakers instead.
-    const sceneSpeakersKept = new Set<string>(); // kept speeches → cut time fallback
-    const sceneSpeakersAll = new Set<string>();  // all speeches  → original time fallback
-    for (const unit of expandedUnits) {
-      if (unit.type === "speech" && unit.characterId) {
-        const isInsertion = !!(cut.insertions?.[unit.id]);
-        if (!isInsertion) sceneSpeakersAll.add(unit.characterId);
-        const isKept = (cut.cutMap[unit.id] ?? "kept") === "kept";
-        if (isKept && !isInsertion) sceneSpeakersKept.add(unit.characterId);
-      }
-    }
 
     // ── Walk units in document order ─────────────────────────────────────────
     for (const unit of expandedUnits) {
@@ -218,14 +206,11 @@ export function computeStageTime(
         // Extra duration for song/dance speeches (set from the Scenes & Pauses dashboard)
         const speechDuration = cut.stageDurations?.[unit.id];
         if (speechDuration && speechDuration > 0) {
-          // Distribute to all on-stage chars; fall back to scene speakers when no entrance SDs
-          // have fired yet (common in Shakespeare where characters are "already on stage" at scene start).
-          const songOnStage = onStage.size > 0 ? onStage : sceneSpeakersKept;
-          const songOnStageOrig = onStageOrig.size > 0 ? onStageOrig : sceneSpeakersAll;
-
+          // Distribute to all currently on-stage characters (persistent tracking — includes
+          // characters who entered in previous scenes and haven't yet exited).
           totalMinutes += speechDuration;
           if (!sceneMinByChar[sceneId]) sceneMinByChar[sceneId] = {};
-          for (const charId of songOnStage) {
+          for (const charId of onStage) {
             const entry = ensureChar(byCharacter, charId);
             entry.minutes += speechDuration;
             sceneMinByChar[sceneId][charId] = (sceneMinByChar[sceneId][charId] ?? 0) + speechDuration;
@@ -233,7 +218,7 @@ export function computeStageTime(
           // Original: same extra time (song existed in original too)
           originalTotalMinutes += speechDuration;
           if (!sceneOrigMinByChar[sceneId]) sceneOrigMinByChar[sceneId] = {};
-          for (const charId of songOnStageOrig) {
+          for (const charId of onStageOrig) {
             const entry = ensureChar(byCharacter, charId);
             entry.originalMinutes += speechDuration;
             sceneOrigMinByChar[sceneId][charId] = (sceneOrigMinByChar[sceneId][charId] ?? 0) + speechDuration;
@@ -241,7 +226,6 @@ export function computeStageTime(
         }
       }
     }
-    // Characters remaining in onStage at scene end are assumed to exit at scene end
   }
 
   // Build per-scene SceneStageTime[] for each character
