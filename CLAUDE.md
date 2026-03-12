@@ -60,9 +60,11 @@ Both updates should be done together whenever play texts are refreshed.
 
 ### `Play` (parsed from TEI, never stored)
 - `acts[]` → `scenes[]` → `units[]` (Speech | StageDirection)
-- `Speech`: `characterId` (e.g. `#Hamlet_Ham`), `characterName`, `speakerTag` (raw `<speaker>` tag text verbatim, e.g. `"GHOST OF HAMLET'S FATHER"`), `lines[]`, `lineCount`
-- `StageDirection`: `id`, `text`, `characters[]`, `stageType?` (`"entrance"|"exit"|"business"|"delivery"`), `isSong?`
-- `Line`: `id`, `ftln` (Folger through-line number), `text`
+- `Act`: `id`, `number`, `title`, `scenes[]`, `divType?` (`"prologue"|"epilogue"|"induction"` — undefined means a regular act)
+- `Scene`: `id`, `number`, `title`, `units[]`, `sceneType?` (`"chorus"|"epilogue"|"prologue"` — undefined means a regular scene)
+- `Speech`: `characterId` (e.g. `#Hamlet_Ham`), `characterName`, `speakerTag` (raw `<speaker>` tag text verbatim, e.g. `"GHOST OF HAMLET'S FATHER"`), `deliveryNote?` (pre-speech delivery qualifier, e.g. `"[within]"`, shown inline after the character name), `lines[]`, `lineCount`
+- `StageDirection`: `id`, `text`, `characters[]`, `stageType?` (`"entrance"|"exit"|"business"|"delivery"`), `isSong?`, `isDance?`
+- `Line`: `id`, `ftln` (Folger through-line number), `text`, `isSong?`, `poemIndent?` (B-rhyme in a poem stanza → indented), `partIndent?` (part="F"/part="I"+prev — shared verse fragment → proportionally indented), `partIndentChars?` (char count of preceding parts, drives indent width)
 
 ### `Project` (stored as JSON in localStorage)
 - `name?: string` — optional display name (e.g. "2026 Production"); distinct from `playTitle`
@@ -75,6 +77,7 @@ Both updates should be done together whenever play texts are refreshed.
   - `speechReassignments?: Record<unitId, characterId>` — re-attributes a speech to a different character; afterCut counts route to the new character, original counts stay on the original
   - `characterAliases?: Record<characterId, string>` — display-name overrides per character for this cut; never alters underlying Play data; propagated to all render sites (script, line counts, matrix, cue scripts)
   - `characterLinks?: Array<[charIdA, charIdB]>` — director-specified pairs that must share the same actor; IDs stored in sorted order for stable equality checks; fed into Suggest as `sameActorPairs` overrides, which take precedence over quick-change forbidden pairs; per-cut, cloned when duplicating a cut
+  - `stageDurations?: Record<stageId | speechId, number>` — director-specified extra minutes for song/dance SDs or speeches; added to total and scene running times but not attributed to individual characters
   - `pauses?: Record<"after:{sceneId}", { name: string; minutes: number }>` — named intermissions inserted between scenes; duration adds to total running time
 - `actors[]`: name + color hex
 - `assignments[]`: `characterId` → `actorId` (double-casting: one actor → many characters)
@@ -87,6 +90,10 @@ The DraCor TEI format uses:
 - `<l xml:id="ftln-N">` for verse lines
 - `<p xml:id="p-N"><lb xml:id="ftln-N"/>text</p>` for prose (multiple `<lb>` per `<p>` = multiple lines)
 - `<lg xml:id="stz-N">` for stanzas/songs (contains `<l>` children)
+- `<l part="I|F" prev="#ftln-N">` — shared verse lines split across speakers; `part="I"` (no prev) starts the chain, `part="I"+prev` marks middle fragments, `part="F"` closes it; `partIndentChars` stores the cumulative preceding-text length for proportional indentation
+- `<stage>` elements inside `<sp>`: pre-first-line stages (e.g. `<stage type="location">, within</stage>`) become `Speech.deliveryNote`; stages that appear between lines split the speech into multiple `Speech` + `StageDirection` units
+- Top-level body divs: `act`, `prologue`, `epilogue`, `induction` — all collected in document order; `divType` on `Act` distinguishes non-act structural divs
+- Scene-level div types: `scene`, `chorus`, `epilogue`, `prologue` — `sceneType` on `Scene` distinguishes non-scene units
 - `<div type="act" n="1">` and `<div type="scene" n="1">`
 - `<sp who="#CharId_PlayId">` for speeches
 - `<castItem sameAs="#CharId_PlayId">` for cast list
@@ -314,10 +321,19 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
 
 - **Group 14**: Responsive design — tablet landscape (1024px = `lg:`) as primary breakpoint, mobile (375px) as secondary; nav bar collapses ✂ Cut mode + scene jump behind `☰` hamburger dropdown below `lg:`, nav link labels hide below `md:`, project title responsive `max-w` with truncation; `LineCountPanel` sidebar `hidden lg:block` on desktop, bottom drawer on tablet toggled by floating `≡ Info` pill (`hidden md:block lg:hidden`), fully hidden on mobile; script editor full-width on tablet; `SceneDashboard` header `flex-wrap` + subtabs `overflow-x-auto`; `CastingManager` character grid adds `xl:grid-cols-3`; all via Tailwind `md:`/`lg:`/`xl:` breakpoints + minimal `useState` for drawer toggle
 
+- **Group 15 — Script Features**
+  - SD "sync exits" button (renamed from "auto-fill"): pre-fills exit SD character list from on-stage tracking; button label is "⟳ sync exits"
+  - Song & dance highlighting: ♪ violet/italic for sung lines, ⊛ cyan for dance SDs; `+ time` inline duration editor on song/dance SDs; durations stored in `Cut.stageDurations` and added to show running time
+  - Epilogues, prologues, inductions, and choruses parsed from TEI: `Act.divType`, `Scene.sceneType`; `PROLOGUE`/`EPILOGUE`/`INDUCTION`/`CHORUS` rendered in script and scene jumper (`pr:1`, `ep:1`, `in:1`, `3:ch`)
+  - Scene jumper: hidden scenes disabled/dimmed when character/actor filter active; non-standard scene labels (`pr`, `ep`, `ch`, `in`) passed through
+  - Poem B-rhyme indentation: odd-position lines in `<lg>` poem stanzas indented per Folger layout
+  - Split verse line (shared-line) proportional indentation: `part="F"` and `part="I"+prev=` lines indented by cumulative preceding-part character count in `ch` units
+  - Mid-speech stage directions: `<stage>` elements inside `<sp>` split the speech into Speech+StageDirection segments (e.g. "Enter Macbeth with bloody daggers." mid-Lady-Macbeth)
+  - Pre-speech delivery notes: `<stage type="location">` before first line becomes `Speech.deliveryNote`, shown as italic `[within]` after the character name
+
 ### Not Started (Phase 4+)
 
-#### Group 15 — Script Features
-- **SD "All" expansion**: Walk exit SDs where `sd.characters` is empty or matches `/\ball\b|\bexeunt\b/i`. Add "Auto-fill from on-stage" button in `StageDirectionBlock.tsx` that pre-fills the SD character editor with the computed on-stage set (non-destructive, user confirms). Critical files: `lib/cuts/StageTimeEngine.ts`, `components/ScriptEditor/StageDirectionBlock.tsx`.
+#### Group 15 — Script Features (remaining)
 - **Split speech**: Allow splitting a `Speech` at a line boundary into two independently cuttable/reassignable units. Data model: `Cut.speechSplits?: Record<unitId, { splitAtLineIndex: number; newCharacterId?: string }>`. UI: hover a line boundary → "Split here" micro-button; a "Merge" button restores. `CutEngine` must expand splits. Critical files: `types/project.ts`, `lib/cuts/CutEngine.ts`, `components/ScriptEditor/SpeechBlock.tsx`.
 - **Insert text (full)**: Two modes — **Freestyle** (plain text, assign from cast) and **Borrow from play** (DraCor catalogue picker → scene browser → line multi-select). Data model: `Cut.insertions?: Record<insertionId, { afterUnitId: string; characterId: string; lines: InsertedLine[]; source: "freestyle" | { playId: string; unitId: string } }>`. Inserted units appear with a green left border + "inserted" badge in all view modes. Counts included in line/word totals and cue scripts. New component: `components/ScriptEditor/InsertionBlock.tsx`. Critical files: `types/project.ts`, `lib/cuts/CutEngine.ts`, `lib/cuts/CueScriptBuilder.ts`, `components/ScriptEditor/SpeechBlock.tsx`.
 
