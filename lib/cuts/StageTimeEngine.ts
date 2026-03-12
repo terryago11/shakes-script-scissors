@@ -117,6 +117,22 @@ export function computeStageTime(
     const onStage = new Set<string>();
     const onStageOrig = new Set<string>();
 
+    // ── Fallback sets for song/dance duration distribution ────────────────────
+    // When a scene has no entrance SDs (common in Shakespeare — characters are "already on stage"),
+    // onStage will be empty and song durations won't distribute to any characters. To handle this,
+    // we pre-compute the set of all speakers in this scene as a fallback: if onStage is empty when
+    // a song/dance duration is encountered, we distribute to all scene speakers instead.
+    const sceneSpeakersKept = new Set<string>(); // kept speeches → cut time fallback
+    const sceneSpeakersAll = new Set<string>();  // all speeches  → original time fallback
+    for (const unit of expandedUnits) {
+      if (unit.type === "speech" && unit.characterId) {
+        const isInsertion = !!(cut.insertions?.[unit.id]);
+        if (!isInsertion) sceneSpeakersAll.add(unit.characterId);
+        const isKept = (cut.cutMap[unit.id] ?? "kept") === "kept";
+        if (isKept && !isInsertion) sceneSpeakersKept.add(unit.characterId);
+      }
+    }
+
     // ── Walk units in document order ─────────────────────────────────────────
     for (const unit of expandedUnits) {
       if (unit.type === "stage") {
@@ -202,18 +218,24 @@ export function computeStageTime(
         // Extra duration for song/dance speeches (set from the Scenes & Pauses dashboard)
         const speechDuration = cut.stageDurations?.[unit.id];
         if (speechDuration && speechDuration > 0) {
+          // Distribute to all on-stage chars; fall back to scene speakers when no entrance SDs
+          // have fired yet (common in Shakespeare where characters are "already on stage" at scene start).
+          const songOnStage = onStage.size > 0 ? onStage : sceneSpeakersKept;
+          const songOnStageOrig = onStageOrig.size > 0 ? onStageOrig : sceneSpeakersAll;
+
           totalMinutes += speechDuration;
-          for (const charId of onStage) {
+          if (!sceneMinByChar[sceneId]) sceneMinByChar[sceneId] = {};
+          for (const charId of songOnStage) {
             const entry = ensureChar(byCharacter, charId);
             entry.minutes += speechDuration;
             sceneMinByChar[sceneId][charId] = (sceneMinByChar[sceneId][charId] ?? 0) + speechDuration;
           }
           // Original: same extra time (song existed in original too)
           originalTotalMinutes += speechDuration;
-          for (const charId of onStageOrig) {
+          if (!sceneOrigMinByChar[sceneId]) sceneOrigMinByChar[sceneId] = {};
+          for (const charId of songOnStageOrig) {
             const entry = ensureChar(byCharacter, charId);
             entry.originalMinutes += speechDuration;
-            if (!sceneOrigMinByChar[sceneId]) sceneOrigMinByChar[sceneId] = {};
             sceneOrigMinByChar[sceneId][charId] = (sceneOrigMinByChar[sceneId][charId] ?? 0) + speechDuration;
           }
         }

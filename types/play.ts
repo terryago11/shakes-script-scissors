@@ -47,6 +47,8 @@ export interface Line {
   text: string;
   /** True when this line comes from an <lg> stanza that is a song (not a poem) */
   isSong?: boolean;
+  /** True when this line is a B-rhyme (even 1-indexed position) in a poem stanza — rendered indented */
+  poemIndent?: boolean;
 }
 
 export interface StageDirection {

@@ -756,8 +756,9 @@ function extractAllText(nodes: unknown[]): string {
  * Recursively extract lines from an <lg> (line-group/stanza) element.
  * <lg> can contain <l>, <lg> (nested stanzas), and <p>/<ab> elements.
  * @param isSong — when true, every extracted line gets `isSong: true` (marks it as a sung line)
+ * @param stanzaPos — running position within the stanza (0-indexed); tracks indent alternation
  */
-function extractLgLines(lgNode: unknown, speechId: string, startIndex: number, isSong = false): Line[] {
+function extractLgLines(lgNode: unknown, speechId: string, startIndex: number, isSong = false, stanzaPos = { n: 0 }): Line[] {
   const lines: Line[] = [];
   let lineIndex = startIndex;
   for (const child of getChildren(lgNode)) {
@@ -769,20 +770,31 @@ function extractLgLines(lgNode: unknown, speechId: string, startIndex: number, i
       const text = extractAllText(getChildren(child)).trim();
       if (text) {
         const line: Line = { id: lineId, ftln, text };
-        if (isSong) line.isSong = true;
+        if (isSong) {
+          line.isSong = true;
+        } else if (stanzaPos.n % 2 === 1) {
+          // Odd position (0-indexed) = B-rhyme line in poem stanza → indent (Folger layout)
+          line.poemIndent = true;
+        }
+        stanzaPos.n++;
         lines.push(line);
         lineIndex++;
       }
     } else if (tag === "lg") {
-      // Nested <lg> inherits the isSong flag from the parent stanza
-      const nested = extractLgLines(child, speechId, lineIndex, isSong);
+      // Nested <lg> inherits the isSong flag and continues the stanza position counter
+      const nested = extractLgLines(child, speechId, lineIndex, isSong, stanzaPos);
       for (const l of nested) { if (l.text) { lines.push(l); lineIndex++; } }
     } else if (tag === "p") {
       const pChildren = getChildren(child);
       const proseLines = splitProseByLb(pChildren, speechId, lineIndex);
       for (const pl of proseLines) {
         if (pl.text) {
-          if (isSong) pl.isSong = true;
+          if (isSong) {
+            pl.isSong = true;
+          } else if (stanzaPos.n % 2 === 1) {
+            pl.poemIndent = true;
+          }
+          stanzaPos.n++;
           lines.push(pl);
           lineIndex++;
         }
@@ -794,7 +806,12 @@ function extractLgLines(lgNode: unknown, speechId: string, startIndex: number, i
       const text = extractAllText(getChildren(child)).trim();
       if (text) {
         const line: Line = { id: lineId, ftln, text };
-        if (isSong) line.isSong = true;
+        if (isSong) {
+          line.isSong = true;
+        } else if (stanzaPos.n % 2 === 1) {
+          line.poemIndent = true;
+        }
+        stanzaPos.n++;
         lines.push(line);
         lineIndex++;
       }

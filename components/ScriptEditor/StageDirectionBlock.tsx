@@ -145,13 +145,17 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
             ))}
             {/* Sync exits from on-stage set — for empty/all-exit SDs */}
             {showAutoFill && (
-              <button
-                onClick={handleAutoFill}
-                className="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-900/50 transition-colors"
-                title="Adds any onstage characters not mentioned in the exit text to the list"
-              >
-                ⟳ sync exits
-              </button>
+              <span className="relative group/sync inline-block">
+                <button
+                  onClick={handleAutoFill}
+                  className="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-900/50 transition-colors"
+                >
+                  ⟳ sync exits
+                </button>
+                <span className="absolute bottom-full left-0 mb-1 hidden group-hover/sync:block bg-stone-800 text-white text-[10px] leading-snug rounded px-2 py-1.5 whitespace-nowrap z-50 shadow-lg pointer-events-none">
+                  Adds any onstage characters not mentioned in the exit text to the list
+                </span>
+              </span>
             )}
             {/* Add characters not originally in this SD */}
             {addableChars.length > 0 && (

@@ -312,6 +312,8 @@ export default function SpeechBlock({
             const isLineCut = !isCut && lineStatus === "cut";
             // Per-line song coloring: only lines with isSong=true get violet + italic
             const isLineSong = !isCut && !isLineCut && line.isSong === true;
+            // Poem B-rhyme indent: odd-position lines in poem stanzas (e.g. Folger quatrain layout)
+            const isLinePoem = !isCut && !isLineCut && line.poemIndent === true;
 
             // In clean mode, skip cut lines entirely
             if (isLineCut && viewMode === "clean") return [];
@@ -351,7 +353,9 @@ export default function SpeechBlock({
                     : "line-through text-red-400 opacity-60"
                   : isLineSong
                     ? "text-violet-700 dark:text-violet-300 italic pl-4"
-                    : ""}`}
+                    : isLinePoem
+                      ? "pl-6"
+                      : ""}`}
               >
                 <span className="flex-1">{lineContent}</span>
                 {lineNum != null && (
