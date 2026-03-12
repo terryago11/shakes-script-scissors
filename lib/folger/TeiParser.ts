@@ -274,13 +274,17 @@ function parseSpeech(
   for (const child of spChildren) {
     const tag = getTagName(child);
     if (tag === "l") {
-      // Verse line: <l xml:id="ftln-NNNN" n="1.1.1">text</l>
+      // Verse line: <l xml:id="ftln-NNNN" n="1.1.1" part="I|F">text</l>
+      // part="F" (Final) → line completes a verse line started by a previous speaker → indent
       const lineId = getAttr(child, "@_xml:id") || `${id}-l-${lineIndex}`;
       const n = getAttr(child, "@_n") || "";
       const ftln = parseFtln(lineId, n);
+      const partAttr = getAttr(child, "@_part") ?? "";
       const text = extractAllText(getChildren(child)).trim();
       if (text) {
-        lines.push({ id: lineId, ftln, text });
+        const line: Line = { id: lineId, ftln, text };
+        if (partAttr === "F") line.partIndent = true;
+        lines.push(line);
         lineIndex++;
       }
     } else if (tag === "p") {
