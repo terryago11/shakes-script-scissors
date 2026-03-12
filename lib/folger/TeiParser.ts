@@ -294,6 +294,8 @@ function parseSpeech(
   const embSds: unknown[] = [];
   let lineIndex = 0;
   let hasAnyLines = false; // true once the first <l>/<p>/<lg>/... is encountered
+  // Delivery note from a pre-speech <stage> (e.g. "[within]") — rendered inline after char name
+  let deliveryNote: string | undefined;
 
   for (const child of spChildren) {
     const tag = getTagName(child);
@@ -301,16 +303,16 @@ function parseSpeech(
 
     if (tag === "stage") {
       if (!hasAnyLines) {
-        // ── Pre-speech stage: absorb into speaker tag as "[text]" ──────────────
-        // e.g. <stage type="location">, within</stage> → "MACBETH, [within]"
+        // ── Pre-speech stage: absorb into speaker tag and capture delivery note ─
+        // e.g. <stage type="location">, within</stage> → deliveryNote="[within]"
         const sdText = extractAllText(getChildren(child)).trim();
         if (sdText) {
-          // Preserve a leading comma from the original TEI text (", within" pattern)
-          if (sdText.startsWith(",")) {
-            speakerTagName += `, [${sdText.slice(1).trim()}]`;
-          } else {
-            speakerTagName += ` [${sdText}]`;
-          }
+          const noteText = sdText.startsWith(",") ? sdText.slice(1).trim() : sdText;
+          const formatted = `[${noteText}]`;
+          // Append to speakerTag so legacy/diagnostic uses still see it
+          speakerTagName += sdText.startsWith(",") ? `, ${formatted}` : ` ${formatted}`;
+          // Store separately for the UI to render inline after the character name
+          deliveryNote = (deliveryNote ? deliveryNote + " " : "") + formatted;
         }
       } else {
         // ── Mid-speech stage: split the speech here ─────────────────────────────
@@ -429,6 +431,8 @@ function parseSpeech(
       lineCount: segLines.length,
     };
     if (segLines.some((l) => l.isSong)) speech.isSong = true;
+    // Only the first segment inherits the delivery note (pre-speech qualifier belongs to the opener)
+    if (si === 0 && deliveryNote) speech.deliveryNote = deliveryNote;
     result.push(speech);
 
     // Emit the embedded SD that follows this segment (if any)
@@ -456,7 +460,7 @@ function parseSpeech(
   // Edge case: no lines at all (speech has only speaker tag + pre-speech SDs)
   // Still emit a zero-line speech so the delivery note is visible.
   if (result.length === 0) {
-    result.push({
+    const emptySpeech: Speech = {
       type: "speech",
       id,
       characterId,
@@ -464,7 +468,9 @@ function parseSpeech(
       speakerTag: speakerTagName,
       lines: [],
       lineCount: 0,
-    });
+    };
+    if (deliveryNote) emptySpeech.deliveryNote = deliveryNote;
+    result.push(emptySpeech);
   }
 
   return result;

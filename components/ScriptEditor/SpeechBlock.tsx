@@ -238,6 +238,13 @@ export default function SpeechBlock({
             </span>
           )}
 
+          {/* Delivery note — e.g. "[within]" from a pre-speech TEI <stage> */}
+          {speech.deliveryNote && !isCut && (
+            <span className="text-xs font-normal italic normal-case tracking-normal text-stone-400 dark:text-stone-500 shrink-0">
+              {speech.deliveryNote}
+            </span>
+          )}
+
           {/* Reassignment indicator — green insertion style */}
           {reassignedChar && !isCut && (
             <span className="text-xs text-green-700 dark:text-green-400 font-bold uppercase tracking-wider shrink-0">

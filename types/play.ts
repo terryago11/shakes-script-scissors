@@ -38,6 +38,9 @@ export interface Speech {
   lineCount: number;
   /** True when the speech contains <lg> stanza children (e.g. a sung song) */
   isSong?: boolean;
+  /** Delivery/location qualifier from a pre-speech <stage>, e.g. "[within]".
+   *  Displayed inline after the character name. */
+  deliveryNote?: string;
 }
 
 export interface Line {
