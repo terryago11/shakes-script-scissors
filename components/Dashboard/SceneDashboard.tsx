@@ -3,6 +3,13 @@
 import { useState, useEffect } from "react";
 import type { Play, Act, Scene } from "@/types/play";
 import type { Project, Cut, Actor, ActorAssignment } from "@/types/project";
+export interface SongDanceItem {
+  id: string;
+  /** Display label shown in the scene list row */
+  label: string;
+  isSong: boolean;
+  isDance: boolean;
+}
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import { computeCuts } from "@/lib/cuts/CutEngine";
 import { computeStageTime } from "@/lib/cuts/StageTimeEngine";
@@ -163,6 +170,23 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
     })
   );
 
+  // Build a map of sceneId → song/dance items (speeches with <lg> stanzas + song/dance SDs)
+  const sceneSongDanceItems = new Map<string, SongDanceItem[]>();
+  for (const [sceneId, scene] of sceneById) {
+    const items: SongDanceItem[] = [];
+    for (const unit of scene.units) {
+      if (unit.type === "speech" && unit.isSong) {
+        // Song speech (e.g. "Under the Greenwood Tree" — a <sp> containing <lg> stanzas)
+        const firstLine = unit.lines[0]?.text ?? "";
+        const preview = firstLine.length > 35 ? firstLine.slice(0, 33) + "…" : firstLine;
+        items.push({ id: unit.id, label: `${unit.characterName}: "${preview}"`, isSong: true, isDance: false });
+      } else if (unit.type === "stage" && (unit.isSong || unit.isDance)) {
+        items.push({ id: unit.id, label: unit.text, isSong: !!unit.isSong, isDance: !!unit.isDance });
+      }
+    }
+    if (items.length > 0) sceneSongDanceItems.set(sceneId, items);
+  }
+
   function handleSetPause(afterSceneId: string, name: string, minutes: number) {
     dispatch({ type: "SET_PAUSE", afterSceneId, name, minutes });
   }
@@ -173,6 +197,14 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
 
   function handleSetSceneOrder(newOrder: string[]) {
     dispatch({ type: "SET_SCENE_ORDER", sceneOrder: newOrder });
+  }
+
+  function handleSetStageDuration(stageId: string, minutes: number) {
+    dispatch({ type: "SET_STAGE_DURATION", stageId, minutes });
+  }
+
+  function handleClearStageDuration(stageId: string) {
+    dispatch({ type: "CLEAR_STAGE_DURATION", stageId });
   }
 
   const hasPauses = activeCut.pauses && Object.keys(activeCut.pauses).length > 0;
@@ -270,6 +302,10 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
             onSetSceneOrder={handleSetSceneOrder}
             metric={metric}
             wpm={wpm}
+            sceneSongDanceSDs={sceneSongDanceItems}
+            stageDurations={activeCut.stageDurations}
+            onSetStageDuration={handleSetStageDuration}
+            onClearStageDuration={handleClearStageDuration}
           />
         </div>
       )}

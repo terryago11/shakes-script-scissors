@@ -132,6 +132,9 @@ export default function SpeechBlock({
     ? resolveCharacterName(reassignedChar.id, characterAliases, castList ?? [])
     : null;
 
+  // Song speech: contains <lg> stanza children (e.g. "Under the Greenwood Tree")
+  const isSongSpeech = speech.isSong === true;
+
   // Shared name-rendering pieces — used in both the clickable and non-clickable char name
   const nameClass = isCut
     ? "text-red-400 opacity-60 line-through"
@@ -177,6 +180,10 @@ export default function SpeechBlock({
       <div className="flex-1 min-w-0">
         {/* Character name header */}
         <div className="flex items-center gap-1.5 mb-1 min-w-0">
+          {/* Song indicator */}
+          {isSongSpeech && !isCut && (
+            <span className="text-xs text-violet-500 dark:text-violet-400 shrink-0" title="Song">♪</span>
+          )}
 
           {/* Character name — hover shows border + tiny icon above; click opens reassign.
               Once reassigned, skip the affordance — use ↩ restore to go back instead. */}
@@ -288,7 +295,9 @@ export default function SpeechBlock({
             ? viewMode === "diff"
               ? "text-red-500 line-through bg-red-50 dark:bg-red-950/50 rounded px-1"
               : "text-red-400 opacity-60 line-through"
-            : "text-stone-800 dark:text-stone-100"
+            : isSongSpeech
+              ? "text-violet-700 dark:text-violet-300"
+              : "text-stone-800 dark:text-stone-100"
         }`}>
           {speech.lines.flatMap((line, lineIndex) => {
             const lineStatus = lineStatusMap.get(line.id) ?? "kept";

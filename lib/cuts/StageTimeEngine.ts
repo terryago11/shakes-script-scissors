@@ -198,6 +198,25 @@ export function computeStageTime(
           entry.minutes += cutMinutes;
           sceneMinByChar[sceneId][charId] = (sceneMinByChar[sceneId][charId] ?? 0) + cutMinutes;
         }
+
+        // Extra duration for song/dance speeches (set from the Scenes & Pauses dashboard)
+        const speechDuration = cut.stageDurations?.[unit.id];
+        if (speechDuration && speechDuration > 0) {
+          totalMinutes += speechDuration;
+          for (const charId of onStage) {
+            const entry = ensureChar(byCharacter, charId);
+            entry.minutes += speechDuration;
+            sceneMinByChar[sceneId][charId] = (sceneMinByChar[sceneId][charId] ?? 0) + speechDuration;
+          }
+          // Original: same extra time (song existed in original too)
+          originalTotalMinutes += speechDuration;
+          for (const charId of onStageOrig) {
+            const entry = ensureChar(byCharacter, charId);
+            entry.originalMinutes += speechDuration;
+            if (!sceneOrigMinByChar[sceneId]) sceneOrigMinByChar[sceneId] = {};
+            sceneOrigMinByChar[sceneId][charId] = (sceneOrigMinByChar[sceneId][charId] ?? 0) + speechDuration;
+          }
+        }
       }
     }
     // Characters remaining in onStage at scene end are assumed to exit at scene end

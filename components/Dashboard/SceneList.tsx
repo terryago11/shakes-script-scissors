@@ -5,6 +5,7 @@ import type { Act, Scene } from "@/types/play";
 import type { LineCounts } from "@/types/cut";
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import type { Actor } from "@/types/project";
+import type { SongDanceItem } from "./SceneDashboard";
 import PauseRow from "./PauseRow";
 
 interface Props {
@@ -21,6 +22,12 @@ interface Props {
   onSetSceneOrder?: (newOrder: string[]) => void;
   metric: "lines" | "words" | "time";
   wpm: number;
+  /** Song/dance items (speeches + SDs) in each scene, for duration editing */
+  sceneSongDanceSDs?: Map<string, SongDanceItem[]>;
+  /** Current extra durations keyed by SD id */
+  stageDurations?: Record<string, number>;
+  onSetStageDuration?: (stageId: string, minutes: number) => void;
+  onClearStageDuration?: (stageId: string) => void;
 }
 
 function formatMinutes(m: number): string {
@@ -43,8 +50,14 @@ export default function SceneList({
   onSetSceneOrder,
   metric,
   wpm,
+  sceneSongDanceSDs,
+  stageDurations,
+  onSetStageDuration,
+  onClearStageDuration,
 }: Props) {
   const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null);
+  const [editingDuration, setEditingDuration] = useState<string | null>(null); // SD id being edited
+  const [durationInput, setDurationInput] = useState("");
 
   // Find max value for bar scaling across all scenes
   let maxVal = 1;
@@ -87,6 +100,28 @@ export default function SceneList({
 
   function handleDragEnd() {
     setDragOverSceneId(null);
+  }
+
+  function startEditDuration(sdId: string) {
+    const current = stageDurations?.[sdId];
+    setDurationInput(current != null ? String(current) : "");
+    setEditingDuration(sdId);
+  }
+
+  function commitDuration(sdId: string) {
+    const mins = parseFloat(durationInput);
+    if (!isNaN(mins) && mins > 0) {
+      onSetStageDuration?.(sdId, mins);
+    } else {
+      onClearStageDuration?.(sdId);
+    }
+    setEditingDuration(null);
+    setDurationInput("");
+  }
+
+  function handleDurationKey(e: React.KeyboardEvent, sdId: string) {
+    if (e.key === "Enter") commitDuration(sdId);
+    if (e.key === "Escape") { setEditingDuration(null); setDurationInput(""); }
   }
 
   const canReorder = !!onSetSceneOrder;
@@ -173,6 +208,74 @@ export default function SceneList({
                   style={{ width: `${Math.min(100, pctKept)}%` }}
                 />
               </div>
+
+              {/* Song / dance sub-rows (speech songs + song/dance SDs) */}
+              {sceneSongDanceSDs?.get(sceneId)?.map((item) => {
+                const prefix = item.isSong ? "♪" : "⊛";
+                const colorClass = item.isSong
+                  ? "text-violet-600 dark:text-violet-400"
+                  : "text-cyan-600 dark:text-cyan-400";
+                const borderColor = item.isSong ? "border-violet-200 dark:border-violet-800" : "border-cyan-200 dark:border-cyan-800";
+                const bgColor = item.isSong ? "bg-violet-50 dark:bg-violet-950/30" : "bg-cyan-50 dark:bg-cyan-950/30";
+                const focusRing = item.isSong ? "focus:ring-violet-400" : "focus:ring-cyan-400";
+                const current = stageDurations?.[item.id];
+                const isEditing = editingDuration === item.id;
+                const canEdit = !!onSetStageDuration;
+
+                return (
+                  <div key={item.id} className={`mt-1.5 flex items-center gap-2 text-xs rounded px-2 py-1 ${bgColor} border ${borderColor}`}>
+                    <span className={`shrink-0 ${colorClass}`}>{prefix}</span>
+                    <span className={`flex-1 italic truncate ${colorClass}`} title={item.label}>{item.label}</span>
+                    {canEdit && (
+                      isEditing ? (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={durationInput}
+                            onChange={(e) => setDurationInput(e.target.value)}
+                            onBlur={() => commitDuration(item.id)}
+                            onKeyDown={(e) => handleDurationKey(e, item.id)}
+                            autoFocus
+                            className={`w-14 text-xs px-1 py-0.5 rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 focus:outline-none focus:ring-1 ${focusRing}`}
+                            placeholder="0"
+                          />
+                          <span className="text-stone-400 dark:text-stone-500">min</span>
+                        </div>
+                      ) : current ? (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => startEditDuration(item.id)}
+                            className="text-xs px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
+                            title="Edit duration"
+                          >
+                            +{current % 1 === 0 ? current : current.toFixed(1)}m
+                          </button>
+                          <button
+                            onClick={() => onClearStageDuration?.(item.id)}
+                            className="text-stone-300 hover:text-stone-500 dark:text-stone-600 dark:hover:text-stone-400 transition-colors"
+                            title="Remove duration"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => startEditDuration(item.id)}
+                          className="shrink-0 text-xs text-stone-300 hover:text-amber-600 dark:text-stone-600 dark:hover:text-amber-400 transition-colors"
+                          title={`Add extra time for this ${item.isSong ? "song" : "dance"}`}
+                        >
+                          + time
+                        </button>
+                      )
+                    )}
+                    {!canEdit && current && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0">+{current % 1 === 0 ? current : current.toFixed(1)}m</span>
+                    )}
+                  </div>
+                );
+              })}
 
               {/* Actor presence strip */}
               {actorPresence.length > 0 && (

@@ -70,10 +70,16 @@ export function parseTei(xml: string, playId: string): Play {
         const id = `${playId}-stg-${stageIndex++}`;
         const text = extractAllText(getChildren(child));
         const who = getAttr(child, "@_who") || "";
-        const characters = who.split(/\s+/).filter((w) => w.startsWith("#"));
+        // Deduplicate: some TEI SDs list the same character ID twice (e.g. H5 #ATTENDANTS.ENGLISH)
+        const characters = [...new Set(who.split(/\s+/).filter((w) => w.startsWith("#")))];
         const stageType = getAttr(child, "@_type") as StageDirection["stageType"] | undefined;
-        const isSong = /\bsong\b|\bsings\b|\bsinging\b/i.test(text) || undefined;
-        const isDance = /\bdance\b|\bdances\b|\bdancing\b/i.test(text) || undefined;
+        // Only flag songs/dances on content SDs (business, delivery, or untyped).
+        // Movement SDs (entrance, exit, mixed) like "Dance. All but Rosalind exit."
+        // should be treated as plain movement — "Dance" is just a label there, not a song/dance event.
+        const isContentSd = !stageType || stageType === "business" || stageType === "delivery";
+        // `|| undefined` converts false → undefined so the field is omitted from the object (cleaner JSON)
+        const isSong = (isContentSd && /\bsong\b|\bsings\b|\bsinging\b/i.test(text)) || undefined;
+        const isDance = (isContentSd && /\bdance\b|\bdances\b|\bdancing\b/i.test(text)) || undefined;
         units.push({ type: "stage", id, text, characters, stageType, isSong, isDance });
       } else if (tagName === "sp") {
         try {
@@ -212,6 +218,8 @@ function parseSpeech(spNode: unknown, playId: string, index: number, castList: C
 
   const lines: Line[] = [];
   let lineIndex = 0;
+  // Mark speech as a song if it contains any <lg> stanza children (sung content)
+  let hasSongStanza = false;
 
   for (const child of spChildren) {
     const tag = getTagName(child);
@@ -253,6 +261,7 @@ function parseSpeech(spNode: unknown, playId: string, index: number, castList: C
     }
     // <lg> (line group / stanza, e.g. songs) - recurse into its <l> and <lg> children
     else if (tag === "lg") {
+      hasSongStanza = true;
       const lgLines = extractLgLines(child, id, lineIndex);
       for (const ll of lgLines) {
         if (ll.text) {
@@ -273,7 +282,7 @@ function parseSpeech(spNode: unknown, playId: string, index: number, castList: C
     }
   }
 
-  return {
+  const speech: Speech = {
     type: "speech",
     id,
     characterId,
@@ -282,6 +291,8 @@ function parseSpeech(spNode: unknown, playId: string, index: number, castList: C
     lines,
     lineCount: lines.length,
   };
+  if (hasSongStanza) speech.isSong = true;
+  return speech;
 }
 
 function extractTitle(teiChildren: unknown[]): string {

@@ -36,6 +36,8 @@ export interface Speech {
   speakerTag: string;
   lines: Line[];
   lineCount: number;
+  /** True when the speech contains <lg> stanza children (e.g. a sung song) */
+  isSong?: boolean;
 }
 
 export interface Line {
@@ -51,7 +53,7 @@ export interface StageDirection {
   text: string;
   /** Character IDs mentioned in the stage direction */
   characters: string[];
-  stageType?: "entrance" | "exit" | "business" | "delivery";
+  stageType?: "entrance" | "exit" | "business" | "delivery" | "mixed";
   isSong?: boolean;
   isDance?: boolean;
 }
