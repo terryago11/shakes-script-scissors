@@ -148,7 +148,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
               <button
                 onClick={handleAutoFill}
                 className="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-900/50 transition-colors"
-                title="Sync exit characters from on-stage tracking (based on entrance SDs)"
+                title="Adds any onstage characters not mentioned in the exit text to the list"
               >
                 ⟳ sync exits
               </button>

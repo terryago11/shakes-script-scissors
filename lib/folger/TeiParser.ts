@@ -64,31 +64,64 @@ export function parseTei(xml: string, playId: string): Play {
   // Helper: parse <stage> and <sp> children from a node list into ScriptUnit[]
   function parseSceneUnits(children: unknown[], sceneId: string): ScriptUnit[] {
     const units: ScriptUnit[] = [];
+    // Track when a <label> element says "Song" immediately before a <sp>
+    let precedingLabelIsSong = false;
     for (const child of children) {
       const tagName = getTagName(child);
-      if (tagName === "stage") {
-        const id = `${playId}-stg-${stageIndex++}`;
+      if (tagName === "label") {
+        // <label>Song.</label> appears in scene context before a song speech
+        const labelText = extractAllText(getChildren(child));
+        precedingLabelIsSong = /\bsong\b|\bsings\b/i.test(labelText);
+      } else if (tagName === "stage") {
+        const stageType = getAttr(child, "@_type") as StageDirection["stageType"] | undefined;
+
+        // "mixed" stage: a parent <stage type="mixed"> containing multiple child <stage> elements.
+        // Process each sub-stage individually so Dance + exit appear as separate SDs in the script.
+        // e.g. <stage type="mixed"><stage type="business">Dance.</stage><stage type="exit" who="...">All but Rosalind exit.</stage></stage>
+        if (stageType === "mixed") {
+          const subStages = getChildren(child).filter((c) => getTagName(c) === "stage");
+          if (subStages.length > 0) {
+            for (const sub of subStages) {
+              const subType = getAttr(sub, "@_type") as StageDirection["stageType"] | undefined;
+              const subText = extractAllText(getChildren(sub)).trim();
+              const subWho = getAttr(sub, "@_who") || "";
+              const subChars = [...new Set(subWho.split(/\s+/).filter((w) => w.startsWith("#")))];
+              const isContentSub = !subType || subType === "business" || subType === "delivery";
+              const subIsSong = (isContentSub && /\bsong\b|\bsings\b|\bsinging\b/i.test(subText)) || undefined;
+              const subIsDance = (isContentSub && /\bdance\b|\bdances\b|\bdancing\b/i.test(subText)) || undefined;
+              units.push({ type: "stage", id: `${playId}-stg-${stageIndex++}`, text: subText, characters: subChars, stageType: subType, isSong: subIsSong, isDance: subIsDance });
+            }
+            precedingLabelIsSong = false;
+            continue;
+          }
+          // No child stages found — fall through to normal processing as a single SD
+        }
+
         const text = extractAllText(getChildren(child));
         const who = getAttr(child, "@_who") || "";
         // Deduplicate: some TEI SDs list the same character ID twice (e.g. H5 #ATTENDANTS.ENGLISH)
         const characters = [...new Set(who.split(/\s+/).filter((w) => w.startsWith("#")))];
-        const stageType = getAttr(child, "@_type") as StageDirection["stageType"] | undefined;
         // Only flag songs/dances on content SDs (business, delivery, or untyped).
-        // Movement SDs (entrance, exit, mixed) like "Dance. All but Rosalind exit."
-        // should be treated as plain movement — "Dance" is just a label there, not a song/dance event.
+        // Movement SDs (entrance, exit) should be treated as plain movement.
         const isContentSd = !stageType || stageType === "business" || stageType === "delivery";
         // `|| undefined` converts false → undefined so the field is omitted from the object (cleaner JSON)
         const isSong = (isContentSd && /\bsong\b|\bsings\b|\bsinging\b/i.test(text)) || undefined;
         const isDance = (isContentSd && /\bdance\b|\bdances\b|\bdancing\b/i.test(text)) || undefined;
-        units.push({ type: "stage", id, text, characters, stageType, isSong, isDance });
+        units.push({ type: "stage", id: `${playId}-stg-${stageIndex++}`, text, characters, stageType, isSong, isDance });
+        precedingLabelIsSong = false;
       } else if (tagName === "sp") {
+        const inSongContext = precedingLabelIsSong;
+        precedingLabelIsSong = false; // reset — label applies to the immediately following speech only
         try {
-          const speech = parseSpeech(child, playId, speechIndex, castList);
+          const speech = parseSpeech(child, playId, speechIndex, castList, inSongContext);
           speechIndex++;
           units.push(speech);
         } catch (e) {
           console.warn(`[TeiParser] Skipping malformed speech in ${sceneId}:`, e);
         }
+      } else {
+        // Any other element resets the label context
+        precedingLabelIsSong = false;
       }
     }
     return units;
@@ -200,7 +233,25 @@ export function parseTei(xml: string, playId: string): Play {
   return { id: playId, title, acts, castList };
 }
 
-function parseSpeech(spNode: unknown, playId: string, index: number, castList: Character[]): Speech {
+/**
+ * <lg type> values that indicate a verse poem (not a sung song).
+ * DraCor/Folger TEI uses rhyme-scheme codes (e.g. "AABBcDDc") for songs and
+ * descriptor names (e.g. "quatrain") for non-sung verse.
+ * When an <lg> has a type matching this set, its lines are NOT flagged as isSong.
+ */
+const POEM_LG_TYPES = new Set([
+  "quatrain", "couplet", "sonnet", "verse", "tercet", "triplet",
+  "sestet", "octave", "refrain", "distich", "strophe",
+]);
+
+function parseSpeech(
+  spNode: unknown,
+  playId: string,
+  index: number,
+  castList: Character[],
+  /** True when a scene-level <label>Song.</label> immediately precedes this speech */
+  inSongContext = false,
+): Speech {
   const id = getAttr(spNode, "@_xml:id") || `${playId}-sp-${index}`;
   const who = getAttr(spNode, "@_who") || "";
   // Take the first character ID if multiple speakers
@@ -218,8 +269,7 @@ function parseSpeech(spNode: unknown, playId: string, index: number, castList: C
 
   const lines: Line[] = [];
   let lineIndex = 0;
-  // Mark speech as a song if it contains any <lg> stanza children (sung content)
-  let hasSongStanza = false;
+  void inSongContext; // reserved for future use (label context flows through POEM_LG_TYPES exclusion)
 
   for (const child of spChildren) {
     const tag = getTagName(child);
@@ -259,10 +309,15 @@ function parseSpeech(spNode: unknown, playId: string, index: number, castList: C
         lineIndex++;
       }
     }
-    // <lg> (line group / stanza, e.g. songs) - recurse into its <l> and <lg> children
+    // <lg> (line group / stanza) — songs vs poems distinguished by type attribute:
+    //   - Rhyme-scheme codes ("AABBcDDc", "aaB", "song", or empty) → song → mark lines as isSong
+    //   - Poem descriptors ("quatrain", "couplet", …) → poem → don't mark as isSong
+    // DraCor/Folger TEI uses rhyme scheme codes for songs and descriptor names for poems,
+    // so any <lg type> NOT in POEM_LG_TYPES is treated as a song stanza.
     else if (tag === "lg") {
-      hasSongStanza = true;
-      const lgLines = extractLgLines(child, id, lineIndex);
+      const lgType = (getAttr(child, "@_type") ?? "").toLowerCase();
+      const isSongStanza = !POEM_LG_TYPES.has(lgType);
+      const lgLines = extractLgLines(child, id, lineIndex, isSongStanza);
       for (const ll of lgLines) {
         if (ll.text) {
           lines.push(ll);
@@ -270,9 +325,9 @@ function parseSpeech(spNode: unknown, playId: string, index: number, castList: C
         }
       }
     }
-    // <q> (quotation block) - treat its children as lines
+    // <q> (quotation block) - treat its children as lines (not songs)
     else if (tag === "q") {
-      const qLines = extractLgLines(child, id, lineIndex);
+      const qLines = extractLgLines(child, id, lineIndex, false);
       for (const ql of qLines) {
         if (ql.text) {
           lines.push(ql);
@@ -291,7 +346,8 @@ function parseSpeech(spNode: unknown, playId: string, index: number, castList: C
     lines,
     lineCount: lines.length,
   };
-  if (hasSongStanza) speech.isSong = true;
+  // Speech is flagged as a song if at least one of its lines is a song line
+  if (lines.some((l) => l.isSong)) speech.isSong = true;
   return speech;
 }
 
@@ -426,10 +482,22 @@ function normalizeCharacterName(raw: string): string {
     if (rest.length === 1) {
       const qualifier = rest[0];
       const groupLower = parts[0].toLowerCase();
+      const qualifierLower = qualifier.toLowerCase();
       // Single-letter qualifier (e.g. DraCor "X" = anonymous group member) → "A/An GroupNoun"
       if (/^[A-Z]$/.test(qualifier)) {
         const article = /^[aeiou]/i.test(groupSingular) ? "An" : "A";
         return `${article} ${groupSingular}`;
+      }
+      // Nationality/demonym adjectives (e.g. ATTENDANTS.ENGLISH → "English Attendants")
+      // These function as modifying adjectives, not possessives. Put qualifier first and
+      // preserve the original plural form of the group noun (toTitleCase of parts[0]).
+      const nationalityAdjectives = new Set([
+        "english", "french", "scottish", "welsh", "dutch", "roman", "trojan", "greek",
+        "venetian", "florentine", "paduan", "milanese", "egyptian", "turkish", "danish",
+        "persian", "bohemian", "spanish", "irish", "german", "viennese",
+      ]);
+      if (nationalityAdjectives.has(qualifierLower)) {
+        return `${toTitleCase(qualifier)} ${toTitleCase(parts[0])}`;
       }
       if (isProperName(qualifier) && !noPossessiveGroups.has(groupLower) && !titleGroups.has(groupLower)) {
         // Proper name → possessive: "Laertes' Follower"
@@ -687,8 +755,9 @@ function extractAllText(nodes: unknown[]): string {
 /**
  * Recursively extract lines from an <lg> (line-group/stanza) element.
  * <lg> can contain <l>, <lg> (nested stanzas), and <p>/<ab> elements.
+ * @param isSong — when true, every extracted line gets `isSong: true` (marks it as a sung line)
  */
-function extractLgLines(lgNode: unknown, speechId: string, startIndex: number): Line[] {
+function extractLgLines(lgNode: unknown, speechId: string, startIndex: number, isSong = false): Line[] {
   const lines: Line[] = [];
   let lineIndex = startIndex;
   for (const child of getChildren(lgNode)) {
@@ -698,20 +767,37 @@ function extractLgLines(lgNode: unknown, speechId: string, startIndex: number): 
       const n = getAttr(child, "@_n") || "";
       const ftln = parseFtln(lineId, n);
       const text = extractAllText(getChildren(child)).trim();
-      if (text) { lines.push({ id: lineId, ftln, text }); lineIndex++; }
+      if (text) {
+        const line: Line = { id: lineId, ftln, text };
+        if (isSong) line.isSong = true;
+        lines.push(line);
+        lineIndex++;
+      }
     } else if (tag === "lg") {
-      const nested = extractLgLines(child, speechId, lineIndex);
+      // Nested <lg> inherits the isSong flag from the parent stanza
+      const nested = extractLgLines(child, speechId, lineIndex, isSong);
       for (const l of nested) { if (l.text) { lines.push(l); lineIndex++; } }
     } else if (tag === "p") {
       const pChildren = getChildren(child);
       const proseLines = splitProseByLb(pChildren, speechId, lineIndex);
-      for (const pl of proseLines) { if (pl.text) { lines.push(pl); lineIndex++; } }
+      for (const pl of proseLines) {
+        if (pl.text) {
+          if (isSong) pl.isSong = true;
+          lines.push(pl);
+          lineIndex++;
+        }
+      }
     } else if (tag === "ab") {
       const lineId = getAttr(child, "@_xml:id") || `${speechId}-lg-ab-${lineIndex}`;
       const n = getAttr(child, "@_n") || "";
       const ftln = parseFtln(lineId, n);
       const text = extractAllText(getChildren(child)).trim();
-      if (text) { lines.push({ id: lineId, ftln, text }); lineIndex++; }
+      if (text) {
+        const line: Line = { id: lineId, ftln, text };
+        if (isSong) line.isSong = true;
+        lines.push(line);
+        lineIndex++;
+      }
     }
   }
   return lines;

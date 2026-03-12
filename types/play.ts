@@ -45,6 +45,8 @@ export interface Line {
   /** Folger Through Line Number */
   ftln: number;
   text: string;
+  /** True when this line comes from an <lg> stanza that is a song (not a poem) */
+  isSong?: boolean;
 }
 
 export interface StageDirection {

@@ -8,6 +8,7 @@ import { applyEditsToLine } from "@/lib/cuts/applyEdits";
 import { useMetric } from "@/lib/ui/MetricContext";
 import { useViewMode } from "@/lib/ui/ViewModeContext";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
+import { useProject } from "@/lib/project/ProjectStore";
 
 interface Props {
   speech: Speech;
@@ -59,6 +60,7 @@ export default function SpeechBlock({
   onMerge,
 }: Props) {
   const { viewMode } = useViewMode();
+  const { activeCut } = useProject();
   const isCut = status === "cut";
   const readonly = onToggle === null;
   const [showReassign, setShowReassign] = useState(false);
@@ -132,8 +134,10 @@ export default function SpeechBlock({
     ? resolveCharacterName(reassignedChar.id, characterAliases, castList ?? [])
     : null;
 
-  // Song speech: contains <lg> stanza children (e.g. "Under the Greenwood Tree")
+  // Song speech: at least one line is a sung line (from a non-poem <lg> stanza)
   const isSongSpeech = speech.isSong === true;
+  // Duration added in the Scenes & Pauses dashboard for this song
+  const stageDuration = isSongSpeech && !isCut ? (activeCut?.stageDurations?.[speech.id] ?? null) : null;
 
   // Shared name-rendering pieces — used in both the clickable and non-clickable char name
   const nameClass = isCut
@@ -257,6 +261,12 @@ export default function SpeechBlock({
               )}
             </span>
           )}
+          {/* Duration badge — shown when a song duration is set in the Scenes & Pauses dashboard */}
+          {stageDuration != null && (
+            <span className="text-xs text-amber-600 dark:text-amber-400 font-normal normal-case tracking-normal shrink-0">
+              +{stageDuration % 1 === 0 ? stageDuration : stageDuration.toFixed(1)}m
+            </span>
+          )}
 
           {/* Restore button — shown on hover when any part is cut or reassigned */}
           {!readonly && !cutModeActive && (isCut || hasWordEdits || hasLineCuts || !!reassignedChar) && (
@@ -295,13 +305,13 @@ export default function SpeechBlock({
             ? viewMode === "diff"
               ? "text-red-500 line-through bg-red-50 dark:bg-red-950/50 rounded px-1"
               : "text-red-400 opacity-60 line-through"
-            : isSongSpeech
-              ? "text-violet-700 dark:text-violet-300"
-              : "text-stone-800 dark:text-stone-100"
+            : "text-stone-800 dark:text-stone-100"
         }`}>
           {speech.lines.flatMap((line, lineIndex) => {
             const lineStatus = lineStatusMap.get(line.id) ?? "kept";
             const isLineCut = !isCut && lineStatus === "cut";
+            // Per-line song coloring: only lines with isSong=true get violet + italic
+            const isLineSong = !isCut && !isLineCut && line.isSong === true;
 
             // In clean mode, skip cut lines entirely
             if (isLineCut && viewMode === "clean") return [];
@@ -339,7 +349,9 @@ export default function SpeechBlock({
                   ? viewMode === "diff"
                     ? "line-through text-red-500 bg-red-50 dark:bg-red-950/50 rounded px-0.5"
                     : "line-through text-red-400 opacity-60"
-                  : ""}`}
+                  : isLineSong
+                    ? "text-violet-700 dark:text-violet-300 italic pl-4"
+                    : ""}`}
               >
                 <span className="flex-1">{lineContent}</span>
                 {lineNum != null && (
