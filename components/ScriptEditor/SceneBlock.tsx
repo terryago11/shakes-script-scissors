@@ -8,6 +8,8 @@ import type { SpeechEdit } from "@/types/edit";
 import type { Insertion } from "@/types/insertion";
 import { useMetric } from "@/lib/ui/MetricContext";
 import { useViewMode } from "@/lib/ui/ViewModeContext";
+import { useEditMode } from "@/lib/ui/EditModeContext";
+import { useProject } from "@/lib/project/ProjectStore";
 import { getOnStageAtUnit } from "@/lib/cuts/StageTimeEngine";
 import SpeechBlock from "./SpeechBlock";
 import StageDirectionBlock from "./StageDirectionBlock";
@@ -24,7 +26,6 @@ interface Props {
   speechEdits?: Record<string, SpeechEdit>;
   onClearEdits?: (unitId: string) => void;
   filteredCharacterIds?: Set<string>;
-  cutModeActive?: boolean;
   sceneCounts?: SceneCounts;
   // Scene focus (used by ActBlock to filter visible scenes)
   focusedSceneId: string | null;
@@ -42,7 +43,7 @@ interface Props {
   /** unitId → { splitAtLineIndex, newCharacterId? } — drives splitRole prop on SpeechBlock */
   speechSplits?: Record<string, { splitAtLineIndex: number; newCharacterId?: string }>;
   /** Called when user clicks a split zone in SpeechBlock */
-  onSplit?: (unitId: string, atLineIndex: number) => void;
+  onSplit?: (unitId: string, atLineIndex: number, atWordOffset?: number) => void;
   /** Called when user clicks merge on a Part 2 SpeechBlock */
   onMerge?: (unitId: string, part2LineIds: string[]) => void;
   /** All insertions for the active cut — SceneBlock renders ones whose afterUnitId is in this scene */
@@ -55,7 +56,7 @@ interface Props {
 
 export default function SceneBlock({
   scene, units, assignments, actors, castList, onToggle, speechEdits, onClearEdits,
-  filteredCharacterIds, cutModeActive, sceneCounts,
+  filteredCharacterIds, sceneCounts,
   focusedSceneId, showOriginal,
   speechReassignments, charsWithEntrance, onReassign,
   characterAliases, stageDirectionEdits,
@@ -63,10 +64,18 @@ export default function SceneBlock({
   insertions, onAddInsertion, onRemoveInsertion,
   onRestoreScene,
 }: Props) {
+  // Unified insertion modal state: null = closed, create = new insertion, edit = editing existing
+  type InsertionModalState =
+    | null
+    | { mode: "create"; afterUnitId: string }
+    | { mode: "edit"; insertion: Insertion };
+
   // Default to collapsed so after act re-expand, scenes are collapsed and user can pick
   const [collapsed, setCollapsed] = useState(false);
-  const [insertionModalAfterUnitId, setInsertionModalAfterUnitId] = useState<string | null>(null);
+  const [insertionModalState, setInsertionModalState] = useState<InsertionModalState>(null);
   const { metric, wpm } = useMetric();
+  const { activeTool } = useEditMode();
+  const { dispatch: projectDispatch } = useProject();
 
   function fmtMins(m: number): string {
     const r = Math.round(m);
@@ -117,15 +126,59 @@ export default function SceneBlock({
     : 0;
   const isFullyCut = !showOriginal && displayOriginal > 0 && displayKept === 0;
 
-  // Continuation detection — when showOriginal, treat all units as kept
+  // Continuation detection — when showOriginal, treat all units as kept.
+  // Uses effective character IDs (respecting speechReassignments), and accounts for
+  // split :s2 virtual parts and inserted speeches so cont. renders correctly in all cases.
   const continuationIds = new Set<string>();
-  let lastSpeakerId: string | null = null;
-  for (const { unit, status } of units) {
-    if (unit.type === "speech") {
+  {
+    let lastSpeakerId: string | null = null;
+
+    // Build afterUnitId → Insertion[] map for this scene's insertions
+    const insAfterMap = new Map<string, Insertion[]>();
+    if (!showOriginal && insertions) {
+      for (const ins of Object.values(insertions)) {
+        const arr = insAfterMap.get(ins.afterUnitId) ?? [];
+        arr.push(ins);
+        insAfterMap.set(ins.afterUnitId, arr);
+      }
+    }
+
+    for (const { unit, status } of units) {
       const isKept = showOriginal ? true : status === "kept";
-      if (isKept) {
-        if (lastSpeakerId === unit.characterId) continuationIds.add(unit.id);
-        lastSpeakerId = unit.characterId;
+
+      if (unit.type === "speech") {
+        // :s2 virtual parts are handled in the split block below (when we process the
+        // original unit). Skip them here to avoid double-counting — otherwise the
+        // :s2 unit picks up lastSpeakerId = s2CharId that was just set and falsely
+        // marks itself as a continuation.
+        // Insertion units are already handled by insAfterMap when we process the unit
+        // they follow — skip them here to prevent double-processing.
+        const isS2 = unit.id.endsWith(":s2");
+        const isInsertionUnit = !showOriginal && !!insertions?.[unit.id];
+        if (!isS2 && !isInsertionUnit) {
+          const charId = !showOriginal
+            ? (speechReassignments?.[unit.id] ?? unit.characterId)
+            : unit.characterId;
+          if (isKept) {
+            if (lastSpeakerId === charId) continuationIds.add(unit.id);
+            lastSpeakerId = charId;
+          }
+
+          // Handle split :s2 virtual part (same kept status as the original)
+          const split = !showOriginal ? speechSplits?.[unit.id] : undefined;
+          if (split && isKept) {
+            const s2Id = `${unit.id}:s2`;
+            const s2CharId = speechReassignments?.[s2Id] ?? split.newCharacterId ?? unit.characterId;
+            if (lastSpeakerId === s2CharId) continuationIds.add(s2Id);
+            lastSpeakerId = s2CharId;
+          }
+        }
+      }
+
+      // Process any insertions that follow this unit (runs for all units including :s2)
+      for (const ins of insAfterMap.get(unit.id) ?? []) {
+        if (lastSpeakerId === ins.characterId) continuationIds.add(ins.id);
+        lastSpeakerId = ins.characterId;
       }
     }
   }
@@ -176,8 +229,8 @@ export default function SceneBlock({
     return map;
   })();
 
-  // Insert zones are available when not in showOriginal / cutMode / diff modes and a handler exists
-  const canInsert = !showOriginal && !cutModeActive && viewMode !== "diff" && !!onAddInsertion;
+  // Insert zones are available when the Insert tool is active
+  const canInsert = !showOriginal && activeTool === "insert" && viewMode !== "diff" && !!onAddInsertion;
 
   // Pre-compute on-stage character set for each exit SD (enables Auto-fill button)
   // Uses raw scene.units (cut-independent) so the on-stage set reflects actual entrances/exits.
@@ -251,11 +304,11 @@ export default function SceneBlock({
           )}
         </button>
 
-        {/* Restore all — only when there are cuts, shown on group hover */}
-        {hasAnyCuts && onToggle && !cutModeActive && (
+        {/* Restore all — only in Restore mode; always-visible (not hover-only) */}
+        {hasAnyCuts && onToggle && activeTool === "restore" && (
           <button
             onClick={handleRestoreAll}
-            className="opacity-0 group-hover:opacity-100 mr-3 text-xs px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 dark:border-green-800 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-700 transition-all shrink-0"
+            className="mr-3 text-sm px-3 py-1 rounded border border-green-300 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-400 dark:border-green-700 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-600 transition-all shrink-0 font-medium"
             title="Restore all cuts in this scene"
           >
             ↩ restore all
@@ -282,9 +335,11 @@ export default function SceneBlock({
                     insertion={insertionData}
                     castList={castList}
                     characterAliases={showOriginal ? undefined : characterAliases}
+                    isContinuation={continuationIds.has(unit.id)}
                     onRemove={onRemoveInsertion
                       ? (id) => onRemoveInsertion(id, insertionData.lines.map((l) => l.id))
                       : () => {}}
+                    onEdit={showOriginal ? undefined : (ins) => setInsertionModalState({ mode: "edit", insertion: ins })}
                   />
                 );
               } else {
@@ -305,7 +360,6 @@ export default function SceneBlock({
                     speechEdit={showOriginal ? undefined : speechEdits?.[unit.id]}
                     onClearEdits={showOriginal ? undefined : onClearEdits}
                     isContinuation={continuationIds.has(unit.id)}
-                    cutModeActive={showOriginal ? false : cutModeActive}
                     castList={castList}
                     speechReassignment={showOriginal ? undefined : (speechReassignments?.[unit.id] ?? null)}
                     charsWithEntrance={charsWithEntrance}
@@ -347,7 +401,7 @@ export default function SceneBlock({
                 >
                   <button
                     className="opacity-0 group-hover/insert:opacity-100 transition-opacity text-xs px-2 py-0.5 rounded border border-green-300 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-700 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 w-full text-left"
-                    onClick={(e) => { e.stopPropagation(); setInsertionModalAfterUnitId(unit.id); }}
+                    onClick={(e) => { e.stopPropagation(); setInsertionModalState({ mode: "create", afterUnitId: unit.id }); }}
                   >
                     + Insert here
                   </button>
@@ -361,16 +415,25 @@ export default function SceneBlock({
       )}
 
       {/* Insertion modal — rendered outside the collapsed check so it stays mounted */}
-      {insertionModalAfterUnitId && (
+      {insertionModalState && (
         <InsertionModal
-          afterUnitId={insertionModalAfterUnitId}
+          afterUnitId={
+            insertionModalState.mode === "create"
+              ? insertionModalState.afterUnitId
+              : insertionModalState.insertion.afterUnitId
+          }
+          existingInsertion={insertionModalState.mode === "edit" ? insertionModalState.insertion : undefined}
           castList={castList}
           characterAliases={characterAliases}
-          onInsert={(insertion) => {
-            onAddInsertion?.(insertion);
-            setInsertionModalAfterUnitId(null);
+          onSave={(ins) => {
+            if (insertionModalState.mode === "edit") {
+              projectDispatch({ type: "UPDATE_INSERTION", insertionId: ins.id, characterId: ins.characterId, lines: ins.lines });
+            } else {
+              onAddInsertion?.(ins);
+            }
+            setInsertionModalState(null);
           }}
-          onCancel={() => setInsertionModalAfterUnitId(null)}
+          onCancel={() => setInsertionModalState(null)}
         />
       )}
     </div>

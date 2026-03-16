@@ -872,9 +872,15 @@ function extractAllText(nodes: unknown[]): string {
     // Skip lb (line break markers in prose) and speaker tags
     if (tag === "lb" || tag === "speaker") continue;
     const children = getChildren(n);
-    text += extractAllText(children);
+    const childText = extractAllText(children);
+    // Insert a space between adjacent text from different elements to prevent "Word.Next" concatenation
+    if (childText && text.length > 0 && !text.endsWith(" ") && !childText.startsWith(" ")) {
+      text += " ";
+    }
+    text += childText;
   }
-  return text;
+  // Normalize TEI whitespace artifacts: remove space after ( and before )
+  return text.replace(/\(\s+/g, "(").replace(/\s+\)/g, ")");
 }
 
 /**

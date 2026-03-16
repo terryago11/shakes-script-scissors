@@ -22,7 +22,6 @@ interface Props {
   speechEdits?: Record<string, SpeechEdit>;
   onClearEdits?: (unitId: string) => void;
   filteredCharacterIds?: Set<string>;
-  cutModeActive?: boolean;
   lineCounts?: LineCounts;
   focusedSceneId: string | null;
   /** When true, render all content as original (no cuts/edits applied) — for diff side-by-side */
@@ -40,7 +39,7 @@ interface Props {
   stageDirectionEdits?: Record<string, string[]>;
   /** unitId → split params — passed down to SceneBlock to derive splitRole on each SpeechBlock */
   speechSplits?: Record<string, { splitAtLineIndex: number; newCharacterId?: string }>;
-  onSplit?: (unitId: string, atLineIndex: number) => void;
+  onSplit?: (unitId: string, atLineIndex: number, atWordOffset?: number) => void;
   onMerge?: (unitId: string, part2LineIds: string[]) => void;
   /** All insertions for the active cut — forwarded to SceneBlock */
   insertions?: Record<string, Insertion>;
@@ -52,7 +51,7 @@ interface Props {
 
 export default function ActBlock({
   act, scenes, unitsByScene, assignments, actors, castList, onToggle, speechEdits, onClearEdits,
-  filteredCharacterIds, cutModeActive, lineCounts,
+  filteredCharacterIds, lineCounts,
   focusedSceneId, showOriginal, pauses,
   speechReassignments, charsWithEntrance, onReassign,
   characterAliases, stageDirectionEdits,
@@ -168,7 +167,6 @@ export default function ActBlock({
                   speechEdits={showOriginal ? undefined : speechEdits}
                   onClearEdits={showOriginal ? undefined : onClearEdits}
                   filteredCharacterIds={filteredCharacterIds}
-                  cutModeActive={cutModeActive}
                   sceneCounts={showOriginal ? undefined : lineCounts?.byScene[scene.id]}
                   focusedSceneId={focusedSceneId}
                   showOriginal={showOriginal}

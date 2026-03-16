@@ -69,11 +69,24 @@ export interface Cut {
   speechSplits?: Record<string, {
     /** Part 2 starts at this index into speech.lines[] */
     splitAtLineIndex: number;
+    /**
+     * If set, the split occurs within line[splitAtLineIndex] at this character offset.
+     * Part 1 gets text[0..splitAtWordOffset], Part 2 gets text[splitAtWordOffset..].
+     * When absent the split is a clean line-boundary split (existing behaviour).
+     */
+    splitAtWordOffset?: number;
     /** If set, Part 2 is attributed to this character instead of the original */
     newCharacterId?: string;
   }>;
   /** Inserted speeches keyed by insertion ID. Each appears after a specific unit. */
   insertions?: Record<string, import("./insertion").Insertion>;
+  /**
+   * Per-line overrides for shared-verse (partIndent) indentation.
+   * lineId → true (force indent) | false (suppress TEI-set indent).
+   * Absent key = use the TEI parser's partIndent value.
+   * Only meaningful for lines where the TEI parser sets partIndent=true.
+   */
+  partIndentOverrides?: Record<string, boolean>;
   /**
    * Song/dance stage direction durations: stageId → extra minutes to add to scene/show time.
    * Set via the "+ time" editor on highlighted song/dance SDs.

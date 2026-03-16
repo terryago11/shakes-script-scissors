@@ -2,6 +2,7 @@
 
 import type { Character, StageDirection } from "@/types/play";
 import { useProject } from "@/lib/project/ProjectStore";
+import { useEditMode } from "@/lib/ui/EditModeContext";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
 
 interface Props {
@@ -15,27 +16,30 @@ interface Props {
 
 export default function StageDirectionBlock({ stage, status, onToggle, castList, onStageAtSd }: Props) {
   const { activeCut, dispatch } = useProject();
+  const { activeTool } = useEditMode();
 
   const isCut = status === "cut";
   const readonly = onToggle === null;
 
-  // Show character chips on entrance/exit SDs that are not cut and not readonly
+  // Show character chips (read-only display) on kept entrance/exit SDs — always visible
   const showChips =
-    !readonly &&
     !isCut &&
     (stage.stageType === "entrance" || stage.stageType === "exit");
 
-  const effectiveChars: string[] = showChips
+  // Interactive chip controls (×, +add, ⟳ sync) — only when SD Chars tool is active
+  const showInteractiveChips = !readonly && showChips && activeTool === "sd-chars";
+
+  const effectiveChars: string[] = (showChips || showInteractiveChips)
     ? (activeCut?.stageDirectionEdits?.[stage.id] ?? stage.characters)
     : stage.characters;
 
   // Characters removed from the original SD (were in original, now removed)
-  const removedChars: string[] = showChips
+  const removedChars: string[] = showInteractiveChips
     ? stage.characters.filter((c) => !effectiveChars.includes(c))
     : [];
 
   // Characters that could be added (in castList but never in the original SD)
-  const addableChars: Character[] = showChips
+  const addableChars: Character[] = showInteractiveChips
     ? castList.filter((c) => !stage.characters.includes(c.id) && !effectiveChars.includes(c.id))
     : [];
 
@@ -68,10 +72,9 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
     });
   }
 
-  // Sync exits: show on ALL exit SDs where the on-stage set is known (size > 0).
-  // This lets directors catch any out-of-sync characters after editing entrance SDs.
+  // Sync exits: show on exit SDs in SD Chars mode when the on-stage set is known.
   const showAutoFill =
-    showChips &&
+    showInteractiveChips &&
     stage.stageType === "exit" &&
     (onStageAtSd?.size ?? 0) > 0;
 
@@ -121,18 +124,29 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
 
         {hasChipUI && (
           <div className="flex flex-wrap gap-1 mt-1">
-            {/* Active characters — click × to remove */}
-            {effectiveChars.map((charId) => (
-              <button
-                key={charId}
-                onClick={() => removeChar(charId)}
-                className="text-xs px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-red-50 hover:text-red-600 dark:bg-stone-700 dark:text-stone-300 dark:hover:bg-red-950/50 dark:hover:text-red-400 transition-colors"
-                title={`Remove ${charName(charId)} from this ${stage.stageType}`}
-              >
-                {charName(charId)} ×
-              </button>
-            ))}
-            {/* Removed characters — click to restore */}
+            {/* Active characters */}
+            {effectiveChars.map((charId) =>
+              showInteractiveChips ? (
+                // Interactive: click × to remove
+                <button
+                  key={charId}
+                  onClick={() => removeChar(charId)}
+                  className="text-xs px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 hover:bg-red-50 hover:text-red-600 dark:bg-stone-700 dark:text-stone-300 dark:hover:bg-red-950/50 dark:hover:text-red-400 transition-colors"
+                  title={`Remove ${charName(charId)} from this ${stage.stageType}`}
+                >
+                  {charName(charId)} ×
+                </button>
+              ) : (
+                // Read-only: static pill, no hover/click
+                <span
+                  key={charId}
+                  className="text-xs px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 dark:bg-stone-700 dark:text-stone-400"
+                >
+                  {charName(charId)}
+                </span>
+              )
+            )}
+            {/* Removed characters — restore pill (interactive only) */}
             {removedChars.map((charId) => (
               <button
                 key={charId}
@@ -143,7 +157,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
                 {charName(charId)}
               </button>
             ))}
-            {/* Sync exits from on-stage set — for empty/all-exit SDs */}
+            {/* Sync exits from on-stage set (interactive only) */}
             {showAutoFill && (
               <span className="relative group/sync inline-block">
                 <button
@@ -157,7 +171,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
                 </span>
               </span>
             )}
-            {/* Add characters not originally in this SD */}
+            {/* Add characters not originally in this SD (interactive only) */}
             {addableChars.length > 0 && (
               <select
                 value=""
@@ -174,10 +188,10 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
           </div>
         )}
       </div>
-      {!readonly && isCut && (
+      {!readonly && isCut && activeTool === "restore" && (
         <button
           onClick={onToggle ?? undefined}
-          className="opacity-0 group-hover:opacity-100 self-center text-xs px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 dark:border-green-800 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-700 transition-all shrink-0"
+          className="self-center text-xs px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 dark:border-green-800 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-700 transition-all shrink-0"
           title="Restore stage direction"
         >
           ↩ restore

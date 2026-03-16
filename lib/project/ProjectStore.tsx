@@ -8,13 +8,25 @@ import { generateId, defaultColors } from "./projectUtils";
 
 const CURRENT_VERSION = 1;
 const STORAGE_PREFIX = "sss_project_";
+const MAX_HISTORY = 20;
 
 // --- State and actions ---
 
 interface ProjectState {
   project: Project | null;
   activeCutId: string | null;
+  /** In-memory undo stack — NOT persisted to localStorage. Clears on cut switch / page reload. */
+  undoStack: Cut[];
+  /** In-memory redo stack — NOT persisted to localStorage. */
+  redoStack: Cut[];
 }
+
+const initialState: ProjectState = {
+  project: null,
+  activeCutId: null,
+  undoStack: [],
+  redoStack: [],
+};
 
 type ProjectAction =
   | { type: "LOAD"; project: Project }
@@ -23,6 +35,7 @@ type ProjectAction =
   | { type: "TOGGLE_UNIT"; unitId: string }
   | { type: "SET_UNIT_STATUS"; unitId: string; status: "cut" | "kept" }
   | { type: "BULK_ADD_EDIT_OPS"; ops: Array<{ unitId: string; op: EditOp }> }
+  | { type: "REMOVE_EDIT_OP"; unitId: string; opIndex: number }
   | { type: "CLEAR_SPEECH_EDITS"; unitId: string }
   | { type: "ADD_CUT"; name: string; cloneFromId?: string }
   | { type: "RENAME_CUT"; cutId: string; name: string }
@@ -42,13 +55,16 @@ type ProjectAction =
   | { type: "SET_CHARACTER_ALIAS"; characterId: string; alias: string | null }
   | { type: "TOGGLE_CHARACTER_LINK"; charIdA: string; charIdB: string }
   | { type: "BULK_SET_CAST"; actors: Actor[]; assignments: ActorAssignment[] }
-  | { type: "SPLIT_SPEECH"; unitId: string; splitAtLineIndex: number; newCharacterId?: string }
+  | { type: "SPLIT_SPEECH"; unitId: string; splitAtLineIndex: number; splitAtWordOffset?: number; newCharacterId?: string }
   | { type: "MERGE_SPEECH"; unitId: string; part2LineIds: string[] }
   | { type: "ADD_INSERTION"; insertion: Insertion }
   | { type: "REMOVE_INSERTION"; insertionId: string; lineIds: string[] }
   | { type: "UPDATE_INSERTION"; insertionId: string; characterId: string; lines: InsertedLine[] }
   | { type: "SET_STAGE_DURATION"; stageId: string; minutes: number }
-  | { type: "CLEAR_STAGE_DURATION"; stageId: string };
+  | { type: "CLEAR_STAGE_DURATION"; stageId: string }
+  | { type: "UNDO" }
+  | { type: "REDO" }
+  | { type: "SET_PART_INDENT_OVERRIDE"; lineId: string; value: boolean | null };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
   if (!state.project && action.type !== "LOAD" && action.type !== "REPLACE_PROJECT") {
@@ -60,11 +76,11 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
     case "REPLACE_PROJECT": {
       const activeCutId = action.project.activeCutId ||
         action.project.cuts[0]?.id || null;
-      return { project: action.project, activeCutId };
+      return { project: action.project, activeCutId, undoStack: [], redoStack: [] };
     }
 
     case "UNLOAD":
-      return { project: null, activeCutId: null };
+      return { project: null, activeCutId: null, undoStack: [], redoStack: [] };
 
     case "RENAME_PROJECT":
       return {
@@ -78,10 +94,44 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
       return {
         ...state,
         activeCutId: action.cutId,
+        undoStack: [],
+        redoStack: [],
         project: state.project
           ? { ...state.project, activeCutId: action.cutId, updatedAt: now() }
           : null,
       };
+
+    case "UNDO": {
+      if (!state.undoStack.length || !state.project || !state.activeCutId) return state;
+      const prev = state.undoStack[state.undoStack.length - 1];
+      const curr = state.project.cuts.find((c) => c.id === state.activeCutId)!;
+      return {
+        ...state,
+        project: {
+          ...state.project,
+          cuts: state.project.cuts.map((c) => c.id === state.activeCutId ? prev : c),
+          updatedAt: now(),
+        },
+        undoStack: state.undoStack.slice(0, -1),
+        redoStack: [...state.redoStack, curr],
+      };
+    }
+
+    case "REDO": {
+      if (!state.redoStack.length || !state.project || !state.activeCutId) return state;
+      const next = state.redoStack[state.redoStack.length - 1];
+      const curr = state.project.cuts.find((c) => c.id === state.activeCutId)!;
+      return {
+        ...state,
+        project: {
+          ...state.project,
+          cuts: state.project.cuts.map((c) => c.id === state.activeCutId ? next : c),
+          updatedAt: now(),
+        },
+        undoStack: [...state.undoStack, curr],
+        redoStack: state.redoStack.slice(0, -1),
+      };
+    }
 
     case "TOGGLE_UNIT": {
       const p = state.project!;
@@ -89,21 +139,21 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
       if (!cut) return state;
       const current = cut.cutMap[action.unitId];
       const newStatus = current === "cut" ? "kept" : "cut";
-      return updateActiveCut(state, (c) => ({
+      return withUndo(state, (c) => ({
         ...c,
         cutMap: { ...c.cutMap, [action.unitId]: newStatus },
       }));
     }
 
     case "SET_UNIT_STATUS":
-      return updateActiveCut(state, (c) => ({
+      return withUndo(state, (c) => ({
         ...c,
         cutMap: { ...c.cutMap, [action.unitId]: action.status },
       }));
 
     case "BULK_ADD_EDIT_OPS": {
       // Apply all ops in one state update (avoids N re-renders in cut mode)
-      return updateActiveCut(state, (c) => {
+      return withUndo(state, (c) => {
         const edits = { ...(c.speechEdits ?? {}) };
         for (const { unitId, op } of action.ops) {
           const existing = edits[unitId];
@@ -117,10 +167,10 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
     }
 
     case "SET_SCENE_ORDER":
-      return updateActiveCut(state, (c) => ({ ...c, sceneOrder: action.sceneOrder }));
+      return withUndo(state, (c) => ({ ...c, sceneOrder: action.sceneOrder }));
 
     case "SET_SD_CHARACTERS":
-      return updateActiveCut(state, (c) => ({
+      return withUndo(state, (c) => ({
         ...c,
         stageDirectionEdits: {
           ...c.stageDirectionEdits,
@@ -128,13 +178,29 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         },
       }));
 
+    case "REMOVE_EDIT_OP": {
+      return withUndo(state, (c) => {
+        const edits = { ...(c.speechEdits ?? {}) };
+        const existing = edits[action.unitId];
+        if (!existing) return c;
+        const newOps = existing.ops.filter((_, i) => i !== action.opIndex);
+        if (newOps.length === 0) {
+          const { [action.unitId]: _removed, ...rest } = edits;
+          void _removed;
+          return { ...c, speechEdits: Object.keys(rest).length > 0 ? rest : undefined };
+        }
+        edits[action.unitId] = { ...existing, ops: newOps };
+        return { ...c, speechEdits: edits };
+      });
+    }
+
     case "CLEAR_SPEECH_EDITS": {
       const current = state.project!.cuts.find((c) => c.id === state.activeCutId)?.speechEdits ?? {};
       const { [action.unitId]: _removed, ...rest } = current;
       void _removed;
-      return updateActiveCut(state, (c) => ({
+      return withUndo(state, (c) => ({
         ...c,
-        speechEdits: rest,
+        speechEdits: Object.keys(rest).length > 0 ? rest : undefined,
       }));
     }
 
@@ -165,6 +231,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
           ? Object.fromEntries(Object.entries(source.insertions).map(([k, v]) => [k, { ...v, lines: [...v.lines] }]))
           : undefined,
         stageDurations: source?.stageDurations ? { ...source.stageDurations } : undefined,
+        partIndentOverrides: source?.partIndentOverrides ? { ...source.partIndentOverrides } : undefined,
       };
       const newProject = {
         ...p,
@@ -172,7 +239,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         activeCutId: newCut.id,
         updatedAt: now(),
       };
-      return { project: newProject, activeCutId: newCut.id };
+      return { project: newProject, activeCutId: newCut.id, undoStack: [], redoStack: [] };
     }
 
     case "RENAME_CUT": {
@@ -203,6 +270,8 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
           updatedAt: now(),
         },
         activeCutId: newActiveCutId,
+        undoStack: [],
+        redoStack: [],
       };
     }
 
@@ -269,7 +338,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
     }
 
     case "SET_PAUSE":
-      return updateActiveCut(state, (c) => ({
+      return withUndo(state, (c) => ({
         ...c,
         pauses: {
           ...(c.pauses ?? {}),
@@ -282,7 +351,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
       const existing = state.project!.cuts.find((c) => c.id === state.activeCutId)?.pauses ?? {};
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [pauseKey]: _removed, ...rest } = existing;
-      return updateActiveCut(state, (c) => ({ ...c, pauses: rest }));
+      return withUndo(state, (c) => ({ ...c, pauses: rest }));
     }
 
     case "UPDATE_SETTINGS": {
@@ -302,9 +371,9 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
       if (action.characterId === null) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [action.unitId]: _removed, ...rest } = existing;
-        return updateActiveCut(state, (c) => ({ ...c, speechReassignments: rest }));
+        return withUndo(state, (c) => ({ ...c, speechReassignments: rest }));
       }
-      return updateActiveCut(state, (c) => ({
+      return withUndo(state, (c) => ({
         ...c,
         speechReassignments: { ...existing, [action.unitId]: action.characterId! },
       }));
@@ -315,9 +384,9 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
       if (!action.alias) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [action.characterId]: _removed, ...rest } = existing;
-        return updateActiveCut(state, (c) => ({ ...c, characterAliases: rest }));
+        return withUndo(state, (c) => ({ ...c, characterAliases: rest }));
       }
-      return updateActiveCut(state, (c) => ({
+      return withUndo(state, (c) => ({
         ...c,
         characterAliases: { ...existing, [action.characterId]: action.alias! },
       }));
@@ -334,7 +403,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
       const newLinks: Array<[string, string]> = alreadyLinked
         ? existing.filter(([a, b]) => !(a === keyA && b === keyB))
         : [...existing, [keyA, keyB]];
-      return updateActiveCut(state, (c) => ({
+      return withUndo(state, (c) => ({
         ...c,
         characterLinks: newLinks.length > 0 ? newLinks : undefined,
       }));
@@ -355,12 +424,13 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
 
     case "SPLIT_SPEECH": {
       const part2Id = `${action.unitId}:s2`;
-      return updateActiveCut(state, (c) => ({
+      return withUndo(state, (c) => ({
         ...c,
         speechSplits: {
           ...(c.speechSplits ?? {}),
           [action.unitId]: {
             splitAtLineIndex: action.splitAtLineIndex,
+            ...(action.splitAtWordOffset !== undefined ? { splitAtWordOffset: action.splitAtWordOffset } : {}),
             ...(action.newCharacterId ? { newCharacterId: action.newCharacterId } : {}),
           },
         },
@@ -370,7 +440,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
 
     case "MERGE_SPEECH": {
       const part2Id = `${action.unitId}:s2`;
-      return updateActiveCut(state, (c) => {
+      return withUndo(state, (c) => {
         const newSplits = { ...(c.speechSplits ?? {}) };
         delete newSplits[action.unitId];
 
@@ -400,7 +470,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
     }
 
     case "ADD_INSERTION": {
-      return updateActiveCut(state, (c) => ({
+      return withUndo(state, (c) => ({
         ...c,
         insertions: {
           ...(c.insertions ?? {}),
@@ -411,7 +481,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
     }
 
     case "REMOVE_INSERTION": {
-      return updateActiveCut(state, (c) => {
+      return withUndo(state, (c) => {
         const newInsertions = { ...(c.insertions ?? {}) };
         delete newInsertions[action.insertionId];
 
@@ -433,7 +503,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
     }
 
     case "UPDATE_INSERTION": {
-      return updateActiveCut(state, (c) => {
+      return withUndo(state, (c) => {
         if (!c.insertions?.[action.insertionId]) return c;
         return {
           ...c,
@@ -450,14 +520,14 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
     }
 
     case "SET_STAGE_DURATION": {
-      return updateActiveCut(state, (c) => ({
+      return withUndo(state, (c) => ({
         ...c,
         stageDurations: { ...(c.stageDurations ?? {}), [action.stageId]: action.minutes },
       }));
     }
 
     case "CLEAR_STAGE_DURATION": {
-      return updateActiveCut(state, (c) => {
+      return withUndo(state, (c) => {
         const newDurations = { ...(c.stageDurations ?? {}) };
         delete newDurations[action.stageId];
         return {
@@ -467,9 +537,42 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
       });
     }
 
+    case "SET_PART_INDENT_OVERRIDE": {
+      return withUndo(state, (c) => {
+        if (action.value === null) {
+          const ovr = { ...(c.partIndentOverrides ?? {}) };
+          delete ovr[action.lineId];
+          return { ...c, partIndentOverrides: Object.keys(ovr).length > 0 ? ovr : undefined };
+        }
+        return { ...c, partIndentOverrides: { ...(c.partIndentOverrides ?? {}), [action.lineId]: action.value } };
+      });
+    }
+
     default:
       return state;
   }
+}
+
+/**
+ * Like `updateActiveCut`, but also snapshots the current active cut to
+ * `undoStack` before applying the mutation, and clears `redoStack`.
+ * Use this for all script-editing mutations so they can be undone.
+ */
+function withUndo(
+  state: ProjectState,
+  updater: (cut: Cut) => Cut
+): ProjectState {
+  const activeCut = state.project && state.activeCutId
+    ? state.project.cuts.find((c) => c.id === state.activeCutId) ?? null
+    : null;
+  const stateWithSnapshot = activeCut
+    ? {
+        ...state,
+        undoStack: [...state.undoStack, activeCut].slice(-MAX_HISTORY),
+        redoStack: [],
+      }
+    : state;
+  return updateActiveCut(stateWithSnapshot, updater);
 }
 
 function updateActiveCut(
@@ -503,12 +606,14 @@ interface ProjectContextValue {
   createProject: (playId: string, playTitle: string, name?: string) => Project;
   loadProject: (project: Project) => void;
   unloadProject: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, { project: null, activeCutId: null });
+  const [state, dispatch] = useReducer(reducer, initialState);
 
   // Persist to localStorage on every project change
   useEffect(() => {
@@ -572,6 +677,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
         createProject,
         loadProject,
         unloadProject,
+        canUndo: state.undoStack.length > 0,
+        canRedo: state.redoStack.length > 0,
       }}
     >
       {children}

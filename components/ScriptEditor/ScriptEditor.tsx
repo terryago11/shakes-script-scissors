@@ -15,7 +15,7 @@ import DiffView from "./DiffView";
 import ShakespeareAnimation from "@/components/EasterEgg/ShakespeareAnimation";
 import LineCountPanel from "@/components/LineCounts/LineCountPanel";
 import { useSceneJump } from "@/lib/ui/SceneJumpContext";
-import { useCutMode } from "@/lib/ui/CutModeContext";
+import { useEditMode } from "@/lib/ui/EditModeContext";
 import { useViewMode } from "@/lib/ui/ViewModeContext";
 import { useMetric } from "@/lib/ui/MetricContext";
 import type { EditOp } from "@/types/edit";
@@ -145,7 +145,7 @@ export default function ScriptEditor({ playId }: Props) {
   const [easterEggVisible, setEasterEggVisible] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const { setScenes, setActiveSceneId, jumpingRef, focusedSceneId, setFocusedSceneId, setHiddenSceneIds } = useSceneJump();
-  const { cutModeActive, setCutModeActive } = useCutMode();
+  const { activeTool, setActiveTool } = useEditMode();
   const { viewMode } = useViewMode();
   const { setWpm } = useMetric();
   const scriptColRef = useRef<HTMLDivElement>(null);
@@ -155,15 +155,23 @@ export default function ScriptEditor({ playId }: Props) {
     setWpm(project?.settings?.wordsPerMinute ?? DEFAULT_WPM);
   }, [project?.settings?.wordsPerMinute, setWpm]);
 
-  // Esc key exits cut mode
+  // Esc exits edit mode; Cmd+Z / Cmd+Shift+Z undo/redo within edit mode
   useEffect(() => {
-    if (!cutModeActive) return;
+    if (activeTool === "none") return;
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setCutModeActive(false);
+      if (e.key === "Escape") {
+        setActiveTool("none");
+      } else if (e.key === "z" && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+        e.preventDefault();
+        dispatch({ type: "UNDO" });
+      } else if (e.key === "z" && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+        e.preventDefault();
+        dispatch({ type: "REDO" });
+      }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [cutModeActive, setCutModeActive]);
+  }, [activeTool, setActiveTool, dispatch]);
 
   useEffect(() => {
     setLoading(true);
@@ -267,6 +275,14 @@ export default function ScriptEditor({ playId }: Props) {
   }
   if (!project || !activeCut) return null;
 
+  // Original play units — unexpanded, no cut filtering — used by DiffView's right (original) column
+  const origUnitsByScene = new Map<string, import("@/types/play").ScriptUnit[]>();
+  for (const act of play.acts) {
+    for (const scene of act.scenes) {
+      origUnitsByScene.set(scene.id, scene.units);
+    }
+  }
+
   const { unitsByScene, lineCounts } = computeCuts(
     play,
     activeCut,
@@ -306,8 +322,8 @@ export default function ScriptEditor({ playId }: Props) {
     dispatch({ type: "REASSIGN_SPEECH", unitId, characterId });
   }
 
-  function handleSplit(unitId: string, atLineIndex: number) {
-    dispatch({ type: "SPLIT_SPEECH", unitId, splitAtLineIndex: atLineIndex });
+  function handleSplit(unitId: string, atLineIndex: number, atWordOffset?: number) {
+    dispatch({ type: "SPLIT_SPEECH", unitId, splitAtLineIndex: atLineIndex, splitAtWordOffset: atWordOffset });
   }
 
   function handleMerge(unitId: string, part2LineIds: string[]) {
@@ -323,7 +339,7 @@ export default function ScriptEditor({ playId }: Props) {
   }
 
   function handleScriptMouseUp() {
-    if (!cutModeActive || !scriptColRef.current) return;
+    if (activeTool !== "cut" || !scriptColRef.current) return;
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
@@ -456,7 +472,6 @@ export default function ScriptEditor({ playId }: Props) {
     actors: project.actors,
     castList: play.castList,
     filteredCharacterIds,
-    cutModeActive,
     focusedSceneId,
     pauses: activeCut.pauses,
     speechReassignments: activeCut.speechReassignments ?? {},
@@ -478,11 +493,11 @@ export default function ScriptEditor({ playId }: Props) {
       {/* Script column */}
       <div
         ref={scriptColRef}
-        className={`flex-1 min-w-0 overflow-y-auto ${cutModeActive ? "cursor-crosshair select-text" : ""}`}
+        className={`flex-1 min-w-0 overflow-y-auto ${activeTool === "cut" ? "cursor-crosshair select-text" : ""}`}
         onMouseUp={handleScriptMouseUp}
       >
         {/* Focus banner + filter badge */}
-        {!cutModeActive && (focusedSceneId || filterLabel) && (
+        {(focusedSceneId || filterLabel) && (
           <div className="no-print sticky top-14 z-20 bg-white dark:bg-stone-950">
             {focusedSceneId && (
               <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900 px-4 py-1.5 flex items-center gap-3">
@@ -513,6 +528,8 @@ export default function ScriptEditor({ playId }: Props) {
           <DiffView
             orderedGroups={orderedGroups}
             unitsByScene={unitsByScene}
+            origUnitsByScene={origUnitsByScene}
+            insertions={activeCut.insertions}
             speechEdits={activeCut.speechEdits}
             assignments={project.assignments}
             actors={project.actors}
@@ -521,13 +538,12 @@ export default function ScriptEditor({ playId }: Props) {
             focusedSceneId={focusedSceneId}
             onToggle={handleToggle}
             onClearEdits={handleClearEdits}
-            cutModeActive={cutModeActive}
             characterAliases={activeCut.characterAliases}
           />
         ) : (
           <div className={`px-4 pb-6 ${
-            !cutModeActive && focusedSceneId && filterLabel ? "pt-24"
-            : !cutModeActive && (focusedSceneId || filterLabel) ? "pt-16"
+            focusedSceneId && filterLabel ? "pt-24"
+            : (focusedSceneId || filterLabel) ? "pt-16"
             : "pt-6"
           }`}>
             {orderedGroups.map((group) => (

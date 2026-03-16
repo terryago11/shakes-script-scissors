@@ -6,40 +6,63 @@ import type { Insertion, InsertedLine } from "@/types/insertion";
 import { generateId } from "@/lib/project/projectUtils";
 
 interface Props {
-  /** The unit after which this insertion will be placed */
+  /** The unit after which this insertion will be placed (used when creating new) */
   afterUnitId: string;
   castList: Character[];
   characterAliases?: Record<string, string>;
-  onInsert: (insertion: Insertion) => void;
+  /** When set, modal pre-fills from this insertion and saves via onSave with the same id */
+  existingInsertion?: Insertion;
+  onSave: (insertion: Insertion) => void;
   onCancel: () => void;
 }
 
 export default function InsertionModal({
   afterUnitId,
   castList,
-  onInsert,
+  existingInsertion,
+  onSave,
   onCancel,
 }: Props) {
-  const [characterId, setCharacterId] = useState(castList[0]?.id ?? "");
-  const [text, setText] = useState("");
+  const isEditing = existingInsertion !== undefined;
+
+  const [characterId, setCharacterId] = useState(
+    existingInsertion?.characterId ?? castList[0]?.id ?? ""
+  );
+  const [text, setText] = useState(
+    existingInsertion ? existingInsertion.lines.map((l) => l.text).join("\n") : ""
+  );
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const rawLines = text.split("\n").filter((l) => l.trim().length > 0);
     if (rawLines.length === 0 || !characterId) return;
 
-    const insertionId = generateId();
-    const lines: InsertedLine[] = rawLines.map((lineText, idx) => ({
-      id: `ins_${insertionId}_${idx}`,
-      text: lineText.trim(),
-    }));
-
-    onInsert({
-      id: insertionId,
-      afterUnitId,
-      characterId,
-      lines,
-    });
+    if (isEditing) {
+      // Editing: preserve existing insertion id and afterUnitId
+      const lines: InsertedLine[] = rawLines.map((lineText, idx) => ({
+        id: `ins_${existingInsertion!.id}_${idx}`,
+        text: lineText.trim(),
+      }));
+      onSave({
+        id: existingInsertion!.id,
+        afterUnitId: existingInsertion!.afterUnitId,
+        characterId,
+        lines,
+      });
+    } else {
+      // Creating new
+      const insertionId = generateId();
+      const lines: InsertedLine[] = rawLines.map((lineText, idx) => ({
+        id: `ins_${insertionId}_${idx}`,
+        text: lineText.trim(),
+      }));
+      onSave({
+        id: insertionId,
+        afterUnitId,
+        characterId,
+        lines,
+      });
+    }
   }
 
   return (
@@ -49,7 +72,9 @@ export default function InsertionModal({
     >
       <div className="bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-700 w-full max-w-md mx-4">
         <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 dark:border-stone-700">
-          <h2 className="font-semibold text-stone-700 dark:text-stone-200 text-sm">Insert Text</h2>
+          <h2 className="font-semibold text-stone-700 dark:text-stone-200 text-sm">
+            {isEditing ? "Edit Insertion" : "Insert Text"}
+          </h2>
           <button
             onClick={onCancel}
             className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 text-lg leading-none"
@@ -106,7 +131,7 @@ export default function InsertionModal({
               disabled={!text.trim() || !characterId}
               className="text-sm px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 text-white font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Insert
+              {isEditing ? "Save" : "Insert"}
             </button>
           </div>
         </form>

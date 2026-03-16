@@ -10,7 +10,7 @@ import type { Play } from "@/types/play";
 import SettingsModal from "@/components/SettingsModal/SettingsModal";
 import ShakespeareAnimation from "@/components/EasterEgg/ShakespeareAnimation";
 import { SceneJumpProvider, useSceneJump } from "@/lib/ui/SceneJumpContext";
-import { CutModeProvider, useCutMode } from "@/lib/ui/CutModeContext";
+import { EditModeProvider, useEditMode, type EditTool } from "@/lib/ui/EditModeContext";
 import { MetricProvider } from "@/lib/ui/MetricContext";
 import { ViewModeProvider, useViewMode, type ViewMode } from "@/lib/ui/ViewModeContext";
 
@@ -101,7 +101,7 @@ export default function ProjectLayout({
 
   return (
     <SceneJumpProvider>
-      <CutModeProvider>
+      <EditModeProvider>
         <MetricProvider>
           <ViewModeProvider>
             <ProjectNav
@@ -116,7 +116,7 @@ export default function ProjectLayout({
             <div className="flex-1">{children}</div>
           </ViewModeProvider>
         </MetricProvider>
-      </CutModeProvider>
+      </EditModeProvider>
     </SceneJumpProvider>
   );
 }
@@ -151,7 +151,7 @@ function ProjectNav({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dispatch: React.Dispatch<any>;
 }) {
-  const { cutModeActive } = useCutMode();
+  const { activeTool, setActiveTool } = useEditMode();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exportingHtml, setExportingHtml] = useState(false);
   const [easterEggVisible, setEasterEggVisible] = useState(false);
@@ -167,14 +167,14 @@ function ProjectNav({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [hamburgerOpen]);
 
-  // Trigger easter egg whenever cut mode is exited (button or Escape)
-  const prevCutModeActive = useRef(false);
+  // Trigger easter egg whenever the Cut tool is exited (any exit path)
+  const prevActiveTool = useRef<EditTool>("none");
   useEffect(() => {
-    if (prevCutModeActive.current && !cutModeActive) {
+    if (prevActiveTool.current === "cut" && activeTool !== "cut") {
       setEasterEggVisible(true);
     }
-    prevCutModeActive.current = cutModeActive;
-  }, [cutModeActive]);
+    prevActiveTool.current = activeTool;
+  }, [activeTool]);
 
   function handleSettingsSave(updates: {
     name?: string;
@@ -331,7 +331,7 @@ function ProjectNav({
         {/* Script-page controls — desktop only */}
         {isScriptPage && (
           <div className="hidden lg:flex items-center gap-1">
-            <NavCutModeButton />
+            <NavEditModeButton />
             <NavJumpSelect />
           </div>
         )}
@@ -350,7 +350,7 @@ function ProjectNav({
             {hamburgerOpen && (
               <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg shadow-lg p-3 z-50 flex flex-col gap-3">
                 <div className="text-xs text-stone-400 dark:text-stone-500 uppercase tracking-wider font-semibold">Script controls</div>
-                <NavCutModeButton />
+                <NavEditModeButton />
                 <NavJumpSelect />
               </div>
             )}
@@ -379,13 +379,9 @@ function ProjectNav({
         )}
       </div>
 
-      {/* Cut mode overlay */}
-      {cutModeActive && (
-        <div className="absolute inset-0 bg-red-600 flex items-center px-6 gap-4">
-          <span className="text-white font-semibold text-sm">✂ Cut mode</span>
-          <span className="text-red-200 text-sm">Drag to select text — release to cut. Spans speeches freely.</span>
-          <NavCutModeExitButton />
-        </div>
+      {/* Edit mode toolbar — shown whenever a tool is active */}
+      {activeTool !== "none" && (
+        <EditToolbar activeTool={activeTool} setActiveTool={setActiveTool} />
       )}
 
       {/* Easter egg — fires when cut mode exits */}
@@ -463,29 +459,119 @@ function NavScriptMenu({ projectId, isActive, Icon }: { projectId: string; isAct
   );
 }
 
-function NavCutModeButton() {
-  const { cutModeActive, setCutModeActive } = useCutMode();
-  if (cutModeActive) return null;
+function NavEditModeButton() {
+  const { activeTool, setActiveTool } = useEditMode();
+  const { viewMode, setViewMode } = useViewMode();
+  if (activeTool !== "none") return null;
   return (
     <button
-      onClick={() => setCutModeActive(true)}
-      className="text-xs px-3 py-1.5 rounded border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-500 dark:text-stone-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-800 hover:text-red-600 dark:hover:text-red-400 transition-colors shrink-0"
-      title="Enter freestyle cut mode"
+      onClick={() => {
+        // Clean view is read-only; switch to standard before entering edit mode
+        if (viewMode === "clean") setViewMode("standard");
+        setActiveTool("cut");
+      }}
+      className="text-xs px-3 py-1.5 rounded border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-500 dark:text-stone-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:border-amber-300 dark:hover:border-amber-800 hover:text-amber-700 dark:hover:text-amber-400 transition-colors shrink-0"
+      title={viewMode === "clean" ? "Enter edit mode (will switch to Standard view)" : "Enter edit mode"}
     >
-      ✂ Cut mode
+      ✎ Edit
     </button>
   );
 }
 
-function NavCutModeExitButton() {
-  const { setCutModeActive } = useCutMode();
+const TOOL_CONFIG: Record<Exclude<EditTool, "none">, { icon: string; label: string; desc: string }> = {
+  cut:      { icon: "✂\uFE0E",  label: "Cut",          desc: "Drag to select text — release to cut. Spans speeches freely." },
+  insert:   { icon: "+",        label: "Insert",        desc: "Click between units to insert custom text, or click anywhere within a line to insert a word." },
+  restore:  { icon: "↺",        label: "Restore",       desc: "Click ↩ on any speech to restore it. Use ↩ restore all on any scene header to restore every cut in that scene at once." },
+  "sd-chars": { icon: "⊕",     label: "SD Chars",      desc: "Edit character lists on entrance and exit stage directions." },
+  reassign: { icon: "⇄",        label: "Reassign",      desc: "Click a character name to reassign that speech to another character." },
+  split:    { icon: "⌥",        label: "Split/Indent",  desc: "Click anywhere within a line to split at a word, or click ✂ between lines for a clean split. Use ⇤/⊕ buttons on first/last lines of a speech to toggle shared-verse indentation." },
+};
+
+function EditToolbar({ activeTool, setActiveTool }: { activeTool: EditTool; setActiveTool: (t: EditTool) => void }) {
+  const { dispatch, canUndo, canRedo } = useProject();
+  const [showHelp, setShowHelp] = useState(false);
+  const tools = Object.entries(TOOL_CONFIG) as [Exclude<EditTool, "none">, typeof TOOL_CONFIG[Exclude<EditTool, "none">]][];
+  const activeConfig = activeTool !== "none" ? TOOL_CONFIG[activeTool] : null;
+
+  function handleSetTool(tool: Exclude<EditTool, "none">) {
+    setActiveTool(tool);
+  }
+
   return (
-    <button
-      onClick={() => setCutModeActive(false)}
-      className="ml-auto text-sm text-red-100 hover:text-white border border-red-400 hover:border-red-200 px-3 py-1 rounded transition-colors"
-    >
-      Exit (Esc)
-    </button>
+    // overflow-x-auto allows horizontal scroll on narrow viewports so Done button stays accessible
+    <div className="absolute inset-0 bg-red-700 dark:bg-red-900 border-t border-red-600 dark:border-red-800 overflow-x-auto z-10">
+      <div className="min-w-max flex items-center h-full px-3 gap-2">
+        {/* Tool buttons */}
+        <div className="flex items-center gap-1 shrink-0">
+          {tools.map(([tool, cfg]) => (
+            <button
+              key={tool}
+              onClick={() => handleSetTool(tool)}
+              className={`text-xs px-2.5 py-1 rounded transition-colors font-medium ${
+                activeTool === tool
+                  ? "bg-white text-red-700 font-semibold"
+                  : "text-red-200 hover:text-white hover:bg-red-600 dark:text-red-300 dark:hover:bg-red-800"
+              }`}
+              title={cfg.desc}
+            >
+              {cfg.icon} {cfg.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ? help toggle — shows a fixed overlay bubble over the full screen */}
+        {activeConfig && (
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setShowHelp((v) => !v)}
+              className={`text-xs w-5 h-5 rounded-full flex items-center justify-center transition-colors font-mono ${
+                showHelp
+                  ? "bg-white text-red-700"
+                  : "text-red-300 hover:text-white border border-red-500 hover:border-red-300"
+              }`}
+              title="Toggle help text"
+            >?</button>
+            {showHelp && (
+              <div
+                className="fixed z-[200] bg-stone-900 dark:bg-stone-800 text-stone-100 text-xs rounded-lg px-4 py-3 shadow-2xl whitespace-normal leading-relaxed border border-stone-700"
+                style={{ top: 50, left: "50%", transform: "translateX(-50%)", width: "min(540px, calc(100vw - 2rem))" }}
+              >
+                {activeConfig.desc}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Undo / Redo */}
+        <div className="ml-auto flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => dispatch({ type: "UNDO" })}
+            disabled={!canUndo}
+            className={`text-xs px-2 py-1 rounded transition-colors ${canUndo ? "text-red-200 hover:text-white hover:bg-red-600 dark:hover:bg-red-800" : "text-red-200/30 dark:text-red-300/25 cursor-not-allowed pointer-events-none"}`}
+            title="Undo last edit (⌘Z) — up to 20 steps; history clears when switching cuts or reloading"
+          >
+            ⟲ Undo
+          </button>
+          <button
+            onClick={() => dispatch({ type: "REDO" })}
+            disabled={!canRedo}
+            className={`text-xs px-2 py-1 rounded transition-colors ${canRedo ? "text-red-200 hover:text-white hover:bg-red-600 dark:hover:bg-red-800" : "text-red-200/30 dark:text-red-300/25 cursor-not-allowed pointer-events-none"}`}
+            title="Redo (⌘⇧Z) — history clears when switching cuts or reloading"
+          >
+            ⟳ Redo
+          </button>
+
+          {/* Done button */}
+          <button
+            onClick={() => setActiveTool("none")}
+            className="text-xs text-red-200 dark:text-red-300 hover:text-white border border-red-500 dark:border-red-700 hover:border-red-300 dark:hover:border-red-500 px-3 py-1 rounded transition-colors"
+            title="Exit edit mode (Esc)"
+          >
+            ✕ Done
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
