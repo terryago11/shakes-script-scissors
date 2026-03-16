@@ -1,7 +1,7 @@
 import type { Play, Speech, StageDirection } from "@/types/play";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import type { CueScript, CueEntry } from "@/types/cut";
-import { getAllUnitsInOrder } from "./CutEngine";
+import { getEffectiveUnitsInOrder } from "./CutEngine";
 import { getEffectiveCharacters } from "./StageTimeEngine";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
 import { applyEditsToLine, segmentsToText } from "./applyEdits";
@@ -33,7 +33,7 @@ export function buildCueScript(
   const speechEdits = cut.speechEdits ?? {};
   const stageDirectionEdits = cut.stageDirectionEdits ?? {};
 
-  const allUnits = getAllUnitsInOrder(play);
+  const allUnits = getEffectiveUnitsInOrder(play, cut);
   const entries: CueEntry[] = [];
 
   let lastOtherSpeechText: string | null = null;
@@ -48,7 +48,9 @@ export function buildCueScript(
 
     if (unit.type === "speech") {
       const speech = unit as Speech;
-      const isActorSpeech = actorCharIds.has(speech.characterId);
+      // Respect speechReassignments: a reassigned speech belongs to the new character
+      const effectiveCharId = cut.speechReassignments?.[speech.id] ?? speech.characterId;
+      const isActorSpeech = actorCharIds.has(effectiveCharId);
 
       // Filter lines by lineCutMap and apply word-level edits
       const edit = speechEdits[speech.id];
@@ -81,7 +83,7 @@ export function buildCueScript(
         // Emit the actor's kept lines only
         const linesText = keptLines.map((l) => l.text).join("\n");
         if (linesText) {
-          entries.push({ type: "lines", text: linesText, characterName: resolveCharacterName(speech.characterId, characterAliases, play.castList) });
+          entries.push({ type: "lines", text: linesText, characterName: resolveCharacterName(effectiveCharId, characterAliases, play.castList) });
         }
         inActorBlock = true;
         lastOtherSpeechText = null;
@@ -92,11 +94,11 @@ export function buildCueScript(
         if (inActorBlock) {
           // We just finished an actor block — prep the cue from this speech
           pendingCue = extractCue(fullText);
-          pendingCueSpeakerName = resolveCharacterName(speech.characterId, characterAliases, play.castList);
+          pendingCueSpeakerName = resolveCharacterName(effectiveCharId, characterAliases, play.castList);
           inActorBlock = false;
         }
         lastOtherSpeechText = fullText;
-        lastOtherSpeakerName = resolveCharacterName(speech.characterId, characterAliases, play.castList);
+        lastOtherSpeakerName = resolveCharacterName(effectiveCharId, characterAliases, play.castList);
       }
     } else if (unit.type === "stage") {
       const stage = unit as StageDirection;
@@ -120,6 +122,10 @@ export function buildCueScript(
             inActorBlock = false;
           }
         }
+        entries.push({ type: "stage", text: stage.text });
+      } else if (inActorBlock && stage.stageType !== "entrance" && stage.stageType !== "exit") {
+        // Non-relevant SD that falls between the actor's own speeches (e.g. "Knock." between
+        // two Lady Macbeth lines) — include it so the actor knows what's happening on stage.
         entries.push({ type: "stage", text: stage.text });
       }
     }

@@ -15,7 +15,7 @@ import DiffView from "./DiffView";
 import ShakespeareAnimation from "@/components/EasterEgg/ShakespeareAnimation";
 import LineCountPanel from "@/components/LineCounts/LineCountPanel";
 import { useSceneJump } from "@/lib/ui/SceneJumpContext";
-import { useCutMode } from "@/lib/ui/CutModeContext";
+import { useEditMode } from "@/lib/ui/EditModeContext";
 import { useViewMode } from "@/lib/ui/ViewModeContext";
 import { useMetric } from "@/lib/ui/MetricContext";
 import type { EditOp } from "@/types/edit";
@@ -144,8 +144,8 @@ export default function ScriptEditor({ playId }: Props) {
   const [filter, setFilter] = useState<FilterState>(null);
   const [easterEggVisible, setEasterEggVisible] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
-  const { setScenes, setActiveSceneId, jumpingRef, focusedSceneId, setFocusedSceneId } = useSceneJump();
-  const { cutModeActive, setCutModeActive } = useCutMode();
+  const { setScenes, setActiveSceneId, jumpingRef, focusedSceneId, setFocusedSceneId, setHiddenSceneIds } = useSceneJump();
+  const { activeTool, setActiveTool } = useEditMode();
   const { viewMode } = useViewMode();
   const { setWpm } = useMetric();
   const scriptColRef = useRef<HTMLDivElement>(null);
@@ -155,15 +155,23 @@ export default function ScriptEditor({ playId }: Props) {
     setWpm(project?.settings?.wordsPerMinute ?? DEFAULT_WPM);
   }, [project?.settings?.wordsPerMinute, setWpm]);
 
-  // Esc key exits cut mode
+  // Esc exits edit mode; Cmd+Z / Cmd+Shift+Z undo/redo within edit mode
   useEffect(() => {
-    if (!cutModeActive) return;
+    if (activeTool === "none") return;
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setCutModeActive(false);
+      if (e.key === "Escape") {
+        setActiveTool("none");
+      } else if (e.key === "z" && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+        e.preventDefault();
+        dispatch({ type: "UNDO" });
+      } else if (e.key === "z" && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+        e.preventDefault();
+        dispatch({ type: "REDO" });
+      }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [cutModeActive, setCutModeActive]);
+  }, [activeTool, setActiveTool, dispatch]);
 
   useEffect(() => {
     setLoading(true);
@@ -176,11 +184,21 @@ export default function ScriptEditor({ playId }: Props) {
       .then((data: Play) => {
         setPlay(data);
         setLoading(false);
-        // Short labels: "1:1", "1:2", "2:1" …
+        // Short labels: "1:1", "1:2", "2:1" — special acts/scenes use type abbreviations:
+        //   prologue act → "pr", epilogue → "ep", induction → "in"
+        //   chorus scene → "ch" (e.g. "3:ch"), scene epilogue/prologue → "ep"/"pr"
         const scenesList: { id: string; label: string }[] = [];
-        data.acts.forEach((act, ai) => {
+        data.acts.forEach((act) => {
+          const actPrefix = act.divType === "prologue" ? "pr"
+            : act.divType === "epilogue" ? "ep"
+            : act.divType === "induction" ? "in"
+            : String(act.number);
           act.scenes.forEach((scene, si) => {
-            scenesList.push({ id: scene.id, label: `${ai + 1}:${si + 1}` });
+            const sceneLabel = scene.sceneType === "chorus" ? "ch"
+              : scene.sceneType === "epilogue" ? "ep"
+              : scene.sceneType === "prologue" ? "pr"
+              : String(si + 1);
+            scenesList.push({ id: scene.id, label: `${actPrefix}:${sceneLabel}` });
           });
         });
         setScenes(scenesList);
@@ -193,6 +211,36 @@ export default function ScriptEditor({ playId }: Props) {
         setLoading(false);
       });
   }, [playId, setScenes]);
+
+  // Update hidden scene IDs in the context when the character/actor filter changes.
+  // Hidden scenes are those where the filtered character has no speeches.
+  useEffect(() => {
+    if (!play) return;
+    if (!filter) {
+      setHiddenSceneIds(new Set());
+      return;
+    }
+    // Resolve filter to a set of character IDs (actor filter → map to characters)
+    const charIds = new Set<string>();
+    if (filter.type === "character") {
+      charIds.add(filter.id);
+    } else {
+      project?.assignments
+        .filter((a) => a.actorId === filter.id)
+        .forEach((a) => charIds.add(a.characterId));
+    }
+    if (charIds.size === 0) { setHiddenSceneIds(new Set()); return; }
+    const hidden = new Set<string>();
+    for (const act of play.acts) {
+      for (const scene of act.scenes) {
+        const hasChar = scene.units.some(
+          (u) => u.type === "speech" && charIds.has(u.characterId)
+        );
+        if (!hasChar) hidden.add(scene.id);
+      }
+    }
+    setHiddenSceneIds(hidden);
+  }, [filter, play, project?.assignments, setHiddenSceneIds]);
 
   // Track which scene is at the top of the viewport
   useEffect(() => {
@@ -226,6 +274,14 @@ export default function ScriptEditor({ playId }: Props) {
     return <div className="flex items-center justify-center py-24 text-red-500">Failed to load play: {error}</div>;
   }
   if (!project || !activeCut) return null;
+
+  // Original play units — unexpanded, no cut filtering — used by DiffView's right (original) column
+  const origUnitsByScene = new Map<string, import("@/types/play").ScriptUnit[]>();
+  for (const act of play.acts) {
+    for (const scene of act.scenes) {
+      origUnitsByScene.set(scene.id, scene.units);
+    }
+  }
 
   const { unitsByScene, lineCounts } = computeCuts(
     play,
@@ -266,8 +322,24 @@ export default function ScriptEditor({ playId }: Props) {
     dispatch({ type: "REASSIGN_SPEECH", unitId, characterId });
   }
 
+  function handleSplit(unitId: string, atLineIndex: number, atWordOffset?: number) {
+    dispatch({ type: "SPLIT_SPEECH", unitId, splitAtLineIndex: atLineIndex, splitAtWordOffset: atWordOffset });
+  }
+
+  function handleMerge(unitId: string, part2LineIds: string[]) {
+    dispatch({ type: "MERGE_SPEECH", unitId, part2LineIds });
+  }
+
+  function handleAddInsertion(insertion: import("@/types/insertion").Insertion) {
+    dispatch({ type: "ADD_INSERTION", insertion });
+  }
+
+  function handleRemoveInsertion(insertionId: string, lineIds: string[]) {
+    dispatch({ type: "REMOVE_INSERTION", insertionId, lineIds });
+  }
+
   function handleScriptMouseUp() {
-    if (!cutModeActive || !scriptColRef.current) return;
+    if (activeTool !== "cut" || !scriptColRef.current) return;
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
@@ -400,13 +472,19 @@ export default function ScriptEditor({ playId }: Props) {
     actors: project.actors,
     castList: play.castList,
     filteredCharacterIds,
-    cutModeActive,
     focusedSceneId,
     pauses: activeCut.pauses,
     speechReassignments: activeCut.speechReassignments ?? {},
     charsWithEntrance,
     onReassign: handleReassign,
     characterAliases: activeCut.characterAliases,
+    stageDirectionEdits: activeCut.stageDirectionEdits,
+    speechSplits: activeCut.speechSplits,
+    onSplit: handleSplit,
+    onMerge: handleMerge,
+    insertions: activeCut.insertions,
+    onAddInsertion: handleAddInsertion,
+    onRemoveInsertion: handleRemoveInsertion,
     onRestoreScene: handleRestoreScene,
   };
 
@@ -415,11 +493,11 @@ export default function ScriptEditor({ playId }: Props) {
       {/* Script column */}
       <div
         ref={scriptColRef}
-        className={`flex-1 min-w-0 overflow-y-auto ${cutModeActive ? "cursor-crosshair select-text" : ""}`}
+        className={`flex-1 min-w-0 overflow-y-auto ${activeTool === "cut" ? "cursor-crosshair select-text" : ""}`}
         onMouseUp={handleScriptMouseUp}
       >
         {/* Focus banner + filter badge */}
-        {!cutModeActive && (focusedSceneId || filterLabel) && (
+        {(focusedSceneId || filterLabel) && (
           <div className="no-print sticky top-14 z-20 bg-white dark:bg-stone-950">
             {focusedSceneId && (
               <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900 px-4 py-1.5 flex items-center gap-3">
@@ -450,6 +528,8 @@ export default function ScriptEditor({ playId }: Props) {
           <DiffView
             orderedGroups={orderedGroups}
             unitsByScene={unitsByScene}
+            origUnitsByScene={origUnitsByScene}
+            insertions={activeCut.insertions}
             speechEdits={activeCut.speechEdits}
             assignments={project.assignments}
             actors={project.actors}
@@ -458,13 +538,12 @@ export default function ScriptEditor({ playId }: Props) {
             focusedSceneId={focusedSceneId}
             onToggle={handleToggle}
             onClearEdits={handleClearEdits}
-            cutModeActive={cutModeActive}
             characterAliases={activeCut.characterAliases}
           />
         ) : (
           <div className={`px-4 pb-6 ${
-            !cutModeActive && focusedSceneId && filterLabel ? "pt-24"
-            : !cutModeActive && (focusedSceneId || filterLabel) ? "pt-16"
+            focusedSceneId && filterLabel ? "pt-24"
+            : (focusedSceneId || filterLabel) ? "pt-16"
             : "pt-6"
           }`}>
             {orderedGroups.map((group) => (

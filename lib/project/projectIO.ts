@@ -26,6 +26,22 @@ const CutSchema = z.object({
   sceneOrder: z.array(z.string()).optional(),
   stageDirectionEdits: z.record(z.string(), z.array(z.string())).optional(),
   pauses: z.record(z.string(), z.object({ name: z.string(), minutes: z.number() })).optional(),
+  // Previously missing — were silently stripped on import:
+  speechReassignments: z.record(z.string(), z.string()).optional(),
+  characterAliases: z.record(z.string(), z.string()).optional(),
+  characterLinks: z.array(z.tuple([z.string(), z.string()])).optional(),
+  // Group 15 additions:
+  speechSplits: z.record(z.string(), z.object({
+    splitAtLineIndex: z.number().int().nonnegative(),
+    newCharacterId: z.string().optional(),
+  })).optional(),
+  insertions: z.record(z.string(), z.object({
+    id: z.string(),
+    afterUnitId: z.string(),
+    characterId: z.string(),
+    lines: z.array(z.object({ id: z.string(), text: z.string() })),
+  })).optional(),
+  stageDurations: z.record(z.string(), z.number()).optional(),
 });
 
 const ProjectSchema = z.object({

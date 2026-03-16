@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useCallback, useRef } from "react"
 
 export interface SceneOption {
   id: string;
-  label: string; // e.g. "1:1"
+  label: string; // e.g. "1:1", "pr:1", "2:ch"
 }
 
 interface SceneJumpContextValue {
@@ -18,6 +18,9 @@ interface SceneJumpContextValue {
   /** Currently focused scene (show only this scene) */
   focusedSceneId: string | null;
   setFocusedSceneId: (id: string | null) => void;
+  /** Scene IDs hidden by an active character/actor filter — shown as disabled in the dropdown */
+  hiddenSceneIds: Set<string>;
+  setHiddenSceneIds: (ids: Set<string>) => void;
 }
 
 const SceneJumpContext = createContext<SceneJumpContextValue>({
@@ -29,12 +32,15 @@ const SceneJumpContext = createContext<SceneJumpContextValue>({
   jumpingRef: { current: false },
   focusedSceneId: null,
   setFocusedSceneId: () => {},
+  hiddenSceneIds: new Set(),
+  setHiddenSceneIds: () => {},
 });
 
 export function SceneJumpProvider({ children }: { children: React.ReactNode }) {
   const [scenes, setScenes] = useState<SceneOption[]>([]);
   const [activeSceneId, setActiveSceneId] = useState("");
   const [focusedSceneId, setFocusedSceneId] = useState<string | null>(null);
+  const [hiddenSceneIds, setHiddenSceneIds] = useState<Set<string>>(new Set());
   const jumpingRef = useRef<boolean>(false);
   const jumpTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -53,6 +59,7 @@ export function SceneJumpProvider({ children }: { children: React.ReactNode }) {
       jumpToScene,
       jumpingRef,
       focusedSceneId, setFocusedSceneId,
+      hiddenSceneIds, setHiddenSceneIds,
     }}>
       {children}
     </SceneJumpContext.Provider>

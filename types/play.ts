@@ -10,6 +10,8 @@ export interface Act {
   number: number;
   title: string;
   scenes: Scene[];
+  /** "act" (default / undefined), "prologue", "epilogue", or "induction" */
+  divType?: "act" | "prologue" | "epilogue" | "induction";
 }
 
 export interface Scene {
@@ -17,6 +19,8 @@ export interface Scene {
   number: number;
   title: string;
   units: ScriptUnit[];
+  /** "scene" (default / undefined), "chorus", "epilogue", or "prologue" */
+  sceneType?: "scene" | "chorus" | "epilogue" | "prologue";
 }
 
 export type ScriptUnit = Speech | StageDirection;
@@ -32,6 +36,11 @@ export interface Speech {
   speakerTag: string;
   lines: Line[];
   lineCount: number;
+  /** True when the speech contains <lg> stanza children (e.g. a sung song) */
+  isSong?: boolean;
+  /** Delivery/location qualifier from a pre-speech <stage>, e.g. "[within]".
+   *  Displayed inline after the character name. */
+  deliveryNote?: string;
 }
 
 export interface Line {
@@ -39,6 +48,15 @@ export interface Line {
   /** Folger Through Line Number */
   ftln: number;
   text: string;
+  /** True when this line comes from an <lg> stanza that is a song (not a poem) */
+  isSong?: boolean;
+  /** True when this line is a B-rhyme (even 1-indexed position) in a poem stanza — rendered indented */
+  poemIndent?: boolean;
+  /** True when this line has part="F" or part="I"+prev= — it continues a shared verse line */
+  partIndent?: boolean;
+  /** Character count of all preceding parts in the shared-line chain.
+   *  Used for proportional ch-based indent so the fragment visually "completes" the line. */
+  partIndentChars?: number;
 }
 
 export interface StageDirection {
@@ -47,8 +65,9 @@ export interface StageDirection {
   text: string;
   /** Character IDs mentioned in the stage direction */
   characters: string[];
-  stageType?: "entrance" | "exit" | "business" | "delivery";
+  stageType?: "entrance" | "exit" | "business" | "delivery" | "mixed";
   isSong?: boolean;
+  isDance?: boolean;
 }
 
 export interface Character {

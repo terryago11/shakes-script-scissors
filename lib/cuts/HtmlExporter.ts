@@ -2,6 +2,7 @@ import type { Play, Speech, StageDirection } from "@/types/play";
 import type { Cut, Actor, ActorAssignment } from "@/types/project";
 import { applyEditsToLine, segmentsToText } from "./applyEdits";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
+import { expandSplits, expandInsertions } from "./expandUtils";
 
 // ---------------------------------------------------------------------------
 // Pre-rendered data types (serialised into window.__SCRIPT__ in the HTML file)
@@ -108,7 +109,14 @@ function buildScriptData(
 
     const units: UnitData[] = [];
 
-    for (const rawUnit of info.units) {
+    // Expand splits and insertions so they render correctly in the HTML export
+    const expandedUnits = expandInsertions(
+      expandSplits(info.units, cut.speechSplits),
+      cut.insertions,
+      play.castList
+    );
+
+    for (const rawUnit of expandedUnits) {
       const status = getUnitStatus(rawUnit as Speech | StageDirection, cut);
 
       if (rawUnit.type === "speech") {
@@ -119,7 +127,9 @@ function buildScriptData(
         const edit = speechEdits[speech.id] as { ops?: { lineId: string; type: string; start?: number; end?: number; offset?: number; text?: string }[] } | undefined;
         const ops = edit?.ops ?? [];
 
-        const originalLines = speech.lines.map((l) => l.text);
+        // Insertions have no original — they didn't exist in the uncut play
+        const isInsertion = !!(cut.insertions?.[speech.id]);
+        const originalLines = isInsertion ? [] : speech.lines.map((l) => l.text);
 
         const keptLines =
           status === "cut"

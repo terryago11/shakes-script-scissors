@@ -13,6 +13,8 @@ ShakesScriptScissors lets you work through any of the 37 Folger Shakespeare text
 - **Multiple cut versions** — keep several cuts side by side (e.g. "Workshop draft", "Final cut") and switch between them from the nav bar
 - **Speech reassignment** — hover a character's name in the script to reassign that speech to a different character; the original name shows in red strikethrough and the new name in green; hit ↩ restore to undo
 - **Running line counter** — every 5 lines a right-aligned scene-relative line number appears, so you can quickly orient yourself in the script; in Standard view it counts all lines, in Clean view it counts only kept lines
+- **Song & dance markers** — stage directions containing songs or dances are highlighted in the script: ♪ violet/italic for sung lines, ⊛ cyan for dances; directors can attach an extra duration (in minutes) to any song or dance SD via a `+ time` link — this is added to the total show running time in the Scenes & Pauses dashboard
+- **Script typography** — shared verse lines split across speakers are proportionally indented so each fragment visually "completes" the iambic pentameter line (e.g. "When? / Now. / As I descended?" in Macbeth); poem stanza B-rhymes are indented per Folger convention; delivery qualifiers such as `[within]` appear inline after the character name; stage directions embedded mid-speech (e.g. "Enter Macbeth with bloody daggers." in the middle of Lady Macbeth's speech) are parsed and displayed as proper stage direction blocks
 
 ### Casting
 - **Assign actors to roles** — set up your company and handle double-casting; each actor gets a colour that carries through all views
@@ -28,6 +30,7 @@ ShakesScriptScissors lets you work through any of the 37 Folger Shakespeare text
 - **Running time** — stage-time tracking from entrance/exit stage directions shows per-character and total show duration, cut vs. original; configurable words-per-minute rate
 - **Lines / Words / Time toggle** — switch between metrics throughout the app; counts appear on act and scene headers as well as the side panel
 - **Scene focus** — zoom in on one scene; all counts update to reflect that scene only
+- **Scene jumper** — the scene-jump dropdown in the nav bar shows shorthand labels (e.g. `pr:1` for a prologue, `ep:1` for an epilogue, `3:ch` for a chorus within Act 3); scenes hidden by an active character/actor filter are dimmed and disabled in the dropdown
 
 ### Scene Dashboard
 - **Scenes & Pauses** — see all scenes in order with their cut counts; drag to reorder scenes; insert named pauses (intermission, breaks) between scenes with a duration that adds to total running time
@@ -44,6 +47,14 @@ ShakesScriptScissors lets you work through any of the 37 Folger Shakespeare text
 - **Dark mode** — the tool respects your system preference automatically, or you can pin it to light or dark using the sun/moon/monitor toggle on the home page or in the settings panel
 - **Settings panel** — click the ⚙ gear in the nav to access project name, words-per-minute (slider with presets), quick-change threshold, theme, and save/export options all in one place
 - **Responsive layout** — works on tablet landscape (1024px) as the primary target; on smaller screens the nav collapses script controls behind a `☰` menu, nav link labels hide to icon-only, and the line-count panel shifts to a bottom drawer toggled by an `≡ Info` pill; the script editor goes full-width; the scene dashboard tabs scroll horizontally
+
+---
+
+## Known Limitations
+
+- **Song/dance duration is show-level only** — the extra minutes you assign to a song or dance SD (via `+ time` in the script view) are added to the total show running time and to each scene's duration in the Scenes & Pauses dashboard. They are *not* attributed to individual characters in the per-character stage-time panel. This is because on-stage character tracking is driven by entrance/exit stage directions only, and many Shakespeare scenes lack explicit entrance SDs — making per-character attribution unreliable for these moments. Treat song/dance durations as a show-level time budget.
+
+---
 
 **The tool currently runs locally** — there's no website to visit yet. Ask a developer on your team to set it up (see the Setup section below). Once it's running, you just open a browser and use it like any other web app. Your work is saved automatically in the browser and can be exported as a file for safekeeping.
 

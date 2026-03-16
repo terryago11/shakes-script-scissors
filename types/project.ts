@@ -61,4 +61,35 @@ export interface Cut {
    * encode dramaturgical choices (e.g. Theseus/Oberon) before running Suggest.
    */
   characterLinks?: Array<[string, string]>;
+  /**
+   * Speech splits: divides a Speech into two independently cuttable parts.
+   * Part 1 keeps the original unitId. Part 2 uses "${unitId}:s2".
+   * lines[0..splitAtLineIndex-1] = part 1; lines[splitAtLineIndex..] = part 2.
+   */
+  speechSplits?: Record<string, {
+    /** Part 2 starts at this index into speech.lines[] */
+    splitAtLineIndex: number;
+    /**
+     * If set, the split occurs within line[splitAtLineIndex] at this character offset.
+     * Part 1 gets text[0..splitAtWordOffset], Part 2 gets text[splitAtWordOffset..].
+     * When absent the split is a clean line-boundary split (existing behaviour).
+     */
+    splitAtWordOffset?: number;
+    /** If set, Part 2 is attributed to this character instead of the original */
+    newCharacterId?: string;
+  }>;
+  /** Inserted speeches keyed by insertion ID. Each appears after a specific unit. */
+  insertions?: Record<string, import("./insertion").Insertion>;
+  /**
+   * Per-line overrides for shared-verse (partIndent) indentation.
+   * lineId → true (force indent) | false (suppress TEI-set indent).
+   * Absent key = use the TEI parser's partIndent value.
+   * Only meaningful for lines where the TEI parser sets partIndent=true.
+   */
+  partIndentOverrides?: Record<string, boolean>;
+  /**
+   * Song/dance stage direction durations: stageId → extra minutes to add to scene/show time.
+   * Set via the "+ time" editor on highlighted song/dance SDs.
+   */
+  stageDurations?: Record<string, number>;
 }

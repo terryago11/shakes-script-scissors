@@ -5,6 +5,7 @@ import type { Act, Character, Scene } from "@/types/play";
 import type { Actor, ActorAssignment } from "@/types/project";
 import type { ScriptUnitWithStatus, LineCounts } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
+import type { Insertion } from "@/types/insertion";
 import { useMetric } from "@/lib/ui/MetricContext";
 import SceneBlock from "./SceneBlock";
 import PauseIndicator from "./PauseIndicator";
@@ -21,7 +22,6 @@ interface Props {
   speechEdits?: Record<string, SpeechEdit>;
   onClearEdits?: (unitId: string) => void;
   filteredCharacterIds?: Set<string>;
-  cutModeActive?: boolean;
   lineCounts?: LineCounts;
   focusedSceneId: string | null;
   /** When true, render all content as original (no cuts/edits applied) — for diff side-by-side */
@@ -35,16 +35,29 @@ interface Props {
   onReassign?: (unitId: string, characterId: string | null) => void;
   /** Cut-level character display-name aliases */
   characterAliases?: Record<string, string>;
+  /** stageId → effective character list overrides; passed down to SceneBlock for SD Auto-fill */
+  stageDirectionEdits?: Record<string, string[]>;
+  /** unitId → split params — passed down to SceneBlock to derive splitRole on each SpeechBlock */
+  speechSplits?: Record<string, { splitAtLineIndex: number; newCharacterId?: string }>;
+  onSplit?: (unitId: string, atLineIndex: number, atWordOffset?: number) => void;
+  onMerge?: (unitId: string, part2LineIds: string[]) => void;
+  /** All insertions for the active cut — forwarded to SceneBlock */
+  insertions?: Record<string, Insertion>;
+  onAddInsertion?: (insertion: Insertion) => void;
+  onRemoveInsertion?: (insertionId: string, lineIds: string[]) => void;
   /** Called when at least one unit is restored in a scene */
   onRestoreScene?: () => void;
 }
 
 export default function ActBlock({
   act, scenes, unitsByScene, assignments, actors, castList, onToggle, speechEdits, onClearEdits,
-  filteredCharacterIds, cutModeActive, lineCounts,
+  filteredCharacterIds, lineCounts,
   focusedSceneId, showOriginal, pauses,
   speechReassignments, charsWithEntrance, onReassign,
-  characterAliases, onRestoreScene,
+  characterAliases, stageDirectionEdits,
+  speechSplits, onSplit, onMerge,
+  insertions, onAddInsertion, onRemoveInsertion,
+  onRestoreScene,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   // Generation increments each time act collapses → SceneBlocks remount in collapsed state
@@ -102,7 +115,10 @@ export default function ActBlock({
           {collapsed ? "▶" : "▼"}
         </span>
         <h2 className="text-lg font-bold text-stone-700 dark:text-stone-200 uppercase tracking-wide">
-          {act.title}
+          {act.divType === "prologue" ? "PROLOGUE"
+            : act.divType === "epilogue" ? "EPILOGUE"
+            : act.divType === "induction" ? "INDUCTION"
+            : act.title}
         </h2>
         {(counts || timeMins) && !showOriginal && (
           <span className="ml-2 text-xs text-stone-400 dark:text-stone-400 tabular-nums font-normal normal-case tracking-normal flex items-center gap-1">
@@ -151,7 +167,6 @@ export default function ActBlock({
                   speechEdits={showOriginal ? undefined : speechEdits}
                   onClearEdits={showOriginal ? undefined : onClearEdits}
                   filteredCharacterIds={filteredCharacterIds}
-                  cutModeActive={cutModeActive}
                   sceneCounts={showOriginal ? undefined : lineCounts?.byScene[scene.id]}
                   focusedSceneId={focusedSceneId}
                   showOriginal={showOriginal}
@@ -159,6 +174,13 @@ export default function ActBlock({
                   charsWithEntrance={charsWithEntrance}
                   onReassign={showOriginal ? undefined : onReassign}
                   characterAliases={showOriginal ? undefined : characterAliases}
+                  stageDirectionEdits={showOriginal ? undefined : stageDirectionEdits}
+                  speechSplits={showOriginal ? undefined : speechSplits}
+                  onSplit={showOriginal ? undefined : onSplit}
+                  onMerge={showOriginal ? undefined : onMerge}
+                  insertions={showOriginal ? undefined : insertions}
+                  onAddInsertion={showOriginal ? undefined : onAddInsertion}
+                  onRemoveInsertion={showOriginal ? undefined : onRemoveInsertion}
                   onRestoreScene={showOriginal ? undefined : onRestoreScene}
                 />
                 {pauseEntry && (
