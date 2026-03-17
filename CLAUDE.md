@@ -63,7 +63,7 @@ Both updates should be done together whenever play texts are refreshed.
 - `Act`: `id`, `number`, `title`, `scenes[]`, `divType?` (`"prologue"|"epilogue"|"induction"` — undefined means a regular act)
 - `Scene`: `id`, `number`, `title`, `units[]`, `sceneType?` (`"chorus"|"epilogue"|"prologue"` — undefined means a regular scene)
 - `Speech`: `characterId` (e.g. `#Hamlet_Ham`), `characterName`, `speakerTag` (raw `<speaker>` tag text verbatim, e.g. `"GHOST OF HAMLET'S FATHER"`), `deliveryNote?` (pre-speech delivery qualifier, e.g. `"[within]"`, shown inline after the character name), `lines[]`, `lineCount`
-- `StageDirection`: `id`, `text`, `characters[]`, `stageType?` (`"entrance"|"exit"|"business"|"delivery"`), `isSong?`, `isDance?`
+- `StageDirection`: `id`, `text`, `characters[]`, `stageType?` (`"entrance"|"exit"|"business"|"delivery"` — `"dumbshow"` in TEI is normalised to `"business"` with `isDance: true`), `isSong?`, `isDance?`
 - `Line`: `id`, `ftln` (Folger through-line number), `text`, `isSong?`, `poemIndent?` (B-rhyme in a poem stanza → indented), `partIndent?` (part="F"/part="I"+prev — shared verse fragment → proportionally indented), `partIndentChars?` (char count of preceding parts, drives indent width)
 
 ### `Project` (stored as JSON in localStorage)
@@ -98,6 +98,8 @@ The DraCor TEI format uses:
 - `<sp who="#CharId_PlayId">` for speeches
 - `<castItem sameAs="#CharId_PlayId">` for cast list
 - `<stage type="entrance|exit|...">` for stage directions (type drives on-stage tracking)
+- `<stage type="dumbshow">` — silent mime/action sequences (e.g. The Mousetrap in *Hamlet*); parsed with `isDance: true` and `stageType` normalised to `"business"` so they display with the ⊛ cyan indicator and accept duration overrides
+- `<gap>` — editorial placeholder for missing/unclear text in the source Folger edition; rendered as `[…]` (occurs ~4 times across Hamlet, All's Well, Titus Andronicus)
 
 `fast-xml-parser` is configured with `preserveOrder: true` so elements maintain document order.
 
@@ -107,6 +109,8 @@ The DraCor TEI format uses:
 TEI-authored names are used verbatim; `normalizeCharacterName` is only applied to the ID-stem as a last-resort fallback when no TEI name exists.
 
 **Known DraCor data gaps**: Some exit SDs are missing characters (e.g. "All but Hamlet exit" may omit Voltemand/Cornelius). Use the SD character editor to fix per-production.
+
+**FDT → DraCor normalization**: The raw Folger Digital Texts TEI uses `<div1>`/`<div2>`, `<milestone unit="ftln">`, `<ab>`, and word-level `<w>`/`<c>`/`<pc>` tags. DraCor normalizes all of this to TEI P5 (`<div type="act|scene">`, `<l xml:id="ftln-N">`, `<p>/<lb>`). Elements present in raw FDT but **absent from DraCor corpus files** (verified across all 38 plays): `<sound>`, `<foreign>`, `<hi>`, `<app>`, `<fw>`, `<stage type="modifier">`. The `<stage type="dumbshow">` type **is** present (13 plays) and handled as described above.
 
 ## Line Counts (verified)
 - MND: 2200 spoken lines (1749 verse `<l>` + 451 prose `<lb>`) ✓

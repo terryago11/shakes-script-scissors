@@ -478,8 +478,21 @@ function NavEditModeButton() {
   );
 }
 
-const TOOL_CONFIG: Record<Exclude<EditTool, "none">, { icon: string; label: string; desc: string }> = {
-  cut:      { icon: "✂\uFE0E",  label: "Cut",          desc: "Drag to select text — release to cut. Spans speeches freely." },
+const CUT_GUIDE = (
+  <div className="mt-3 pt-3 border-t border-stone-700 space-y-2">
+    <p className="text-stone-300 font-semibold text-xs">How to cut a play</p>
+    <p><strong className="text-stone-200">Why cut?</strong> Cuts serve three goals: <em>Time</em> (fit a running-time constraint), <em>Audience</em> (sharpen clarity and pacing), or <em>Story</em> (focus a directorial concept). Every cut should serve at least one of these.</p>
+    <p><strong className="text-stone-200">Understand before you cut.</strong> Never remove a line you don&apos;t understand. Ask why the playwright put it there. What function does it serve in the story? If you don&apos;t know why it&apos;s there, you can&apos;t plan around its absence.</p>
+    <p><strong className="text-stone-200">The Jenga principle.</strong> Every element in the play is there for a reason. Cutting one piece can destabilize the structure scenes later — callbacks, setups, rhythms, and character arcs can all depend on what seems like a throwaway line.</p>
+    <p><strong className="text-stone-200">Know what you lose.</strong> A cut that saves five minutes may remove texture, thematic resonance, or a setup for a later payoff. Cuts must be justified — and you should be clear about what the production gains and loses.</p>
+    <p><strong className="text-stone-200">No single right answer.</strong> Different directors cut the same play very differently. Your cut reflects your production&apos;s interpretation. The Dashboard&apos;s Line Count and Time tabs help you track the impact as you go.</p>
+    <p><strong className="text-stone-200">Copyright.</strong> Shakespeare is public domain. For plays from the last ~80 years, cutting may require permission from the rights holder.</p>
+    <p className="text-stone-500 italic">— adapted from Toby Malone &amp; Aili Huber, <em>Cutting Plays for Performance</em> (Routledge, 2022)</p>
+  </div>
+);
+
+const TOOL_CONFIG: Record<Exclude<EditTool, "none">, { icon: string; label: string; desc: string; guide?: React.ReactNode }> = {
+  cut:      { icon: "✂\uFE0E",  label: "Cut",          desc: "Drag to select text — release to cut. Spans speeches freely.", guide: CUT_GUIDE },
   insert:   { icon: "+",        label: "Insert",        desc: "Click between units to insert custom text, or click anywhere within a line to insert a word." },
   restore:  { icon: "↺",        label: "Restore",       desc: "Click ↩ on any speech to restore it. Use ↩ restore all on any scene header to restore every cut in that scene at once." },
   "sd-chars": { icon: "⊕",     label: "SD Chars",      desc: "Edit character lists on entrance and exit stage directions." },
@@ -533,10 +546,11 @@ function EditToolbar({ activeTool, setActiveTool }: { activeTool: EditTool; setA
             >?</button>
             {showHelp && (
               <div
-                className="fixed z-[200] bg-stone-900 dark:bg-stone-800 text-stone-100 text-xs rounded-lg px-4 py-3 shadow-2xl whitespace-normal leading-relaxed border border-stone-700"
-                style={{ top: 50, left: "50%", transform: "translateX(-50%)", width: "min(540px, calc(100vw - 2rem))" }}
+                className="fixed z-[200] bg-stone-900 dark:bg-stone-800 text-stone-100 text-xs rounded-lg px-4 py-3 shadow-2xl whitespace-normal leading-relaxed border border-stone-700 overflow-y-auto"
+                style={{ top: 50, left: "50%", transform: "translateX(-50%)", width: "min(540px, calc(100vw - 2rem))", maxHeight: "calc(100vh - 80px)" }}
               >
                 {activeConfig.desc}
+                {activeConfig.guide}
               </div>
             )}
           </div>

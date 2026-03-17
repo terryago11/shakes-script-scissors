@@ -76,7 +76,7 @@ export function parseTei(xml: string, playId: string): Play {
         const labelText = extractAllText(getChildren(child));
         precedingLabelIsSong = /\bsong\b|\bsings\b/i.test(labelText);
       } else if (tagName === "stage") {
-        const stageType = getAttr(child, "@_type") as StageDirection["stageType"] | undefined;
+        const stageType = getAttr(child, "@_type") as StageDirection["stageType"] | "dumbshow" | undefined;
 
         // "mixed" stage: a parent <stage type="mixed"> containing multiple child <stage> elements.
         // Process each sub-stage individually so Dance + exit appear as separate SDs in the script.
@@ -104,13 +104,17 @@ export function parseTei(xml: string, playId: string): Play {
         const who = getAttr(child, "@_who") || "";
         // Deduplicate: some TEI SDs list the same character ID twice (e.g. H5 #ATTENDANTS.ENGLISH)
         const characters = [...new Set(who.split(/\s+/).filter((w) => w.startsWith("#")))];
-        // Only flag songs/dances on content SDs (business, delivery, or untyped).
+        // Dumbshow: a silent mime/action sequence — treat as a dance-type SD so it gets
+        // the ⊛ cyan indicator and duration editor. Map stageType to "business" (no on-stage tracking).
+        const isDumbshow = stageType === "dumbshow";
+        const normalizedStageType = isDumbshow ? "business" : stageType;
+        // Only flag songs/dances on content SDs (business, delivery, dumbshow, or untyped).
         // Movement SDs (entrance, exit) should be treated as plain movement.
-        const isContentSd = !stageType || stageType === "business" || stageType === "delivery";
+        const isContentSd = !normalizedStageType || normalizedStageType === "business" || normalizedStageType === "delivery";
         // `|| undefined` converts false → undefined so the field is omitted from the object (cleaner JSON)
         const isSong = (isContentSd && /\bsong\b|\bsings\b|\bsinging\b/i.test(text)) || undefined;
-        const isDance = (isContentSd && /\bdance\b|\bdances\b|\bdancing\b/i.test(text)) || undefined;
-        units.push({ type: "stage", id: `${playId}-stg-${stageIndex++}`, text, characters, stageType, isSong, isDance });
+        const isDance = isDumbshow || (isContentSd && /\bdance\b|\bdances\b|\bdancing\b/i.test(text)) || undefined;
+        units.push({ type: "stage", id: `${playId}-stg-${stageIndex++}`, text, characters, stageType: normalizedStageType, isSong, isDance: isDance || undefined });
         precedingLabelIsSong = false;
       } else if (tagName === "sp") {
         const inSongContext = precedingLabelIsSong;
@@ -871,6 +875,8 @@ function extractAllText(nodes: unknown[]): string {
     if (!tag) continue;
     // Skip lb (line break markers in prose) and speaker tags
     if (tag === "lb" || tag === "speaker") continue;
+    // <gap> marks editorial placeholders for missing/unclear text in the source
+    if (tag === "gap") { text += "[…]"; continue; }
     const children = getChildren(n);
     const childText = extractAllText(children);
     // Insert a space between adjacent text from different elements to prevent "Word.Next" concatenation
