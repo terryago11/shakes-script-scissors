@@ -98,6 +98,14 @@ npm run dev
 
 Projects are exported as `.sss.json` files and can be imported back into the tool. Share a `.sss.json` with collaborators to hand off a cut.
 
+## Documentation
+
+| Guide | Audience |
+|-------|---------|
+| [`docs/GETTING_STARTED.md`](./docs/GETTING_STARTED.md) | First time users — opening a play, making your first cut, saving |
+| [`docs/USER_GUIDE.md`](./docs/USER_GUIDE.md) | Full feature walkthrough — cutting, casting, dashboard, export |
+| [`docs/FEATURES.md`](./docs/FEATURES.md) | Power-user reference — complete feature list, data model, keyboard shortcuts |
+
 ## For contributors
 
 See [`CLAUDE.md`](./CLAUDE.md) for architecture overview, data flow, type system, and development conventions.

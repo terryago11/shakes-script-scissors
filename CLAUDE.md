@@ -63,7 +63,7 @@ Both updates should be done together whenever play texts are refreshed.
 - `Act`: `id`, `number`, `title`, `scenes[]`, `divType?` (`"prologue"|"epilogue"|"induction"` — undefined means a regular act)
 - `Scene`: `id`, `number`, `title`, `units[]`, `sceneType?` (`"chorus"|"epilogue"|"prologue"` — undefined means a regular scene)
 - `Speech`: `characterId` (e.g. `#Hamlet_Ham`), `characterName`, `speakerTag` (raw `<speaker>` tag text verbatim, e.g. `"GHOST OF HAMLET'S FATHER"`), `deliveryNote?` (pre-speech delivery qualifier, e.g. `"[within]"`, shown inline after the character name), `lines[]`, `lineCount`
-- `StageDirection`: `id`, `text`, `characters[]`, `stageType?` (`"entrance"|"exit"|"business"|"delivery"`), `isSong?`, `isDance?`
+- `StageDirection`: `id`, `text`, `characters[]`, `stageType?` (`"entrance"|"exit"|"business"|"delivery"` — `"dumbshow"` in TEI is normalised to `"business"` with `isDance: true`), `isSong?`, `isDance?`
 - `Line`: `id`, `ftln` (Folger through-line number), `text`, `isSong?`, `poemIndent?` (B-rhyme in a poem stanza → indented), `partIndent?` (part="F"/part="I"+prev — shared verse fragment → proportionally indented), `partIndentChars?` (char count of preceding parts, drives indent width)
 
 ### `Project` (stored as JSON in localStorage)
@@ -98,6 +98,8 @@ The DraCor TEI format uses:
 - `<sp who="#CharId_PlayId">` for speeches
 - `<castItem sameAs="#CharId_PlayId">` for cast list
 - `<stage type="entrance|exit|...">` for stage directions (type drives on-stage tracking)
+- `<stage type="dumbshow">` — silent mime/action sequences (e.g. The Mousetrap in *Hamlet*); parsed with `isDance: true` and `stageType` normalised to `"business"` so they display with the ⊛ cyan indicator and accept duration overrides
+- `<gap>` — editorial placeholder for missing/unclear text in the source Folger edition; rendered as `[…]` (occurs ~4 times across Hamlet, All's Well, Titus Andronicus)
 
 `fast-xml-parser` is configured with `preserveOrder: true` so elements maintain document order.
 
@@ -107,6 +109,8 @@ The DraCor TEI format uses:
 TEI-authored names are used verbatim; `normalizeCharacterName` is only applied to the ID-stem as a last-resort fallback when no TEI name exists.
 
 **Known DraCor data gaps**: Some exit SDs are missing characters (e.g. "All but Hamlet exit" may omit Voltemand/Cornelius). Use the SD character editor to fix per-production.
+
+**FDT → DraCor normalization**: The raw Folger Digital Texts TEI uses `<div1>`/`<div2>`, `<milestone unit="ftln">`, `<ab>`, and word-level `<w>`/`<c>`/`<pc>` tags. DraCor normalizes all of this to TEI P5 (`<div type="act|scene">`, `<l xml:id="ftln-N">`, `<p>/<lb>`). Elements present in raw FDT but **absent from DraCor corpus files** (verified across all 38 plays): `<sound>`, `<foreign>`, `<hi>`, `<app>`, `<fw>`, `<stage type="modifier">`. The `<stage type="dumbshow">` type **is** present (13 plays) and handled as described above.
 
 ## Line Counts (verified)
 - MND: 2200 spoken lines (1749 verse `<l>` + 451 prose `<lb>`) ✓
@@ -342,13 +346,14 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
   - **Cue script improvements**: non-entrance/exit SDs that fall while `inActorBlock` are now included (e.g. "Knock." between Lady Macbeth's speeches); `speechReassignments` respected for both actor ownership and speaker label in cue script output
   - **TeiParser fix**: `extractAllText` now inserts a space between adjacent text runs from different elements, fixing cases like "Thunder.Enter the three Witches." → "Thunder. Enter the three Witches."
 
-### Not Started (Phase 4+)
+- **Group 16**: TEI verification + user docs
+  - `<stage type="dumbshow">` normalised to `isDance: true` / `stageType "business"` (13 plays); `<gap>` emits `[…]`; absent DraCor elements documented (`<sound>`, `<foreign>`, `<hi>`, `<app>`, `<fw>`)
+  - Edit toolbar `?` overlay: scrollable "How to cut a play" guide section for Cut tool (Malone & Huber attr.)
+  - CastingManager `?` panel: third section "About doubling" — Sprague taxonomy, thematic pairs, practical constraints (Gamboa attr.)
+  - `docs/GETTING_STARTED.md`, `docs/USER_GUIDE.md`, `docs/FEATURES.md` — non-technical user guides
+  - **TeiParser fix**: `parseSpeech` embedded-SD emitter now handles `type="mixed"` by expanding to sub-stages (same logic as `parseSceneUnits`), and handles `type="dumbshow"` with `isDance: true`; fixes mid-speech mixed SDs (e.g. Hamlet 2.2 `stg-1626`) showing combined text with no characters
 
-#### Group 16 — TEI Verification + Documentation
-- **TEI verification**: Read Folger FDT documentation PDF (user to supply). Verify DraCor endpoint correctness, check for parsing gaps (`<ab>`, nested `<stage>`, etc.). Document findings in CLAUDE.md.
-- **Cutting methodology**: User to supply PDF. After reviewing: add "How to cut a play" help section accessible from a `?` button near the Cut mode button. Implementation: inline help panel or `/help` page.
-- **Doubling methodology**: User to supply PDF. After reviewing: add "How to double cast" section to CastingManager `?` modal.
-- **User-facing docs**: Create `docs/` directory with `GETTING_STARTED.md`, `USER_GUIDE.md`, `FEATURES.md` for non-technical theatre directors/dramaturgs.
+### Not Started (Phase 4+)
 
 #### Stretch / Deferred
 - Google Drive backup integration

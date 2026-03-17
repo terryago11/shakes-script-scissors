@@ -363,6 +363,37 @@ export default function CastingManager({ playId }: Props) {
               choices — e.g. Theseus/Oberon or Hippolyta/Titania — <em>before</em> running
               Suggest. Links are stored per cut and carried over when you clone a cut.
             </p>
+
+            {/* About doubling */}
+            <div className="pt-2 border-t border-stone-200 dark:border-stone-700 space-y-2">
+              <p>
+                <strong className="text-stone-600 dark:text-stone-300">About doubling.</strong>{" "}
+                Scholars distinguish three kinds: <em>deficiency</em> doubling (economic necessity — not
+                enough actors), <em>emergency</em> doubling (last-minute substitution), and{" "}
+                <em>virtuoso</em> doubling (an artistic choice made to generate theatrical or thematic
+                resonance). The Suggest algorithm handles deficiency; you shape the rest.
+              </p>
+              <p>
+                <strong className="text-stone-600 dark:text-stone-300">Thematic pairs.</strong>{" "}
+                When one actor plays two characters, audiences carry associations from the first role
+                into the second — creating an implicit comparison, contrast, or commentary. Classic
+                Shakespeare pairings: Ghost/Claudius (<em>Hamlet</em>), Theseus–Oberon / Hippolyta–Titania
+                (<em>A Midsummer Night&apos;s Dream</em>), Cordelia/Fool (<em>King Lear</em>),
+                Angelo/Claudio (<em>Measure for Measure</em>). Use Character Links to encode these
+                choices before running Suggest.
+              </p>
+              <p>
+                <strong className="text-stone-600 dark:text-stone-300">Practical constraints.</strong>{" "}
+                Characters who are ever on stage simultaneously cannot share an actor
+                (the Matrix tab shows overlap). Quick-change time — the gap between an exit and a
+                re-entrance — is the other hard limit; the tool flags gaps below your threshold.
+                Shakespeare designed his plays for 9–12 actors; doubling was built into the
+                dramaturgy, not bolted on after the fact.
+              </p>
+              <p className="text-stone-400 dark:text-stone-500 italic">
+                — adapted from Brett Gamboa, <em>Shakespeare&apos;s Double Plays</em> (Cambridge UP, 2018)
+              </p>
+            </div>
           </div>
         )}
 
