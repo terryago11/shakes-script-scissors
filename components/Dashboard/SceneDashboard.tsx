@@ -84,10 +84,13 @@ function buildCharSceneMatrix(
         }
       }
 
-      // Original counts always go to the primary (first) character
-      const origEntry = ensureEntry(origCharId, sceneId);
-      origEntry.linesOrig += origLines;
-      origEntry.wordsOrig += origWords;
+      // Original counts go to ALL TEI-listed speakers
+      const originalCharIds: string[] = unit.characterIds ?? [origCharId];
+      for (const origId of originalCharIds) {
+        const origEntry = ensureEntry(origId, sceneId);
+        origEntry.linesOrig += origLines;
+        origEntry.wordsOrig += origWords;
+      }
 
       // Cut counts go to ALL effective speakers (each actor learns all lines)
       for (const effId of effectiveCharIds) {

@@ -93,15 +93,10 @@ export function computeCuts(
           // Insertions (synthetic speeches from cut.insertions) have no original line count
           const isInsertion = !!(cut.insertions?.[unit.id]);
 
-          // Ensure primary character is initialised (for original counts)
-          if (!byCharacter[unit.characterId]) {
-            byCharacter[unit.characterId] = { original: 0, afterCut: 0 };
-          }
-          if (!wordsByCharacter[unit.characterId]) {
-            wordsByCharacter[unit.characterId] = { original: 0, afterCut: 0 };
-          }
-          // Ensure all effective speakers are initialised (for afterCut counts)
-          for (const spkId of speakers) {
+          // Original speakers: all TEI-listed characters (not just primary)
+          const originalSpeakers = unit.characterIds ?? [unit.characterId];
+          // Ensure all original + effective speakers are initialised
+          for (const spkId of [...new Set([...originalSpeakers, ...speakers])]) {
             if (!byCharacter[spkId]) byCharacter[spkId] = { original: 0, afterCut: 0 };
             if (!wordsByCharacter[spkId]) wordsByCharacter[spkId] = { original: 0, afterCut: 0 };
           }
@@ -132,10 +127,12 @@ export function computeCuts(
           }
 
           if (!isInsertion) {
-            // Original counts go to the primary character only
-            byCharacter[unit.characterId].original += unit.lineCount;
+            // Original counts go to ALL TEI-listed speakers (each co-speaker owns the original lines)
+            for (const spkId of originalSpeakers) {
+              byCharacter[spkId].original += unit.lineCount;
+              wordsByCharacter[spkId].original += speechOriginalWords;
+            }
             totalOriginal += unit.lineCount;
-            wordsByCharacter[unit.characterId].original += speechOriginalWords;
             totalWordsOriginal += speechOriginalWords;
             byScene[scene.id].lines.original += unit.lineCount;
             byAct[act.id].lines.original += unit.lineCount;
