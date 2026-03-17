@@ -346,13 +346,14 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
   - **Cue script improvements**: non-entrance/exit SDs that fall while `inActorBlock` are now included (e.g. "Knock." between Lady Macbeth's speeches); `speechReassignments` respected for both actor ownership and speaker label in cue script output
   - **TeiParser fix**: `extractAllText` now inserts a space between adjacent text runs from different elements, fixing cases like "Thunder.Enter the three Witches." → "Thunder. Enter the three Witches."
 
-### Not Started (Phase 4+)
+- **Group 16**: TEI verification + user docs
+  - `<stage type="dumbshow">` normalised to `isDance: true` / `stageType "business"` (13 plays); `<gap>` emits `[…]`; absent DraCor elements documented (`<sound>`, `<foreign>`, `<hi>`, `<app>`, `<fw>`)
+  - Edit toolbar `?` overlay: scrollable "How to cut a play" guide section for Cut tool (Malone & Huber attr.)
+  - CastingManager `?` panel: third section "About doubling" — Sprague taxonomy, thematic pairs, practical constraints (Gamboa attr.)
+  - `docs/GETTING_STARTED.md`, `docs/USER_GUIDE.md`, `docs/FEATURES.md` — non-technical user guides
+  - **TeiParser fix**: `parseSpeech` embedded-SD emitter now handles `type="mixed"` by expanding to sub-stages (same logic as `parseSceneUnits`), and handles `type="dumbshow"` with `isDance: true`; fixes mid-speech mixed SDs (e.g. Hamlet 2.2 `stg-1626`) showing combined text with no characters
 
-#### Group 16 — TEI Verification + Documentation
-- **TEI verification**: Read Folger FDT documentation PDF (user to supply). Verify DraCor endpoint correctness, check for parsing gaps (`<ab>`, nested `<stage>`, etc.). Document findings in CLAUDE.md.
-- **Cutting methodology**: User to supply PDF. After reviewing: add "How to cut a play" help section accessible from a `?` button near the Cut mode button. Implementation: inline help panel or `/help` page.
-- **Doubling methodology**: User to supply PDF. After reviewing: add "How to double cast" section to CastingManager `?` modal.
-- **User-facing docs**: Create `docs/` directory with `GETTING_STARTED.md`, `USER_GUIDE.md`, `FEATURES.md` for non-technical theatre directors/dramaturgs.
+### Not Started (Phase 4+)
 
 #### Stretch / Deferred
 - Google Drive backup integration
