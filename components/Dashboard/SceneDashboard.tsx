@@ -65,7 +65,10 @@ function buildCharSceneMatrix(
       if (unit.type !== "speech") continue;
 
       const origCharId = unit.characterId;
-      const effectiveCharId = reassignments[unit.id] ?? origCharId;
+      // Effective speakers: override list, or TEI multi-speaker list, or single original
+      const effectiveCharIds: string[] = reassignments[unit.id]
+        ?? unit.characterIds
+        ?? [origCharId];
 
       const origLines = unit.lineCount;
       const origWords = unit.lines.reduce((sum, l) => sum + countWords(l.text), 0);
@@ -81,20 +84,16 @@ function buildCharSceneMatrix(
         }
       }
 
-      // Original counts always go to the original character
+      // Original counts always go to the primary (first) character
       const origEntry = ensureEntry(origCharId, sceneId);
       origEntry.linesOrig += origLines;
       origEntry.wordsOrig += origWords;
 
-      // Cut counts go to the effective (possibly reassigned) character
-      if (effectiveCharId !== origCharId) {
-        origEntry.linesAfterCut += 0; // Original char loses these lines in cut
-        const effEntry = ensureEntry(effectiveCharId, sceneId);
+      // Cut counts go to ALL effective speakers (each actor learns all lines)
+      for (const effId of effectiveCharIds) {
+        const effEntry = ensureEntry(effId, sceneId);
         effEntry.linesAfterCut += keptLines;
         effEntry.wordsAfterCut += keptWords;
-      } else {
-        origEntry.linesAfterCut += keptLines;
-        origEntry.wordsAfterCut += keptWords;
       }
     }
   }

@@ -48,9 +48,13 @@ export function buildCueScript(
 
     if (unit.type === "speech") {
       const speech = unit as Speech;
-      // Respect speechReassignments: a reassigned speech belongs to the new character
-      const effectiveCharId = cut.speechReassignments?.[speech.id] ?? speech.characterId;
-      const isActorSpeech = actorCharIds.has(effectiveCharId);
+      // Respect speechReassignments (string[]); fall back to speech.characterIds or single characterId
+      const effectiveCharIds: string[] = cut.speechReassignments?.[speech.id]
+        ?? speech.characterIds
+        ?? [speech.characterId];
+      const isActorSpeech = effectiveCharIds.some((id) => actorCharIds.has(id));
+      // Primary effective char used for display name when listing "who is speaking"
+      const primaryEffectiveCharId = effectiveCharIds[0] ?? speech.characterId;
 
       // Filter lines by lineCutMap and apply word-level edits
       const edit = speechEdits[speech.id];
@@ -69,6 +73,15 @@ export function buildCueScript(
         continue;
       }
 
+      // Build the speaker label for this speech
+      // "ALL" speeches: use the speakerTag verbatim when no override is set
+      const isAllSpeech = /\bALL\b/i.test(speech.speakerTag) && !cut.speechReassignments?.[speech.id];
+      const speakerLabel = isAllSpeech
+        ? speech.speakerTag.trim()
+        : effectiveCharIds
+            .map((id) => resolveCharacterName(id, characterAliases, play.castList))
+            .join(" & ");
+
       if (isActorSpeech) {
         // If we have a pending cue from the previous speaker, emit it
         if (pendingCue !== null) {
@@ -83,7 +96,7 @@ export function buildCueScript(
         // Emit the actor's kept lines only
         const linesText = keptLines.map((l) => l.text).join("\n");
         if (linesText) {
-          entries.push({ type: "lines", text: linesText, characterName: resolveCharacterName(effectiveCharId, characterAliases, play.castList) });
+          entries.push({ type: "lines", text: linesText, characterName: speakerLabel });
         }
         inActorBlock = true;
         lastOtherSpeechText = null;
@@ -94,11 +107,11 @@ export function buildCueScript(
         if (inActorBlock) {
           // We just finished an actor block — prep the cue from this speech
           pendingCue = extractCue(fullText);
-          pendingCueSpeakerName = resolveCharacterName(effectiveCharId, characterAliases, play.castList);
+          pendingCueSpeakerName = resolveCharacterName(primaryEffectiveCharId, characterAliases, play.castList);
           inActorBlock = false;
         }
         lastOtherSpeechText = fullText;
-        lastOtherSpeakerName = resolveCharacterName(effectiveCharId, characterAliases, play.castList);
+        lastOtherSpeakerName = resolveCharacterName(primaryEffectiveCharId, characterAliases, play.castList);
       }
     } else if (unit.type === "stage") {
       const stage = unit as StageDirection;

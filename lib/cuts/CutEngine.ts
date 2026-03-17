@@ -55,6 +55,16 @@ export function computeCuts(
   const speechEdits = cut.speechEdits ?? {};
   const speechReassignments = cut.speechReassignments ?? {};
 
+  /**
+   * Returns the effective set of speaker IDs for a speech:
+   *   1. Speaker override from speechReassignments (string[])
+   *   2. Original multi-speaker list from speech.characterIds
+   *   3. Single original speaker fallback
+   */
+  function effectiveSpeakers(unit: { id: string; characterId: string; characterIds?: string[] }): string[] {
+    return speechReassignments[unit.id] ?? unit.characterIds ?? [unit.characterId];
+  }
+
   // Per-scene and per-act aggregates
   const byScene: Record<string, SceneCounts> = {};
   const byAct: Record<string, SceneCounts> = {};
@@ -77,26 +87,23 @@ export function computeCuts(
         const status: "kept" | "cut" = cut.cutMap[unit.id] === "cut" ? "cut" : "kept";
 
         if (unit.type === "speech") {
-          // afterCut lines/words are attributed to the reassigned character (if any);
-          // original counts always stay with the speech's original character.
-          const effectiveCharId = speechReassignments[unit.id] ?? unit.characterId;
+          // afterCut lines/words go to ALL effective speakers (multi-speaker supported).
+          // Original counts always stay with the primary (first) character.
+          const speakers = effectiveSpeakers(unit);
           // Insertions (synthetic speeches from cut.insertions) have no original line count
           const isInsertion = !!(cut.insertions?.[unit.id]);
 
+          // Ensure primary character is initialised (for original counts)
           if (!byCharacter[unit.characterId]) {
             byCharacter[unit.characterId] = { original: 0, afterCut: 0 };
           }
           if (!wordsByCharacter[unit.characterId]) {
             wordsByCharacter[unit.characterId] = { original: 0, afterCut: 0 };
           }
-          // Ensure the reassigned target is also initialized
-          if (effectiveCharId !== unit.characterId) {
-            if (!byCharacter[effectiveCharId]) {
-              byCharacter[effectiveCharId] = { original: 0, afterCut: 0 };
-            }
-            if (!wordsByCharacter[effectiveCharId]) {
-              wordsByCharacter[effectiveCharId] = { original: 0, afterCut: 0 };
-            }
+          // Ensure all effective speakers are initialised (for afterCut counts)
+          for (const spkId of speakers) {
+            if (!byCharacter[spkId]) byCharacter[spkId] = { original: 0, afterCut: 0 };
+            if (!wordsByCharacter[spkId]) wordsByCharacter[spkId] = { original: 0, afterCut: 0 };
           }
 
           // Build per-line statuses (only if this speech is kept)
@@ -125,6 +132,7 @@ export function computeCuts(
           }
 
           if (!isInsertion) {
+            // Original counts go to the primary character only
             byCharacter[unit.characterId].original += unit.lineCount;
             totalOriginal += unit.lineCount;
             wordsByCharacter[unit.characterId].original += speechOriginalWords;
@@ -156,13 +164,14 @@ export function computeCuts(
               }
             }
 
-            // afterCut attributed to effective character (reassigned target if set)
-            byCharacter[effectiveCharId].afterCut += effectiveKeptLines;
+            // afterCut attributed to ALL effective speakers (each actor learns every line)
+            for (const spkId of speakers) {
+              byCharacter[spkId].afterCut += effectiveKeptLines;
+              wordsByCharacter[spkId].afterCut += keptWords;
+            }
             totalAfterCut += effectiveKeptLines;
             byScene[scene.id].lines.afterCut += effectiveKeptLines;
             byAct[act.id].lines.afterCut += effectiveKeptLines;
-
-            wordsByCharacter[effectiveCharId].afterCut += keptWords;
             totalWordsAfterCut += keptWords;
             byScene[scene.id].words.afterCut += keptWords;
             byAct[act.id].words.afterCut += keptWords;

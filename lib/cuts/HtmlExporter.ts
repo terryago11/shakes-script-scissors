@@ -121,8 +121,16 @@ function buildScriptData(
 
       if (rawUnit.type === "speech") {
         const speech = rawUnit as Speech;
-        const effectiveCharId = reassignments[speech.id] ?? speech.characterId;
-        const charName = resolveCharacterName(effectiveCharId, aliases, play.castList);
+        // Resolve effective speakers (array) — may be multi-speaker
+        const effectiveCharIds: string[] = reassignments[speech.id]
+          ?? speech.characterIds
+          ?? [speech.characterId];
+        const primaryCharId = effectiveCharIds[0] ?? speech.characterId;
+        // Build display name: "ALL" verbatim if speakerTag says ALL and no override, else join
+        const isAllSpeech = /\bALL\b/i.test(speech.speakerTag) && !reassignments[speech.id];
+        const charName = isAllSpeech
+          ? speech.speakerTag.trim()
+          : effectiveCharIds.map((id) => resolveCharacterName(id, aliases, play.castList)).join(" & ");
 
         const edit = speechEdits[speech.id] as { ops?: { lineId: string; type: string; start?: number; end?: number; offset?: number; text?: string }[] } | undefined;
         const ops = edit?.ops ?? [];
@@ -144,14 +152,16 @@ function buildScriptData(
                 })
                 .filter((t) => t.trim().length > 0);
 
-        // Tally kept lines per character
-        const prev = charLineCount.get(effectiveCharId) ?? 0;
-        charLineCount.set(effectiveCharId, prev + keptLines.length);
+        // Tally kept lines per effective speaker (each gets full count)
+        for (const spkId of effectiveCharIds) {
+          const prev = charLineCount.get(spkId) ?? 0;
+          charLineCount.set(spkId, prev + keptLines.length);
+        }
 
         units.push({
           id: rawUnit.id,
           type: "speech",
-          characterId: effectiveCharId,
+          characterId: primaryCharId,
           characterName: charName,
           status,
           keptLines,
@@ -181,14 +191,15 @@ function buildScriptData(
     });
   }
 
-  // Build characters list — all speaking characters in the play, sorted by kept lines desc
+  // Build characters list — all effective speakers in the play, sorted by kept lines desc
   const charSet = new Set<string>();
   for (const act of play.acts) {
     for (const scene of act.scenes) {
       for (const unit of scene.units) {
         if (unit.type === "speech") {
-          const effectiveCharId = reassignments[unit.id] ?? (unit as Speech).characterId;
-          charSet.add(effectiveCharId);
+          const sp = unit as Speech;
+          const ids: string[] = reassignments[sp.id] ?? sp.characterIds ?? [sp.characterId];
+          for (const id of ids) charSet.add(id);
         }
       }
     }

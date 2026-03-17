@@ -27,7 +27,12 @@ const CutSchema = z.object({
   stageDirectionEdits: z.record(z.string(), z.array(z.string())).optional(),
   pauses: z.record(z.string(), z.object({ name: z.string(), minutes: z.number() })).optional(),
   // Previously missing — were silently stripped on import:
-  speechReassignments: z.record(z.string(), z.string()).optional(),
+  // Accept both legacy string (v1) and new string[] (v2); coerce string → [string].
+  speechReassignments: z.record(
+    z.string(),
+    z.union([z.string(), z.array(z.string())])
+      .transform((v) => (typeof v === "string" ? [v] : v))
+  ).optional(),
   characterAliases: z.record(z.string(), z.string()).optional(),
   characterLinks: z.array(z.tuple([z.string(), z.string()])).optional(),
   // Group 15 additions:
