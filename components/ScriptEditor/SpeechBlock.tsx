@@ -141,8 +141,15 @@ export default function SpeechBlock({
 
   // Effective speakers: override list, or TEI multi-speaker list, or single original
   const originalSpeakers: string[] = speech.characterIds ?? [speech.characterId];
-  // hasReassignment = director has explicitly set an override (even if same as original)
-  const hasReassignment = speechReassignedTo != null && speechReassignedTo.length > 0;
+  // hasReassignment = director has set an override that DIFFERS from the original speakers.
+  // If the committed list equals the original (same length, same order), treat as no override.
+  const hasReassignment =
+    speechReassignedTo != null &&
+    speechReassignedTo.length > 0 &&
+    !(
+      speechReassignedTo.length === originalSpeakers.length &&
+      speechReassignedTo.every((id, i) => id === originalSpeakers[i])
+    );
   const effectiveSpeakers: string[] = hasReassignment ? speechReassignedTo! : originalSpeakers;
   const isMultiSpeaker = effectiveSpeakers.length > 1 || originalSpeakers.length > 1;
 
@@ -266,53 +273,98 @@ export default function SpeechBlock({
           {/* Character name area — supports single speaker, multi-speaker, ALL badge, and chip editor */}
           {canReassign && !isCut ? (
             /* ── REASSIGN TOOL ACTIVE ─────────────────────────────────────────────────── */
-            showReassign ? (
-              /* Chip editor — shows current speakers as removable chips + add dropdown */
-              <SpeakerChipEditor
-                speech={speech}
-                currentSpeakers={effectiveSpeakers}
-                originalSpeakers={originalSpeakers}
-                castList={castList!}
-                charsWithEntrance={charsWithEntrance}
-                characterAliases={characterAliases}
-                isAllSpeech={isAllSpeech && !hasReassignment}
-                onCommit={(ids) => {
-                  onReassign!(speech.id, ids.length === 0 ? null : ids);
-                  setShowReassign(false);
-                }}
-                onClose={() => setShowReassign(false)}
-              />
-            ) : (
-              /* Hover affordance — shows ⇄ icon; for multi-speaker or ALL show chips inline */
-              <span
-                className="group/charname relative shrink-0 cursor-pointer rounded px-0.5 -mx-0.5 border border-transparent hover:border-stone-300 hover:bg-stone-50 dark:hover:border-stone-600 dark:hover:bg-stone-800 transition-colors flex items-center gap-1"
-                onClick={(e) => { e.stopPropagation(); setShowReassign(true); }}
-                title="Click to edit speakers for this speech"
-              >
-                <span className="absolute -top-3 inset-x-0 flex justify-center opacity-0 group-hover/charname:opacity-100 transition-opacity pointer-events-none">
-                  <span className="text-[9px] text-stone-400 leading-none">⇄</span>
+            (isAllSpeech || originalSpeakers.length > 1) ? (
+              /* Multi-speaker / ALL: chip editor */
+              showReassign ? (
+                <SpeakerChipEditor
+                  speech={speech}
+                  currentSpeakers={effectiveSpeakers}
+                  originalSpeakers={originalSpeakers}
+                  castList={castList!}
+                  charsWithEntrance={charsWithEntrance}
+                  characterAliases={characterAliases}
+                  isAllSpeech={/\bALL\b/i.test(speech.speakerTag) && !hasReassignment}
+                  onCommit={(ids) => {
+                    // If committed list equals original, clear the override (restores ALL badge etc.)
+                    const isUnchanged =
+                      ids.length === originalSpeakers.length &&
+                      ids.every((id, i) => id === originalSpeakers[i]);
+                    onReassign!(speech.id, isUnchanged || ids.length === 0 ? null : ids);
+                    setShowReassign(false);
+                  }}
+                  onClose={() => setShowReassign(false)}
+                />
+              ) : (
+                /* Hover affordance for multi/ALL */
+                <span
+                  className="group/charname relative shrink-0 cursor-pointer rounded px-0.5 -mx-0.5 border border-transparent hover:border-stone-300 hover:bg-stone-50 dark:hover:border-stone-600 dark:hover:bg-stone-800 transition-colors flex items-center gap-1"
+                  onClick={(e) => { e.stopPropagation(); setShowReassign(true); }}
+                  title="Click to edit speakers for this speech"
+                >
+                  <span className="absolute -top-3 inset-x-0 flex justify-center opacity-0 group-hover/charname:opacity-100 transition-opacity pointer-events-none">
+                    <span className="text-[9px] text-stone-400 leading-none">⇄</span>
+                  </span>
+                  {isAllSpeech ? (
+                    <span className="text-xs font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800">
+                      ALL
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 flex-wrap">
+                      {speakerDisplayIds.map((id, i) => (
+                        <span key={id} className={`text-xs font-bold uppercase tracking-wider ${hasReassignment ? "text-green-700 dark:text-green-400" : "text-stone-600 dark:text-stone-300"}`}
+                          style={{ color: hasReassignment ? undefined : (i === 0 ? actorColor : undefined) }}>
+                          {resolveCharacterName(id, characterAliases, castList ?? [])}
+                          {i < speakerDisplayIds.length - 1 && <span className="font-normal normal-case tracking-normal mx-0.5 text-stone-400"> &</span>}
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </span>
-                {isAllSpeech ? (
-                  <span className="text-xs font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800">
-                    ALL
+              )
+            ) : !hasReassignment ? (
+              /* Single speaker, not yet reassigned: old dropdown on click */
+              showReassign ? (
+                <select
+                  autoFocus
+                  size={1}
+                  onBlur={() => setShowReassign(false)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    onReassign!(speech.id, val === "__original__" ? null : [val]);
+                    setShowReassign(false);
+                  }}
+                  defaultValue={speechReassignedTo?.[0] ?? "__original__"}
+                  className="text-xs border border-amber-300 rounded px-1 py-0.5 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-amber-400 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <option value="__original__">— Original ({resolvedSpeakerName}) —</option>
+                  {castList!.map((char) => {
+                    const noEntrance = charsWithEntrance ? !charsWithEntrance.has(char.id) : false;
+                    return (
+                      <option key={char.id} value={char.id}>
+                        {noEntrance ? "⚠ " : ""}{resolveCharacterName(char.id, characterAliases, castList!)}
+                      </option>
+                    );
+                  })}
+                </select>
+              ) : (
+                <span
+                  className="group/charname relative shrink-0 cursor-pointer rounded px-0.5 -mx-0.5 border border-transparent hover:border-stone-300 hover:bg-stone-50 dark:hover:border-stone-600 dark:hover:bg-stone-800 transition-colors"
+                  onClick={(e) => { e.stopPropagation(); setShowReassign(true); }}
+                  title="Click to reassign this speech to another character"
+                >
+                  <span className="absolute -top-3 inset-x-0 flex justify-center opacity-0 group-hover/charname:opacity-100 transition-opacity pointer-events-none">
+                    <span className="text-[9px] text-stone-400 leading-none">⇄</span>
                   </span>
-                ) : speakerDisplayIds.length > 1 ? (
-                  /* Multi-speaker chips */
-                  <span className="flex items-center gap-1 flex-wrap">
-                    {speakerDisplayIds.map((id, i) => (
-                      <span key={id} className={`text-xs font-bold uppercase tracking-wider ${hasReassignment ? "text-green-700 dark:text-green-400" : "text-stone-600 dark:text-stone-300"}`}
-                        style={{ color: hasReassignment ? undefined : (i === 0 ? actorColor : undefined) }}>
-                        {resolveCharacterName(id, characterAliases, castList ?? [])}
-                        {i < speakerDisplayIds.length - 1 && <span className="font-normal normal-case tracking-normal mx-0.5 text-stone-400"> &</span>}
-                      </span>
-                    ))}
-                  </span>
-                ) : (
-                  /* Single speaker */
                   <span className={`text-xs font-bold uppercase tracking-wider ${nameClass}`} style={{ color: nameColorStyle }}>
                     {nameContent}
                   </span>
-                )}
+                </span>
+              )
+            ) : (
+              /* Single speaker, already reassigned: show name (use restore to clear) */
+              <span className={`text-xs font-bold uppercase tracking-wider shrink-0 ${nameClass}`} style={{ color: nameColorStyle }}>
+                {nameContent}
               </span>
             )
           ) : (
@@ -675,6 +727,8 @@ function SpeakerChipEditor({
 }) {
   const [speakers, setSpeakers] = useState<string[]>(currentSpeakers);
   const [showAdd, setShowAdd] = useState(false);
+  // Which chip is currently showing its swap dropdown (by characterId)
+  const [swappingId, setSwappingId] = useState<string | null>(null);
   // Whether "ALL ↓" has been clicked to expand to individual chips
   const [expanded, setExpanded] = useState(!isAllSpeech);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -694,6 +748,11 @@ function SpeakerChipEditor({
     setSpeakers((prev) => prev.filter((s) => s !== id));
   }
 
+  function swapChar(oldId: string, newId: string) {
+    setSpeakers((prev) => prev.map((s) => (s === oldId ? newId : s)));
+    setSwappingId(null);
+  }
+
   function addChar(id: string) {
     setSpeakers((prev) => (prev.includes(id) ? prev : [...prev, id]));
     setShowAdd(false);
@@ -704,7 +763,16 @@ function SpeakerChipEditor({
     setExpanded(true);
   }
 
+  const isUnchanged =
+    speakers.length === originalSpeakers.length &&
+    speakers.every((id, i) => id === originalSpeakers[i]);
+
+  // All castList chars not currently in speakers (for + add dropdown)
   const available = castList.filter((c) => !speakers.includes(c.id));
+  // For a swap dropdown: all cast members not already in speakers (except the one being swapped)
+  function availableForSwap(currentId: string) {
+    return castList.filter((c) => c.id !== currentId && !speakers.includes(c.id));
+  }
 
   return (
     <div
@@ -717,7 +785,7 @@ function SpeakerChipEditor({
         <button
           onClick={expandAll}
           className="text-xs px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800 font-bold uppercase tracking-wider hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors"
-          title="Expand ALL to individual speakers so you can remove some"
+          title="Expand ALL to individual speakers"
         >
           ALL ↓
         </button>
@@ -729,21 +797,53 @@ function SpeakerChipEditor({
           key={id}
           className="inline-flex items-center gap-0.5 text-xs font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-amber-50 dark:bg-stone-800 border border-amber-200 dark:border-stone-600 text-stone-700 dark:text-stone-200"
         >
-          {resolveCharacterName(id, characterAliases, castList)}
-          <button
-            onClick={() => removeChar(id)}
-            className="text-stone-400 hover:text-red-500 dark:hover:text-red-400 leading-none ml-0.5 font-normal text-sm"
-            title={`Remove ${resolveCharacterName(id, characterAliases, castList)}`}
-          >×</button>
+          {swappingId === id ? (
+            /* Swap dropdown for this chip */
+            <select
+              autoFocus
+              size={1}
+              className="text-xs border border-amber-300 rounded px-1 py-0.5 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-amber-400"
+              defaultValue=""
+              onChange={(e) => { if (e.target.value) swapChar(id, e.target.value); }}
+              onBlur={() => setSwappingId(null)}
+            >
+              <option value="" disabled>Change to…</option>
+              {availableForSwap(id).map((c) => {
+                const noEntrance = charsWithEntrance ? !charsWithEntrance.has(c.id) : false;
+                return (
+                  <option key={c.id} value={c.id}>
+                    {noEntrance ? "⚠ " : ""}{resolveCharacterName(c.id, characterAliases, castList)}
+                  </option>
+                );
+              })}
+            </select>
+          ) : (
+            /* Chip name — click to swap */
+            <button
+              onClick={() => setSwappingId(id)}
+              className="hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
+              title="Click to change this speaker"
+            >
+              {resolveCharacterName(id, characterAliases, castList)}
+            </button>
+          )}
+          {/* × to remove — hidden when only 1 chip (must keep at least 1 speaker) */}
+          {speakers.length > 1 && (
+            <button
+              onClick={() => removeChar(id)}
+              className="text-stone-400 hover:text-red-500 dark:hover:text-red-400 leading-none ml-0.5 font-normal text-sm"
+              title={`Remove ${resolveCharacterName(id, characterAliases, castList)}`}
+            >×</button>
+          )}
         </span>
       ))}
 
-      {/* Restore original */}
-      {expanded && JSON.stringify(speakers.slice().sort()) !== JSON.stringify(originalSpeakers.slice().sort()) && (
+      {/* Restore original — show when changed, or when ALL speech has been expanded */}
+      {expanded && (!isUnchanged || isAllSpeech) && (
         <button
           onClick={() => { setSpeakers(originalSpeakers); if (isAllSpeech) setExpanded(false); }}
           className="text-[10px] text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 px-1 py-0.5 rounded border border-stone-200 dark:border-stone-700 hover:border-amber-400 transition-colors normal-case font-normal tracking-normal"
-          title="Restore original speakers"
+          title={isAllSpeech ? "Collapse back to ALL" : "Restore original speakers"}
         >↺ orig</button>
       )}
 
