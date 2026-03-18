@@ -62,7 +62,10 @@ export function computeCuts(
    *   3. Single original speaker fallback
    */
   function effectiveSpeakers(unit: { id: string; characterId: string; characterIds?: string[] }): string[] {
-    return speechReassignments[unit.id] ?? unit.characterIds ?? [unit.characterId];
+    const override = speechReassignments[unit.id];
+    // "__ALL__" is a display-only sentinel — attribution still uses original speakers
+    if (!override || override[0] === "__ALL__") return unit.characterIds ?? [unit.characterId];
+    return override;
   }
 
   // Per-scene and per-act aggregates

@@ -13,6 +13,16 @@ npx tsc --noEmit # TypeScript check (no build output)
 
 Node must be loaded via nvm:
 
+## Auth Middleware
+
+The app uses iron-session for password auth (`middleware.ts` at the project root). **Critical convention:**
+
+- The file **must** be named `middleware.ts` (not `proxy.ts` or anything else)
+- The exported function **must** be named `middleware` (or `default`) — not `proxy` or any other name
+- Next.js only recognises middleware by filename + export name; a misnamed file/export silently breaks all routes (every page returns 404, including `/login` itself)
+
+If you ever see all routes returning 404 with a redirect loop to `/login`, check that `middleware.ts` exists at the project root with `export async function middleware(...)`. Do **not** rename it to `proxy.ts` — this was tried twice and broke the app both times.
+
 ## Updating Play Texts
 
 **DraCor plays (37 of 38)**: Pull the submodule.
