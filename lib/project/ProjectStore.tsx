@@ -51,7 +51,7 @@ type ProjectAction =
   | { type: "SET_PAUSE"; afterSceneId: string; name: string; minutes: number }
   | { type: "REMOVE_PAUSE"; afterSceneId: string }
   | { type: "UPDATE_SETTINGS"; settings: Partial<ProjectSettings> }
-  | { type: "REASSIGN_SPEECH"; unitId: string; characterId: string | null }
+  | { type: "REASSIGN_SPEECH"; unitId: string; characterIds: string[] | null }
   | { type: "SET_CHARACTER_ALIAS"; characterId: string; alias: string | null }
   | { type: "TOGGLE_CHARACTER_LINK"; charIdA: string; charIdB: string }
   | { type: "BULK_SET_CAST"; actors: Actor[]; assignments: ActorAssignment[] }
@@ -368,14 +368,14 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
 
     case "REASSIGN_SPEECH": {
       const existing = state.project!.cuts.find((c) => c.id === state.activeCutId)?.speechReassignments ?? {};
-      if (action.characterId === null) {
+      if (action.characterIds === null) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [action.unitId]: _removed, ...rest } = existing;
         return withUndo(state, (c) => ({ ...c, speechReassignments: rest }));
       }
       return withUndo(state, (c) => ({
         ...c,
-        speechReassignments: { ...existing, [action.unitId]: action.characterId! },
+        speechReassignments: { ...existing, [action.unitId]: action.characterIds! },
       }));
     }
 
@@ -705,7 +705,18 @@ export function loadProjectFromStorage(projectId: string): Project | null {
   try {
     const raw = localStorage.getItem(`${STORAGE_PREFIX}${projectId}`);
     if (!raw) return null;
-    return JSON.parse(raw) as Project;
+    const project = JSON.parse(raw) as Project;
+    // Migrate speechReassignments: v1 stored string values; v2 stores string[]
+    for (const cut of project.cuts ?? []) {
+      if (cut.speechReassignments) {
+        const migrated: Record<string, string[]> = {};
+        for (const [k, v] of Object.entries(cut.speechReassignments)) {
+          migrated[k] = typeof v === "string" ? [v] : (v as string[]);
+        }
+        cut.speechReassignments = migrated;
+      }
+    }
+    return project;
   } catch {
     return null;
   }

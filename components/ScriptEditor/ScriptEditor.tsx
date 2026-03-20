@@ -318,8 +318,8 @@ export default function ScriptEditor({ playId }: Props) {
     dispatch({ type: "CLEAR_SPEECH_EDITS", unitId });
   }
 
-  function handleReassign(unitId: string, characterId: string | null) {
-    dispatch({ type: "REASSIGN_SPEECH", unitId, characterId });
+  function handleReassign(unitId: string, characterIds: string[] | null) {
+    dispatch({ type: "REASSIGN_SPEECH", unitId, characterIds });
   }
 
   function handleSplit(unitId: string, atLineIndex: number, atWordOffset?: number) {

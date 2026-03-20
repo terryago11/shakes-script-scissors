@@ -31,11 +31,11 @@ interface Props {
   focusedSceneId: string | null;
   /** When true, render all content as original (no cuts/edits applied) — for diff side-by-side */
   showOriginal?: boolean;
-  /** unitId → characterId reassignments */
-  speechReassignments?: Record<string, string>;
+  /** unitId → speaker override (string[] = set of effective speakers) */
+  speechReassignments?: Record<string, string[]>;
   /** Character IDs that appear in at least one kept entrance SD */
   charsWithEntrance?: Set<string>;
-  onReassign?: (unitId: string, characterId: string | null) => void;
+  onReassign?: (unitId: string, characterIds: string[] | null) => void;
   /** Cut-level character display-name aliases */
   characterAliases?: Record<string, string>;
   /** stageId → effective character list overrides; used to compute on-stage set for SD Auto-fill */
@@ -156,19 +156,26 @@ export default function SceneBlock({
         const isS2 = unit.id.endsWith(":s2");
         const isInsertionUnit = !showOriginal && !!insertions?.[unit.id];
         if (!isS2 && !isInsertionUnit) {
-          const charId = !showOriginal
-            ? (speechReassignments?.[unit.id] ?? unit.characterId)
-            : unit.characterId;
+          // For continuation detection use the first effective speaker (primary)
+          const reassigned = !showOriginal ? speechReassignments?.[unit.id] : undefined;
+          const charId = reassigned ? reassigned[0] : unit.characterId;
+          // ALL speeches (TEI-tagged, multi-speaker TEI, or multi-speaker override) break
+          // continuations — the next speech should never be labelled "cont." after an ALL.
+          const isAllSpeechUnit =
+            /\bALL\b/i.test(unit.speakerTag) ||
+            (unit.characterIds != null && unit.characterIds.length > 1) ||
+            (reassigned != null && reassigned.length > 1);
           if (isKept) {
-            if (lastSpeakerId === charId) continuationIds.add(unit.id);
-            lastSpeakerId = charId;
+            if (!isAllSpeechUnit && lastSpeakerId === charId) continuationIds.add(unit.id);
+            lastSpeakerId = isAllSpeechUnit ? null : charId;
           }
 
           // Handle split :s2 virtual part (same kept status as the original)
           const split = !showOriginal ? speechSplits?.[unit.id] : undefined;
           if (split && isKept) {
             const s2Id = `${unit.id}:s2`;
-            const s2CharId = speechReassignments?.[s2Id] ?? split.newCharacterId ?? unit.characterId;
+            const s2Reassigned = speechReassignments?.[s2Id];
+            const s2CharId = s2Reassigned ? s2Reassigned[0] : (split.newCharacterId ?? unit.characterId);
             if (lastSpeakerId === s2CharId) continuationIds.add(s2Id);
             lastSpeakerId = s2CharId;
           }
@@ -239,6 +246,18 @@ export default function SceneBlock({
     const map = new Map<string, Set<string>>();
     scene.units.forEach((unit, idx) => {
       if (unit.type === "stage" && unit.stageType === "exit") {
+        map.set(unit.id, getOnStageAtUnit(scene.units, idx, stageDirectionEdits));
+      }
+    });
+    return map;
+  })();
+
+  // Pre-compute on-stage character set for each speech (enables → ALL in chip editor)
+  const onStageAtSpeech: Map<string, Set<string>> = (() => {
+    if (showOriginal) return new Map();
+    const map = new Map<string, Set<string>>();
+    scene.units.forEach((unit, idx) => {
+      if (unit.type === "speech") {
         map.set(unit.id, getOnStageAtUnit(scene.units, idx, stageDirectionEdits));
       }
     });
@@ -361,8 +380,9 @@ export default function SceneBlock({
                     onClearEdits={showOriginal ? undefined : onClearEdits}
                     isContinuation={continuationIds.has(unit.id)}
                     castList={castList}
-                    speechReassignment={showOriginal ? undefined : (speechReassignments?.[unit.id] ?? null)}
+                    speechReassignedTo={showOriginal ? undefined : (speechReassignments?.[unit.id] ?? null)}
                     charsWithEntrance={charsWithEntrance}
+                    onStageAtSpeech={showOriginal ? undefined : onStageAtSpeech.get(unit.id)}
                     onReassign={showOriginal ? undefined : onReassign}
                     speechLineOffset={showOriginal ? undefined : speechStartLines.get(unit.id)}
                     characterAliases={showOriginal ? undefined : characterAliases}

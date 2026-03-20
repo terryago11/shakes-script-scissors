@@ -275,9 +275,12 @@ function parseSpeech(
   partCtx: { accumulatedText: string } = { accumulatedText: "" },
 ): ScriptUnit[] {
   const id = getAttr(spNode, "@_xml:id") || `${playId}-sp-${index}`;
-  const who = getAttr(spNode, "@_who") || "";
-  // Take the first character ID if multiple speakers
-  const characterId = who.split(/\s+/).find((w) => w.startsWith("#")) || who;
+  const whoRaw = getAttr(spNode, "@_who") || "";
+  // Collect all character IDs from the who="" attribute (may be space-separated list)
+  const allCharacterIds = whoRaw.split(/\s+/).filter((w) => w.startsWith("#"));
+  const characterId = allCharacterIds[0] || whoRaw;
+  // Only set characterIds when multiple speakers are listed
+  const characterIds = allCharacterIds.length > 1 ? allCharacterIds : undefined;
 
   const spChildren = getChildren(spNode);
   const speakerNode = findFirst(spChildren, "speaker");
@@ -429,6 +432,7 @@ function parseSpeech(
       type: "speech",
       id: segId,
       characterId,
+      ...(characterIds ? { characterIds } : {}),
       characterName,
       speakerTag: speakerTagName,
       lines: segLines,

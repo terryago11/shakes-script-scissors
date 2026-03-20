@@ -28,11 +28,11 @@ interface Props {
   showOriginal?: boolean;
   /** Named pauses keyed by "after:{sceneId}" — shown between SceneBlocks */
   pauses?: Record<string, { name: string; minutes: number }>;
-  /** unitId → characterId reassignments for line count attribution */
-  speechReassignments?: Record<string, string>;
+  /** unitId → speaker override list for line count attribution */
+  speechReassignments?: Record<string, string[]>;
   /** Character IDs that appear in at least one kept entrance SD */
   charsWithEntrance?: Set<string>;
-  onReassign?: (unitId: string, characterId: string | null) => void;
+  onReassign?: (unitId: string, characterIds: string[] | null) => void;
   /** Cut-level character display-name aliases */
   characterAliases?: Record<string, string>;
   /** stageId → effective character list overrides; passed down to SceneBlock for SD Auto-fill */

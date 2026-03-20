@@ -28,8 +28,14 @@ export type ScriptUnit = Speech | StageDirection;
 export interface Speech {
   type: "speech";
   id: string;
-  /** e.g. "#Ham" — matches Character.id */
+  /** e.g. "#Ham" — matches Character.id; always the first (primary) character */
   characterId: string;
+  /**
+   * All character IDs from the TEI who="" attribute.
+   * Defined and length > 1 when multiple speakers deliver these lines simultaneously.
+   * Undefined for normal single-speaker speeches.
+   */
+  characterIds?: string[];
   /** Normalized display name (cast list name uppercased, or speaker tag as fallback) */
   characterName: string;
   /** Raw text from the TEI <speaker> tag verbatim, e.g. "GHOST OF HAMLET'S FATHER " */
