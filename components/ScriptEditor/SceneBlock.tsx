@@ -159,9 +159,15 @@ export default function SceneBlock({
           // For continuation detection use the first effective speaker (primary)
           const reassigned = !showOriginal ? speechReassignments?.[unit.id] : undefined;
           const charId = reassigned ? reassigned[0] : unit.characterId;
+          // ALL speeches (TEI-tagged, multi-speaker TEI, or multi-speaker override) break
+          // continuations — the next speech should never be labelled "cont." after an ALL.
+          const isAllSpeechUnit =
+            /\bALL\b/i.test(unit.speakerTag) ||
+            (unit.characterIds != null && unit.characterIds.length > 1) ||
+            (reassigned != null && reassigned.length > 1);
           if (isKept) {
-            if (lastSpeakerId === charId) continuationIds.add(unit.id);
-            lastSpeakerId = charId;
+            if (!isAllSpeechUnit && lastSpeakerId === charId) continuationIds.add(unit.id);
+            lastSpeakerId = isAllSpeechUnit ? null : charId;
           }
 
           // Handle split :s2 virtual part (same kept status as the original)

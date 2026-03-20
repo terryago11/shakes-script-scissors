@@ -168,6 +168,20 @@ export default function SpeechBlock({
     resolveCharacterName(id, characterAliases, castList ?? [])
   );
 
+  // Auto-ALL: if the effective speaker list exactly matches all on-stage cast members,
+  // display as ALL regardless of how speakers were set (→ ALL button or manual adds).
+  // On-stage set is filtered to castList members so non-speaking extras are excluded.
+  const onStageFiltered = onStageAtSpeech
+    ? [...onStageAtSpeech].filter((id) => (castList ?? []).some((c) => c.id === id))
+    : [];
+  const isAutoAll =
+    onStageFiltered.length > 1 &&
+    effectiveSpeakers.length === onStageFiltered.length &&
+    effectiveSpeakers.every((id) => onStageAtSpeech!.has(id));
+
+  // isDisplayAll: show violet ALL badge — tag-based, legacy sentinel, or auto-detected
+  const isDisplayAll = isAllSpeech || isAutoAll;
+
   // Song speech: at least one line is a sung line (from a non-poem <lg> stanza)
   const isSongSpeech = speech.isSong === true;
   // Duration added in the Scenes & Pauses dashboard for this song
@@ -178,7 +192,7 @@ export default function SpeechBlock({
 
   // In clean mode with reassignment, show the new speaker name(s) directly
   const effectiveSpeakerName = isClean && hasReassignment
-    ? (isAllSpeech ? "ALL" : resolvedEffectiveNames.join(" & "))
+    ? (isDisplayAll ? "ALL" : resolvedEffectiveNames.join(" & "))
     : resolvedSpeakerName;
 
   // Shared name-rendering pieces — used for single-speaker non-reassigned display
@@ -262,7 +276,7 @@ export default function SpeechBlock({
 
       <div className="flex-1 min-w-0">
         {/* Character name header — hidden in clean view when this speech continues the same character */}
-        <div className={`flex items-center gap-1.5 mb-1 min-w-0 ${isClean && isContinuation ? "hidden" : ""}`}>
+        <div className={`flex items-center gap-1.5 mb-1 min-w-0 flex-wrap ${isClean && isContinuation ? "hidden" : ""}`}>
           {/* Song indicator */}
           {isSongSpeech && !isCut && (
             <span className="text-xs text-violet-500 dark:text-violet-400 shrink-0" title="Song">♪</span>
@@ -281,6 +295,7 @@ export default function SpeechBlock({
                 onStageAtSpeech={onStageAtSpeech}
                 characterAliases={characterAliases}
                 isAllSpeech={isAllSpeech}
+                isAllByTag={isAllByTag}
                 isAllOverride={isAllOverride}
                 onCommit={(ids) => {
                   // Null out if same as original (no real change)
@@ -295,7 +310,7 @@ export default function SpeechBlock({
             ) : (
               /* Hover affordance — click to open chip editor */
               <span
-                className="group/charname relative shrink-0 cursor-pointer rounded px-0.5 -mx-0.5 border border-transparent hover:border-stone-300 hover:bg-stone-50 dark:hover:border-stone-600 dark:hover:bg-stone-800 transition-colors flex items-center gap-1"
+                className="group/charname relative shrink-0 cursor-pointer rounded px-0.5 -mx-0.5 border border-transparent hover:border-stone-300 hover:bg-stone-50 dark:hover:border-stone-600 dark:hover:bg-stone-800 transition-colors flex items-center gap-1 flex-wrap"
                 onClick={(e) => { e.stopPropagation(); setShowReassign(true); }}
                 title="Click to edit speakers for this speech"
               >
@@ -306,7 +321,7 @@ export default function SpeechBlock({
                   originalSpeakers={originalSpeakers}
                   effectiveSpeakers={effectiveSpeakers}
                   hasReassignment={hasReassignment}
-                  isAllSpeech={isAllSpeech}
+                  isDisplayAll={isDisplayAll}
                   actorColor={actorColor}
                   castList={castList ?? []}
                   characterAliases={characterAliases}
@@ -321,12 +336,12 @@ export default function SpeechBlock({
             )
           ) : (
             /* ── NOT IN REASSIGN TOOL ─────────────────────────────────────────────────── */
-            <span className="shrink-0 flex items-center gap-1">
+            <span className="flex items-center gap-1 flex-wrap min-w-0">
               <SpeakerLabel
                 originalSpeakers={originalSpeakers}
                 effectiveSpeakers={effectiveSpeakers}
                 hasReassignment={hasReassignment}
-                isAllSpeech={isAllSpeech}
+                isDisplayAll={isDisplayAll}
                 actorColor={actorColor}
                 castList={castList ?? []}
                 characterAliases={characterAliases}
@@ -655,6 +670,7 @@ function SpeakerChipEditor({
   onStageAtSpeech,
   characterAliases,
   isAllSpeech,
+  isAllByTag,
   isAllOverride,
   onCommit,
 }: {
@@ -667,6 +683,8 @@ function SpeakerChipEditor({
   onStageAtSpeech?: Set<string>;
   characterAliases?: Record<string, string>;
   isAllSpeech: boolean;
+  /** Whether the TEI source tags this speech as ALL — drives ↺ orig collapse behaviour */
+  isAllByTag: boolean;
   isAllOverride: boolean;
   onCommit: (ids: string[]) => void;
   onClose: () => void;
@@ -739,7 +757,7 @@ function SpeakerChipEditor({
       onClick={(e) => e.stopPropagation()}
     >
       {/* ALL badge (not yet expanded) — click to expand to individual chips */}
-      {isAllSpeech && !expanded && (
+      {(isAllSpeech || isAllByTag) && !expanded && (
         <button
           onClick={expandAllBadge}
           className="text-xs px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800 font-bold uppercase tracking-wider hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors"
@@ -838,19 +856,23 @@ function SpeakerChipEditor({
       )}
 
       {/* ↺ orig — restore original speakers; shown when list changed or when ALL was expanded */}
-      {expanded && (!isUnchanged || isAllSpeech) && (
+      {expanded && (!isUnchanged || isAllSpeech || isAllByTag) && (
         <button
-          onClick={() => { setSpeakers(originalSpeakers); if (isAllSpeech) setExpanded(false); }}
+          onClick={() => {
+            setSpeakers(originalSpeakers);
+            // Collapse back to ALL badge for any TEI-tagged ALL speech (even if it had an override)
+            if (isAllSpeech || isAllByTag) setExpanded(false);
+          }}
           className="text-[10px] text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 px-1 py-0.5 rounded border border-stone-200 dark:border-stone-700 hover:border-amber-400 transition-colors normal-case font-normal tracking-normal"
-          title={isAllSpeech ? "Collapse back to ALL" : "Restore original speakers"}
+          title={(isAllSpeech || isAllByTag) ? "Collapse back to ALL" : "Restore original speakers"}
         >↺ orig</button>
       )}
 
       {/* ✓ confirm */}
       <button
         onClick={() => {
-          if (!expanded && isAllSpeech) {
-            // Still in collapsed ALL ↓ state — commit [] so outer handler clears any stale override
+          if (!expanded && (isAllSpeech || isAllByTag)) {
+            // Collapsed ALL badge state (original TEI or ↺ orig restored) — clear any override
             onCommit([]);
           } else {
             onCommit(speakers);
@@ -870,11 +892,19 @@ function SpeakerChipEditor({
 // - With reassignment: ALL original speakers in red strikethrough + new speakers in green
 // - ALL speech (TEI-tagged): violet ALL badge
 // ─────────────────────────────────────────────────────────────────────────────
+/** Comma-separated list with Oxford comma: "A", "A & B", "A, B, & C" */
+function speakerSep(index: number, total: number): string {
+  if (index >= total - 1) return "";           // last — no separator
+  if (total === 2) return " & ";               // "A & B"
+  if (index < total - 2) return ", ";          // "A, B, …"
+  return ", & ";                               // "…, & C"
+}
+
 function SpeakerLabel({
   originalSpeakers,
   effectiveSpeakers,
   hasReassignment,
-  isAllSpeech,
+  isDisplayAll,
   actorColor,
   castList,
   characterAliases,
@@ -888,7 +918,7 @@ function SpeakerLabel({
   originalSpeakers: string[];
   effectiveSpeakers: string[];
   hasReassignment: boolean;
-  isAllSpeech: boolean;
+  isDisplayAll: boolean;
   actorColor?: string;
   castList: Character[];
   characterAliases?: Record<string, string>;
@@ -902,20 +932,22 @@ function SpeakerLabel({
   if (hasReassignment && !isCut && !isClean) {
     // Show original speakers crossed out in red + new speakers in green
     return (
-      <span className="flex items-center gap-1 flex-wrap">
+      <span className="flex items-center flex-wrap gap-y-0.5">
         {/* Original speakers — red strikethrough */}
         {originalSpeakers.map((id, i) => (
           <Fragment key={`orig-${id}`}>
             <span className="text-xs font-bold uppercase tracking-wider text-red-400 line-through">
               {resolveCharacterName(id, characterAliases, castList)}
             </span>
-            {i < originalSpeakers.length - 1 && (
-              <span className="text-xs font-normal normal-case tracking-normal text-red-400 line-through"> &</span>
+            {speakerSep(i, originalSpeakers.length) && (
+              <span className="text-xs font-normal normal-case tracking-normal text-red-400 line-through whitespace-pre">
+                {speakerSep(i, originalSpeakers.length)}
+              </span>
             )}
           </Fragment>
         ))}
         {/* New speakers — green, or violet ALL badge */}
-        {isAllSpeech ? (
+        {isDisplayAll ? (
           <span className="text-xs font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800">
             ALL
           </span>
@@ -925,8 +957,10 @@ function SpeakerLabel({
               <span className="text-xs font-bold uppercase tracking-wider text-green-700 dark:text-green-400">
                 {resolveCharacterName(id, characterAliases, castList)}
               </span>
-              {i < effectiveSpeakers.length - 1 && (
-                <span className="text-xs font-normal normal-case tracking-normal text-green-700 dark:text-green-400"> &</span>
+              {speakerSep(i, effectiveSpeakers.length) && (
+                <span className="text-xs font-normal normal-case tracking-normal text-green-700 dark:text-green-400 whitespace-pre">
+                  {speakerSep(i, effectiveSpeakers.length)}
+                </span>
               )}
             </Fragment>
           ))
@@ -936,7 +970,7 @@ function SpeakerLabel({
   }
 
   // No reassignment — standard display
-  if (isAllSpeech) {
+  if (isDisplayAll) {
     return (
       <span className="text-xs font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800">
         ALL
@@ -946,7 +980,7 @@ function SpeakerLabel({
 
   if (originalSpeakers.length > 1) {
     return (
-      <span className="flex items-center gap-1 flex-wrap">
+      <span className="flex items-center flex-wrap gap-y-0.5">
         {originalSpeakers.map((id, i) => (
           <Fragment key={id}>
             <span
@@ -955,8 +989,10 @@ function SpeakerLabel({
             >
               {resolveCharacterName(id, characterAliases, castList)}
             </span>
-            {i < originalSpeakers.length - 1 && (
-              <span className="text-xs font-normal normal-case tracking-normal text-stone-400"> &</span>
+            {speakerSep(i, originalSpeakers.length) && (
+              <span className="text-xs font-normal normal-case tracking-normal text-stone-400 whitespace-pre">
+                {speakerSep(i, originalSpeakers.length)}
+              </span>
             )}
           </Fragment>
         ))}
