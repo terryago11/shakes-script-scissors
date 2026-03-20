@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Fragment } from "react";
 import type { Character, Speech } from "@/types/play";
 import type { LineWithStatus } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
@@ -155,23 +155,15 @@ export default function SpeechBlock({
       speechReassignedTo.every((id, i) => id === originalSpeakers[i])
     );
   const effectiveSpeakers: string[] = hasReassignment ? speechReassignedTo! : originalSpeakers;
-  const isMultiSpeaker = effectiveSpeakers.length > 1 || originalSpeakers.length > 1;
 
-  // "ALL" display: tag-based (original TEI says ALL) OR director-set override
+  // "ALL" display: tag-based (original TEI says ALL) OR director-set __ALL__ sentinel (legacy)
   const isAllByTag = /\bALL\b/i.test(speech.speakerTag);
   const isAllSpeech = isAllByTag ? !hasReassignment : isAllOverride;
 
-  // Build display label(s) for the speaker header
-  // When ALL and no override: single "ALL" chip; otherwise show individual names
-  const speakerDisplayIds: string[] = isAllSpeech ? [] : effectiveSpeakers;
-
-  // For single-speaker non-reassigned speeches, use the same name as before
+  // Resolved names for each effective speaker
   const resolvedEffectiveNames = effectiveSpeakers.map((id) =>
     resolveCharacterName(id, characterAliases, castList ?? [])
   );
-
-  // For single-speaker display (used in nameContent + clean mode)
-  const singleEffectiveName = resolvedEffectiveNames[0] ?? resolvedSpeakerName;
 
   // Song speech: at least one line is a sung line (from a non-poem <lg> stanza)
   const isSongSpeech = speech.isSong === true;
@@ -183,16 +175,14 @@ export default function SpeechBlock({
 
   // In clean mode with reassignment, show the new speaker name(s) directly
   const effectiveSpeakerName = isClean && hasReassignment
-    ? (isAllSpeech ? speech.speakerTag.trim() : singleEffectiveName)
+    ? (isAllSpeech ? "ALL" : resolvedEffectiveNames.join(" & "))
     : resolvedSpeakerName;
 
-  // Shared name-rendering pieces — used in both the clickable and non-clickable char name
+  // Shared name-rendering pieces — used for single-speaker non-reassigned display
   const nameClass = isCut
     ? "text-red-400 opacity-60 line-through"
-    : (hasReassignment && !isClean && !isMultiSpeaker)
-      ? "text-red-400 line-through"
-      : (isContinuation && !isClean) ? "text-stone-300 dark:text-stone-600" : "text-stone-600 dark:text-stone-300";
-  const nameColorStyle = (isCut || (isContinuation && !isClean) || (hasReassignment && !isClean && !isMultiSpeaker)) ? undefined : actorColor || undefined;
+    : (isContinuation && !isClean) ? "text-stone-300 dark:text-stone-600" : "text-stone-600 dark:text-stone-300";
+  const nameColorStyle = (isCut || (isContinuation && !isClean)) ? undefined : actorColor || undefined;
   const nameContent = (isContinuation && !isCut && !isClean)
     ? <span className="font-normal italic normal-case tracking-normal text-stone-300 dark:text-stone-600">{effectiveSpeakerName.toLowerCase()} cont.</span>
     : <>{effectiveSpeakerName}</>;
@@ -289,22 +279,17 @@ export default function SpeechBlock({
                 isAllSpeech={isAllSpeech}
                 isAllOverride={isAllOverride}
                 onCommit={(ids) => {
-                  if (ids.length === 1 && ids[0] === "__ALL__") {
-                    // Director explicitly set ALL display override
-                    onReassign!(speech.id, ["__ALL__"]);
-                  } else {
-                    // Null out if same as original (no real change)
-                    const isUnchanged =
-                      ids.length === originalSpeakers.length &&
-                      ids.every((id, i) => id === originalSpeakers[i]);
-                    onReassign!(speech.id, ids.length === 0 || isUnchanged ? null : ids);
-                  }
+                  // Null out if same as original (no real change)
+                  const isUnchanged =
+                    ids.length === originalSpeakers.length &&
+                    ids.every((id, i) => id === originalSpeakers[i]);
+                  onReassign!(speech.id, ids.length === 0 || isUnchanged ? null : ids);
                   setShowReassign(false);
                 }}
                 onClose={() => setShowReassign(false)}
               />
             ) : (
-              /* Hover affordance — same for all speech types */
+              /* Hover affordance — click to open chip editor */
               <span
                 className="group/charname relative shrink-0 cursor-pointer rounded px-0.5 -mx-0.5 border border-transparent hover:border-stone-300 hover:bg-stone-50 dark:hover:border-stone-600 dark:hover:bg-stone-800 transition-colors flex items-center gap-1"
                 onClick={(e) => { e.stopPropagation(); setShowReassign(true); }}
@@ -313,63 +298,48 @@ export default function SpeechBlock({
                 <span className="absolute -top-3 inset-x-0 flex justify-center opacity-0 group-hover/charname:opacity-100 transition-opacity pointer-events-none">
                   <span className="text-[9px] text-stone-400 leading-none">⇄</span>
                 </span>
-                {isAllSpeech ? (
-                  <span className="text-xs font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800">
-                    ALL
-                  </span>
-                ) : speakerDisplayIds.length > 1 ? (
-                  <span className="flex items-center gap-1 flex-wrap">
-                    {speakerDisplayIds.map((id, i) => (
-                      <span key={id} className={`text-xs font-bold uppercase tracking-wider ${hasReassignment ? "text-green-700 dark:text-green-400" : "text-stone-600 dark:text-stone-300"}`}
-                        style={{ color: hasReassignment ? undefined : (i === 0 ? actorColor : undefined) }}>
-                        {resolveCharacterName(id, characterAliases, castList ?? [])}
-                        {i < speakerDisplayIds.length - 1 && <span className="font-normal normal-case tracking-normal mx-0.5 text-stone-400"> &</span>}
-                      </span>
-                    ))}
-                  </span>
-                ) : (
-                  <span className={`text-xs font-bold uppercase tracking-wider ${nameClass}`} style={{ color: nameColorStyle }}>
-                    {nameContent}
-                  </span>
-                )}
+                <SpeakerLabel
+                  originalSpeakers={originalSpeakers}
+                  effectiveSpeakers={effectiveSpeakers}
+                  hasReassignment={hasReassignment}
+                  isAllSpeech={isAllSpeech}
+                  actorColor={actorColor}
+                  castList={castList ?? []}
+                  characterAliases={characterAliases}
+                  isContinuation={isContinuation}
+                  isCut={isCut}
+                  isClean={isClean}
+                  nameClass={nameClass}
+                  nameColorStyle={nameColorStyle}
+                  nameContent={nameContent}
+                />
               </span>
             )
           ) : (
             /* ── NOT IN REASSIGN TOOL ─────────────────────────────────────────────────── */
-            isAllSpeech ? (
-              <span className="text-xs font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800 shrink-0">
-                ALL
-              </span>
-            ) : speakerDisplayIds.length > 1 ? (
-              /* Multi-speaker chips (read-only) */
-              <span className="flex items-center gap-1 flex-wrap shrink-0">
-                {speakerDisplayIds.map((id, i) => (
-                  <span key={id} className={`text-xs font-bold uppercase tracking-wider ${hasReassignment ? "text-green-700 dark:text-green-400" : "text-stone-600 dark:text-stone-300"}`}
-                    style={{ color: hasReassignment ? undefined : (i === 0 ? actorColor : undefined) }}>
-                    {resolveCharacterName(id, characterAliases, castList ?? [])}
-                    {i < speakerDisplayIds.length - 1 && <span className="font-normal normal-case tracking-normal mx-0.5 text-stone-400"> &</span>}
-                  </span>
-                ))}
-              </span>
-            ) : (
-              /* Single speaker */
-              <span className={`text-xs font-bold uppercase tracking-wider shrink-0 ${nameClass}`} style={{ color: nameColorStyle }}>
-                {nameContent}
-              </span>
-            )
+            <span className="shrink-0 flex items-center gap-1">
+              <SpeakerLabel
+                originalSpeakers={originalSpeakers}
+                effectiveSpeakers={effectiveSpeakers}
+                hasReassignment={hasReassignment}
+                isAllSpeech={isAllSpeech}
+                actorColor={actorColor}
+                castList={castList ?? []}
+                characterAliases={characterAliases}
+                isContinuation={isContinuation}
+                isCut={isCut}
+                isClean={isClean}
+                nameClass={nameClass}
+                nameColorStyle={nameColorStyle}
+                nameContent={nameContent}
+              />
+            </span>
           )}
 
           {/* Delivery note — e.g. "[within]" from a pre-speech TEI <stage> */}
           {speech.deliveryNote && !isCut && (
             <span className="text-xs font-normal italic normal-case tracking-normal text-stone-400 dark:text-stone-500 shrink-0">
               {speech.deliveryNote}
-            </span>
-          )}
-
-          {/* Reassignment diff indicator — only for single-speaker reassignment in standard/diff view */}
-          {hasReassignment && !isCut && !isClean && !isMultiSpeaker && (
-            <span className="text-xs text-green-700 dark:text-green-400 font-bold uppercase tracking-wider shrink-0">
-              {singleEffectiveName}
             </span>
           )}
 
@@ -727,8 +697,19 @@ function SpeakerChipEditor({
     setShowAdd(false);
   }
 
-  function expandAll() {
+  // Expand the ALL badge to individual chips (for TEI-tagged ALL speeches)
+  function expandAllBadge() {
     setSpeakers(originalSpeakers);
+    setExpanded(true);
+  }
+
+  // Fill chips with all on-stage characters (charsWithEntrance as proxy),
+  // filtered to castList members. Falls back to all castList if no entrance data.
+  function fillAllOnStage() {
+    const onStageIds = charsWithEntrance
+      ? [...charsWithEntrance].filter((id) => castList.some((c) => c.id === id))
+      : castList.map((c) => c.id);
+    setSpeakers(onStageIds.length > 0 ? onStageIds : castList.map((c) => c.id));
     setExpanded(true);
   }
 
@@ -749,10 +730,10 @@ function SpeakerChipEditor({
       className="flex items-center gap-1 flex-wrap border border-amber-300 dark:border-amber-600 rounded px-1.5 py-0.5 bg-white dark:bg-stone-900"
       onClick={(e) => e.stopPropagation()}
     >
-      {/* ALL badge (not yet expanded) — click to expand */}
+      {/* ALL badge (not yet expanded) — click to expand to individual chips */}
       {isAllSpeech && !expanded && (
         <button
-          onClick={expandAll}
+          onClick={expandAllBadge}
           className="text-xs px-1.5 py-0.5 rounded bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800 font-bold uppercase tracking-wider hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors"
           title="Expand ALL to individual speakers"
         >
@@ -807,25 +788,9 @@ function SpeakerChipEditor({
         </span>
       ))}
 
-      {/* → ALL: collapse multiple speakers into an ALL display override */}
-      {expanded && speakers.length > 1 && (
-        <button
-          onClick={() => onCommit(["__ALL__"])}
-          className="text-[10px] text-violet-500 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 px-1 py-0.5 rounded border border-violet-200 dark:border-violet-700 hover:border-violet-400 transition-colors normal-case font-normal tracking-normal"
-          title="Display this speech as ALL"
-        >→ ALL</button>
-      )}
+      {/* Button row — order: add, all, orig, ✓ */}
 
-      {/* Restore original — show when changed, or when ALL speech has been expanded */}
-      {expanded && (!isUnchanged || isAllSpeech) && (
-        <button
-          onClick={() => { setSpeakers(originalSpeakers); if (isAllSpeech) setExpanded(false); }}
-          className="text-[10px] text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 px-1 py-0.5 rounded border border-stone-200 dark:border-stone-700 hover:border-amber-400 transition-colors normal-case font-normal tracking-normal"
-          title={isAllSpeech ? "Collapse back to ALL" : "Restore original speakers"}
-        >↺ orig</button>
-      )}
-
-      {/* Add speaker (only shown when expanded) */}
+      {/* ＋ add speaker */}
       {expanded && available.length > 0 && (
         showAdd ? (
           <select
@@ -855,14 +820,30 @@ function SpeakerChipEditor({
         )
       )}
 
-      {/* Confirm */}
+      {/* → ALL: fill chips with all on-stage characters (always shown when expanded) */}
+      {expanded && (
+        <button
+          onClick={fillAllOnStage}
+          className="text-[10px] text-violet-500 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 px-1 py-0.5 rounded border border-violet-200 dark:border-violet-700 hover:border-violet-400 transition-colors normal-case font-normal tracking-normal"
+          title="Fill with all on-stage characters"
+        >→ ALL</button>
+      )}
+
+      {/* ↺ orig — restore original speakers; shown when list changed or when ALL was expanded */}
+      {expanded && (!isUnchanged || isAllSpeech) && (
+        <button
+          onClick={() => { setSpeakers(originalSpeakers); if (isAllSpeech) setExpanded(false); }}
+          className="text-[10px] text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 px-1 py-0.5 rounded border border-stone-200 dark:border-stone-700 hover:border-amber-400 transition-colors normal-case font-normal tracking-normal"
+          title={isAllSpeech ? "Collapse back to ALL" : "Restore original speakers"}
+        >↺ orig</button>
+      )}
+
+      {/* ✓ confirm */}
       <button
         onClick={() => {
           if (!expanded && isAllSpeech) {
-            // Collapsed ALL ↓ state: maintain override type
-            // - Director-set override → re-commit ["__ALL__"] to keep it
-            // - Tag-based ALL → commit [] so outer handler clears any stale override
-            onCommit(isAllOverride ? ["__ALL__"] : []);
+            // Still in collapsed ALL ↓ state — commit [] so outer handler clears any stale override
+            onCommit([]);
           } else {
             onCommit(speakers);
           }
@@ -871,5 +852,122 @@ function SpeakerChipEditor({
         title="Confirm speaker list"
       >✓</button>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SpeakerLabel
+// Renders the speaker header for a speech in all modes:
+// - No reassignment: single or multi-speaker with actor color
+// - With reassignment: ALL original speakers in red strikethrough + new speakers in green
+// - ALL speech (TEI-tagged): violet ALL badge
+// ─────────────────────────────────────────────────────────────────────────────
+function SpeakerLabel({
+  originalSpeakers,
+  effectiveSpeakers,
+  hasReassignment,
+  isAllSpeech,
+  actorColor,
+  castList,
+  characterAliases,
+  isContinuation,
+  isCut,
+  isClean,
+  nameClass,
+  nameColorStyle,
+  nameContent,
+}: {
+  originalSpeakers: string[];
+  effectiveSpeakers: string[];
+  hasReassignment: boolean;
+  isAllSpeech: boolean;
+  actorColor?: string;
+  castList: Character[];
+  characterAliases?: Record<string, string>;
+  isContinuation?: boolean;
+  isCut: boolean;
+  isClean: boolean;
+  nameClass: string;
+  nameColorStyle: string | undefined;
+  nameContent: React.ReactNode;
+}) {
+  if (hasReassignment && !isCut && !isClean) {
+    // Show original speakers crossed out in red + new speakers in green
+    return (
+      <span className="flex items-center gap-1 flex-wrap">
+        {/* Original speakers — red strikethrough */}
+        {originalSpeakers.map((id, i) => (
+          <Fragment key={`orig-${id}`}>
+            <span className="text-xs font-bold uppercase tracking-wider text-red-400 line-through">
+              {resolveCharacterName(id, characterAliases, castList)}
+            </span>
+            {i < originalSpeakers.length - 1 && (
+              <span className="text-xs font-normal normal-case tracking-normal text-red-400 line-through"> &</span>
+            )}
+          </Fragment>
+        ))}
+        {/* New speakers — green, or violet ALL badge */}
+        {isAllSpeech ? (
+          <span className="text-xs font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800">
+            ALL
+          </span>
+        ) : (
+          effectiveSpeakers.map((id, i) => (
+            <Fragment key={`new-${id}`}>
+              <span className="text-xs font-bold uppercase tracking-wider text-green-700 dark:text-green-400">
+                {resolveCharacterName(id, characterAliases, castList)}
+              </span>
+              {i < effectiveSpeakers.length - 1 && (
+                <span className="text-xs font-normal normal-case tracking-normal text-green-700 dark:text-green-400"> &</span>
+              )}
+            </Fragment>
+          ))
+        )}
+      </span>
+    );
+  }
+
+  // No reassignment — standard display
+  if (isAllSpeech) {
+    return (
+      <span className="text-xs font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800">
+        ALL
+      </span>
+    );
+  }
+
+  if (originalSpeakers.length > 1) {
+    return (
+      <span className="flex items-center gap-1 flex-wrap">
+        {originalSpeakers.map((id, i) => (
+          <Fragment key={id}>
+            <span
+              className="text-xs font-bold uppercase tracking-wider text-stone-600 dark:text-stone-300"
+              style={{ color: i === 0 ? actorColor : undefined }}
+            >
+              {resolveCharacterName(id, characterAliases, castList)}
+            </span>
+            {i < originalSpeakers.length - 1 && (
+              <span className="text-xs font-normal normal-case tracking-normal text-stone-400"> &</span>
+            )}
+          </Fragment>
+        ))}
+      </span>
+    );
+  }
+
+  // Single speaker (continuation / regular)
+  if (isCut) {
+    return (
+      <span className="text-xs font-bold uppercase tracking-wider text-red-400 opacity-60 line-through">
+        {resolveCharacterName(originalSpeakers[0], characterAliases, castList)}
+      </span>
+    );
+  }
+
+  return (
+    <span className={`text-xs font-bold uppercase tracking-wider ${nameClass}`} style={{ color: nameColorStyle }}>
+      {nameContent}
+    </span>
   );
 }
