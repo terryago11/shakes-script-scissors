@@ -322,6 +322,7 @@ export default function SpeechBlock({
                   effectiveSpeakers={effectiveSpeakers}
                   hasReassignment={hasReassignment}
                   isDisplayAll={isDisplayAll}
+                  isAllByTag={isAllByTag}
                   actorColor={actorColor}
                   castList={castList ?? []}
                   characterAliases={characterAliases}
@@ -342,6 +343,7 @@ export default function SpeechBlock({
                 effectiveSpeakers={effectiveSpeakers}
                 hasReassignment={hasReassignment}
                 isDisplayAll={isDisplayAll}
+                isAllByTag={isAllByTag}
                 actorColor={actorColor}
                 castList={castList ?? []}
                 characterAliases={characterAliases}
@@ -905,6 +907,7 @@ function SpeakerLabel({
   effectiveSpeakers,
   hasReassignment,
   isDisplayAll,
+  isAllByTag,
   actorColor,
   castList,
   characterAliases,
@@ -919,6 +922,8 @@ function SpeakerLabel({
   effectiveSpeakers: string[];
   hasReassignment: boolean;
   isDisplayAll: boolean;
+  /** Whether the TEI source tags this speech as ALL — crossed-out origin shows "ALL" not individual names */
+  isAllByTag: boolean;
   actorColor?: string;
   castList: Character[];
   characterAliases?: Record<string, string>;
@@ -930,11 +935,17 @@ function SpeakerLabel({
   nameContent: React.ReactNode;
 }) {
   if (hasReassignment && !isCut && !isClean) {
-    // Show original speakers crossed out in red + new speakers in green
+    // Show original crossed out in red + new speakers in green.
+    // If the original was TEI-tagged ALL, show the ALL badge struck through rather than
+    // expanding to individual character names (which may not be meaningful).
     return (
       <span className="flex items-center flex-wrap gap-y-0.5">
         {/* Original speakers — red strikethrough */}
-        {originalSpeakers.map((id, i) => (
+        {isAllByTag ? (
+          <span className="text-xs font-bold uppercase tracking-wider px-1 py-0.5 rounded bg-red-50 dark:bg-red-950/30 text-red-400 border border-red-200 dark:border-red-800 line-through opacity-70">
+            ALL
+          </span>
+        ) : originalSpeakers.map((id, i) => (
           <Fragment key={`orig-${id}`}>
             <span className="text-xs font-bold uppercase tracking-wider text-red-400 line-through">
               {resolveCharacterName(id, characterAliases, castList)}
