@@ -246,6 +246,18 @@ export default function SceneBlock({
     return map;
   })();
 
+  // Pre-compute on-stage character set for each speech (enables → ALL in chip editor)
+  const onStageAtSpeech: Map<string, Set<string>> = (() => {
+    if (showOriginal) return new Map();
+    const map = new Map<string, Set<string>>();
+    scene.units.forEach((unit, idx) => {
+      if (unit.type === "speech") {
+        map.set(unit.id, getOnStageAtUnit(scene.units, idx, stageDirectionEdits));
+      }
+    });
+    return map;
+  })();
+
   return (
     <div
       id={`scene-${scene.id}`}
@@ -364,6 +376,7 @@ export default function SceneBlock({
                     castList={castList}
                     speechReassignedTo={showOriginal ? undefined : (speechReassignments?.[unit.id] ?? null)}
                     charsWithEntrance={charsWithEntrance}
+                    onStageAtSpeech={showOriginal ? undefined : onStageAtSpeech.get(unit.id)}
                     onReassign={showOriginal ? undefined : onReassign}
                     speechLineOffset={showOriginal ? undefined : speechStartLines.get(unit.id)}
                     characterAliases={showOriginal ? undefined : characterAliases}

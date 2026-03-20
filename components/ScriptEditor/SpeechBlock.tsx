@@ -31,6 +31,8 @@ interface Props {
   speechReassignedTo?: string[] | null;
   /** Characters with at least one kept entrance SD — others get ⚠ in dropdown */
   charsWithEntrance?: Set<string>;
+  /** Characters currently on stage at this speech (for → ALL in chip editor) */
+  onStageAtSpeech?: Set<string>;
   onReassign?: (unitId: string, characterIds: string[] | null) => void;
   /** Scene-relative line offset for this speech (for running line counter every 5 lines) */
   speechLineOffset?: number;
@@ -56,6 +58,7 @@ export default function SpeechBlock({
   castList,
   speechReassignedTo,
   charsWithEntrance,
+  onStageAtSpeech,
   onReassign,
   speechLineOffset,
   characterAliases,
@@ -275,6 +278,7 @@ export default function SpeechBlock({
                 originalSpeakers={originalSpeakers}
                 castList={castList!}
                 charsWithEntrance={charsWithEntrance}
+                onStageAtSpeech={onStageAtSpeech}
                 characterAliases={characterAliases}
                 isAllSpeech={isAllSpeech}
                 isAllOverride={isAllOverride}
@@ -648,6 +652,7 @@ function SpeakerChipEditor({
   originalSpeakers,
   castList,
   charsWithEntrance,
+  onStageAtSpeech,
   characterAliases,
   isAllSpeech,
   isAllOverride,
@@ -658,6 +663,8 @@ function SpeakerChipEditor({
   originalSpeakers: string[];
   castList: Character[];
   charsWithEntrance?: Set<string>;
+  /** Characters actually on stage at this speech — used by → ALL button */
+  onStageAtSpeech?: Set<string>;
   characterAliases?: Record<string, string>;
   isAllSpeech: boolean;
   isAllOverride: boolean;
@@ -703,11 +710,12 @@ function SpeakerChipEditor({
     setExpanded(true);
   }
 
-  // Fill chips with all on-stage characters (charsWithEntrance as proxy),
-  // filtered to castList members. Falls back to all castList if no entrance data.
+  // Fill chips with all characters actually on stage at this speech.
+  // Priority: onStageAtSpeech (exact on-stage tracking) > charsWithEntrance (scene proxy) > all castList.
   function fillAllOnStage() {
-    const onStageIds = charsWithEntrance
-      ? [...charsWithEntrance].filter((id) => castList.some((c) => c.id === id))
+    const source = onStageAtSpeech ?? charsWithEntrance;
+    const onStageIds = source
+      ? [...source].filter((id) => castList.some((c) => c.id === id))
       : castList.map((c) => c.id);
     setSpeakers(onStageIds.length > 0 ? onStageIds : castList.map((c) => c.id));
     setExpanded(true);
