@@ -89,8 +89,18 @@ export function applyEditsToLine(
 
   for (const ev of events) {
     if (ev.kind === "insert") {
-      if (!inCut) flushKept(ev.pos);
-      segments.push({ type: "insert", text: ev.text, offset: ev.pos, lineId });
+      if (inCut) {
+        // The insert falls inside a cut range — split the cut here so the
+        // inserted word stays visible between the two cut halves.
+        const cutText = text.slice(cutStart, ev.pos);
+        if (cutText) segments.push({ type: "cut", text: cutText, start: cutStart, end: ev.pos, lineId });
+        segments.push({ type: "insert", text: ev.text, offset: ev.pos, lineId });
+        cutStart = ev.pos; // resume the cut after the inserted word
+        cursor = ev.pos;
+      } else {
+        flushKept(ev.pos);
+        segments.push({ type: "insert", text: ev.text, offset: ev.pos, lineId });
+      }
     } else if (ev.kind === "cut-start") {
       flushKept(ev.pos);
       inCut = true;
