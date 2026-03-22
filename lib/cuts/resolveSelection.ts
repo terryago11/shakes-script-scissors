@@ -65,8 +65,23 @@ export function resolveSelectionToOps(
 }
 
 /**
+ * Returns true if a text node is a descendant of a [data-inserted] element
+ * within the given line element. Inserted words are not part of the original
+ * line text and must be excluded from character offset calculations.
+ */
+function isInsertedNode(node: Text, lineEl: HTMLElement): boolean {
+  let el: Element | null = node.parentElement;
+  while (el && el !== lineEl) {
+    if ((el as HTMLElement).dataset?.inserted === "true") return true;
+    el = el.parentElement;
+  }
+  return false;
+}
+
+/**
  * Walk text nodes inside `lineEl` to compute the character offset of
  * `targetNode` at `offsetInNode` relative to the start of the line element.
+ * Skips text nodes inside [data-inserted] elements.
  * Returns the full text length of the line if targetNode is not found
  * (which happens for middle lines where we use end = fullLength).
  */
@@ -79,6 +94,7 @@ function getCharOffset(
   let charCount = 0;
   let node: Text | null;
   while ((node = walker.nextNode() as Text | null)) {
+    if (isInsertedNode(node, lineEl)) continue;
     if (node === targetNode) {
       return charCount + offsetInNode;
     }
@@ -89,7 +105,7 @@ function getCharOffset(
 }
 
 /**
- * Total character length of all text nodes inside an element.
+ * Total character length of all non-inserted text nodes inside an element.
  * This is the canonical line length for "cut whole line" cases.
  */
 function getFullLength(el: HTMLElement): number {
@@ -97,6 +113,7 @@ function getFullLength(el: HTMLElement): number {
   let len = 0;
   let node: Text | null;
   while ((node = walker.nextNode() as Text | null)) {
+    if (isInsertedNode(node, el)) continue;
     len += node.nodeValue?.length ?? 0;
   }
   return len;

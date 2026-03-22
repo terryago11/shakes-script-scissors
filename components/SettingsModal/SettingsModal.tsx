@@ -242,6 +242,7 @@ export default function SettingsModal({
                 {([
                   { v: 100, label: "Slow" },
                   { v: 130, label: "Amateur" },
+                  { v: 135, label: "Default" },
                   { v: 150, label: "Experienced" },
                   { v: 180, label: "Professional" },
                 ] as const).map(({ v, label }) => (
@@ -296,6 +297,31 @@ export default function SettingsModal({
               </button>
             </div>
           </form>
+
+          <div className="border-t border-stone-100 dark:border-stone-800 pt-4 mt-2">
+            <label className={sectionLabel}>About & Copyright</label>
+            <div className="text-xs text-stone-400 dark:text-stone-500 space-y-1.5 leading-relaxed">
+              <p>
+                Shakespeare texts (37 plays) from{" "}
+                <a href="https://dracor.org/shake" target="_blank" rel="noopener noreferrer" className="underline">DraCor</a>.{" "}
+                <em>The Two Noble Kinsmen</em> from{" "}
+                <a href="https://www.folger.edu/explore/shakespeares-works/" target="_blank" rel="noopener noreferrer" className="underline">Folger Digital Texts</a>.
+                Folger Shakespeare editions ed. Mowat, Werstine, Poston &amp; Niles.
+                Licensed{" "}
+                <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer" className="underline">CC BY-SA 4.0</a>{" "}
+                (DraCor) and{" "}
+                <a href="https://creativecommons.org/licenses/by-nc/3.0/" target="_blank" rel="noopener noreferrer" className="underline">CC BY-NC 3.0</a>{" "}
+                (Folger Digital Texts).
+              </p>
+              <p>
+                ShakesScriptScissors © Natan Skop.
+                Licensed{" "}
+                <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener noreferrer" className="underline">CC BY-NC-SA 4.0</a>.
+                Non-commercial use only. Share-alike required.
+                {process.env.NEXT_PUBLIC_COMMIT_DATE ? ` · v5.18 · updated ${process.env.NEXT_PUBLIC_COMMIT_DATE}` : " · v5.18"}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

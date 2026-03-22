@@ -302,6 +302,7 @@ export default function SceneBlock({
                   {timeMins.afterCut < timeMins.original - 0.01 && (
                     <span className="text-stone-300 dark:text-stone-600">/ {fmtMins(timeMins.original)}</span>
                   )}
+                  <span className="text-stone-300 dark:text-stone-600">@ {wpm}wpm</span>
                 </>
               ) : (
                 <>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,10 +36,13 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-stone-50">
-      <div className="w-full max-w-sm px-8 py-10 bg-white rounded-xl border border-stone-200 shadow-sm">
-        <h1 className="text-2xl font-bold text-stone-800 mb-1">✂ ShakesScriptScissors</h1>
-        <p className="text-stone-500 text-sm mb-8">Enter the team password to continue.</p>
+    <main className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      <div className="w-full max-w-sm px-8 py-10 bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 shadow-sm">
+        <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100 mb-1">✂ ShakesScriptScissors</h1>
+        <p className="text-stone-500 dark:text-stone-400 text-sm mb-8">Enter the team password to continue.</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="relative">
@@ -49,25 +53,25 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               autoFocus
               required
-              className="w-full px-4 py-2 pr-16 border border-stone-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+              className="w-full px-4 py-2 pr-16 border border-stone-300 dark:border-stone-600 rounded-lg text-sm bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 hover:text-stone-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
             >
               {showPassword ? "Hide" : "Show"}
             </button>
           </div>
 
           {error && (
-            <p className="text-red-600 text-sm">{error}</p>
+            <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm transition-colors disabled:opacity-50"
+            className="w-full px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-semibold text-sm transition-colors disabled:opacity-50"
           >
             {loading ? "Signing in…" : "Sign in"}
           </button>

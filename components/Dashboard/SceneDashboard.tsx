@@ -227,9 +227,9 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
       {/* Header row: title · metric toggle · running time */}
       <div className="flex flex-wrap items-center justify-between mb-4 gap-3 md:gap-6">
         <div className="shrink-0">
-          <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100 mb-1">Scene Dashboard</h1>
+          <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100 mb-1">Production Dashboard</h1>
           <p className="text-stone-500 dark:text-stone-400 text-sm">
-            {effectiveSceneOrder.length} scenes · {project.actors.length} actors
+            {play.acts.length} acts · {effectiveSceneOrder.length} scenes · {play.castList.length} characters · {project.actors.length} actors
           </p>
         </div>
 
@@ -265,6 +265,9 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
               incl. {formatMinutes(pauseTotal)} pauses
             </div>
           )}
+          <div className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
+            @ {project.settings?.wordsPerMinute ?? DEFAULT_WPM} wpm
+          </div>
         </div>
       </div>
 

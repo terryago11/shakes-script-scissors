@@ -471,14 +471,14 @@ export default function SpeechBlock({
                   const insInfo = insertOpsForLine[insertSegCount++];
                   const opIdx = insInfo?.opIdx ?? -1;
                   // In clean mode: render as plain text (no green styling)
-                  if (isClean) return <span key={i}>{seg.text}</span>;
+                  if (isClean) return <span key={i} data-inserted="true">{seg.text}</span>;
                   const canEditIns = activeTool === "insert" && !readonly && opIdx >= 0;
                   const insContent = viewMode === "diff"
                     ? <ins className="text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/50 no-underline rounded px-0.5">{seg.text}</ins>
                     : <ins className="text-green-600 dark:text-green-400 no-underline underline decoration-green-400">{seg.text}</ins>;
-                  if (!canEditIns) return <span key={i}>{insContent}</span>;
+                  if (!canEditIns) return <span key={i} data-inserted="true">{insContent}</span>;
                   return (
-                    <span key={i} className="relative group/ins">
+                    <span key={i} data-inserted="true" className="relative group/ins">
                       <span
                         className="cursor-pointer"
                         onClick={(e) => {

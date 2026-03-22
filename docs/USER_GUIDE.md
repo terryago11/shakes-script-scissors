@@ -114,7 +114,7 @@ Word edits accumulate as a track-changes record per speech. They are visible in 
 
 ## 4. Line Counts and Running Time
 
-The **Line Count panel** is the right sidebar on desktop, or the drawer opened by the floating **≡ Info** pill on tablet.
+The **Line Count panel** is the right sidebar on desktop, or the drawer opened by the floating **≡ Info** pill (visible on mobile and tablet).
 
 ### Tabs
 
@@ -130,9 +130,10 @@ Time is calculated from entrance and exit stage directions, not just from speech
 
 **Words per minute** sets the base rate; adjust it in ⚙ Settings. The tool ships with common theatre rates:
 - Slow: 100 wpm
-- Amateur: 120 wpm
-- Experienced: 140 wpm
-- Professional: 160 wpm
+- Amateur: 130 wpm
+- Default: 135 wpm
+- Experienced: 150 wpm
+- Professional: 180 wpm
 
 **Song and dance duration**: hover a ♪ or ⊛ stage direction to reveal a **+ time** button. Enter an estimated number of minutes; this is added to the total running time and scene durations (but not attributed to individual characters' on-stage time).
 

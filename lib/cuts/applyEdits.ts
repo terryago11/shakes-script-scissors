@@ -67,7 +67,12 @@ export function applyEditsToLine(
   for (const ins of inserts) {
     events.push({ pos: ins.offset, kind: "insert", text: ins.text });
   }
-  events.sort((a, b) => a.pos - b.pos || (a.kind === "cut-start" ? -1 : 1));
+  // Deterministic sort: by position, then cut-start < cut-end < insert.
+  // This ensures inserts placed at the same offset as a cut boundary always
+  // appear AFTER the cut-end (i.e. outside the cut zone), giving stable
+  // rendering regardless of the order ops were added.
+  const kindOrder = (k: string) => k === "cut-start" ? 0 : k === "cut-end" ? 1 : 2;
+  events.sort((a, b) => a.pos - b.pos || kindOrder(a.kind) - kindOrder(b.kind));
 
   const segments: Segment[] = [];
   let cursor = 0;
@@ -84,8 +89,18 @@ export function applyEditsToLine(
 
   for (const ev of events) {
     if (ev.kind === "insert") {
-      if (!inCut) flushKept(ev.pos);
-      segments.push({ type: "insert", text: ev.text, offset: ev.pos, lineId });
+      if (inCut) {
+        // The insert falls inside a cut range — split the cut here so the
+        // inserted word stays visible between the two cut halves.
+        const cutText = text.slice(cutStart, ev.pos);
+        if (cutText) segments.push({ type: "cut", text: cutText, start: cutStart, end: ev.pos, lineId });
+        segments.push({ type: "insert", text: ev.text, offset: ev.pos, lineId });
+        cutStart = ev.pos; // resume the cut after the inserted word
+        cursor = ev.pos;
+      } else {
+        flushKept(ev.pos);
+        segments.push({ type: "insert", text: ev.text, offset: ev.pos, lineId });
+      }
     } else if (ev.kind === "cut-start") {
       flushKept(ev.pos);
       inCut = true;
