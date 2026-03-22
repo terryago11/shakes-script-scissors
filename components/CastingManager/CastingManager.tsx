@@ -586,23 +586,8 @@ export default function CastingManager({ playId }: Props) {
             <h2 className="text-sm font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
               Quick-change Warnings
             </h2>
-            <div className="flex items-center gap-1.5 text-xs text-stone-400 dark:text-stone-400 ml-auto">
-              <span>Flag gaps under</span>
-              <input
-                type="number"
-                min={0.5}
-                max={30}
-                step={0.5}
-                value={threshold}
-                onChange={(e) =>
-                  dispatch({
-                    type: "UPDATE_SETTINGS",
-                    settings: { quickChangeThresholdMinutes: Number(e.target.value) },
-                  })
-                }
-                className="w-14 border border-stone-200 dark:border-stone-700 dark:bg-stone-800 rounded px-1.5 py-0.5 text-stone-600 dark:text-stone-300 focus:outline-none focus:ring-1 focus:ring-amber-400 text-center"
-              />
-              <span>min</span>
+            <div className="text-xs text-stone-400 dark:text-stone-500 ml-auto">
+              Threshold: {threshold} min <span className="text-stone-300 dark:text-stone-600">(change in Settings ⚙)</span>
             </div>
           </div>
 

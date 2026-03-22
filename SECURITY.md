@@ -66,6 +66,10 @@ Dependencies are audited with `npm audit`. Run `npm audit fix` to apply availabl
 
 ---
 
+## License
+
+ShakesScriptScissors is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) — non-commercial use only, share-alike required.
+
 ## Dependency Review
 
 This project uses GitHub Dependabot for automated dependency alerts. See the [Dependabot alerts tab](../../security/dependabot) for the current status.

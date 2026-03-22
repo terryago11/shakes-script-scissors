@@ -67,7 +67,12 @@ export function applyEditsToLine(
   for (const ins of inserts) {
     events.push({ pos: ins.offset, kind: "insert", text: ins.text });
   }
-  events.sort((a, b) => a.pos - b.pos || (a.kind === "cut-start" ? -1 : 1));
+  // Deterministic sort: by position, then cut-start < cut-end < insert.
+  // This ensures inserts placed at the same offset as a cut boundary always
+  // appear AFTER the cut-end (i.e. outside the cut zone), giving stable
+  // rendering regardless of the order ops were added.
+  const kindOrder = (k: string) => k === "cut-start" ? 0 : k === "cut-end" ? 1 : 2;
+  events.sort((a, b) => a.pos - b.pos || kindOrder(a.kind) - kindOrder(b.kind));
 
   const segments: Segment[] = [];
   let cursor = 0;

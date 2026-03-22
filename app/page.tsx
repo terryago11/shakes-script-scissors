@@ -255,7 +255,7 @@ export default function HomePage() {
           .
         </p>
         <p>
-          ShakesScriptScissors is an open-source tool for production dramaturgy.
+          ShakesScriptScissors is a non-commercial tool for production dramaturgy.
           Built with{" "}
           <a
             href="https://nextjs.org"
@@ -281,9 +281,12 @@ export default function HomePage() {
             rel="noopener noreferrer"
             className="underline hover:text-stone-600"
           >
-            MIT License
+            CC BY-NC-SA 4.0
           </a>
-          {" "}— free to use, modify, and redistribute with attribution.
+          {" "}— free for non-commercial use with attribution; share-alike.
+          {process.env.NEXT_PUBLIC_COMMIT_DATE ? (
+            <> · v1.0.0 · updated {process.env.NEXT_PUBLIC_COMMIT_DATE}</>
+          ) : null}
         </p>
       </footer>
 
