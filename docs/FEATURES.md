@@ -22,7 +22,7 @@ A complete list of capabilities for power users. For a full walkthrough, see the
 | **Speech-level cuts** | Drag across any text to mark the whole speech as cut (red strikethrough) |
 | **Line-level cuts** | Expand a speech (✂ button on left edge) to toggle individual lines |
 | **Word-level cuts** | W Edit mode: click individual words to cut them |
-| **Word insertions** | W Edit mode: click between words to insert new text |
+| **Word insertions** | W Edit mode: click between words to insert new text; inserted words stay visible and uncut even when surrounding words are subsequently cut |
 | **Speech reassignment** | Reassign a speech to a different character; original counts stay on original character |
 | **Speech splitting** | Split a speech at any line boundary; Part 2 can be reassigned at split time |
 | **Text insertions** | Insert new speeches after any existing speech; shown with green border |
@@ -117,9 +117,9 @@ All three modes are available in the script editor and in the exported HTML file
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Project name | *(blank)* | Optional display name for the production |
-| Words per minute | 120 | Base rate for running-time calculations |
+| Words per minute | 135 | Base rate for running-time calculations; presets: Slow (100) · Amateur (130) · Default (135) · Experienced (150) · Professional (180) |
 | Quick-change threshold | 2.0 min | Minimum gap for a safe costume change |
-| Theme | Auto | Light / Dark / Auto (follows OS) |
+| Theme | Auto | Light / Dark / Auto (follows OS); toggle also available on the login page |
 
 ---
 
