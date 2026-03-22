@@ -152,6 +152,7 @@ function ProjectNav({
   dispatch: React.Dispatch<any>;
 }) {
   const { activeTool, setActiveTool } = useEditMode();
+  const isDashboard = pathname.startsWith(`/projects/${projectId}/dashboard`);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exportingHtml, setExportingHtml] = useState(false);
   const [easterEggVisible, setEasterEggVisible] = useState(false);
@@ -279,25 +280,41 @@ function ProjectNav({
           </span>
         </Link>
 
-        {/* Project title — links to dashboard */}
+        {/* Project title — links to dashboard; highlighted when on dashboard */}
         <Link
           href={`/projects/${projectId}/dashboard`}
-          className="group flex flex-col justify-center min-w-0 max-w-[100px] sm:max-w-xs"
+          className={`group flex flex-col justify-center min-w-0 max-w-[100px] sm:max-w-xs px-1.5 py-1 rounded transition-colors ${
+            isDashboard
+              ? "bg-amber-100 dark:bg-amber-900/40"
+              : "hover:bg-stone-100 dark:hover:bg-stone-800"
+          }`}
           title={project.name ? `${project.playTitle} — go to dashboard` : "Go to dashboard"}
         >
           <div className="flex items-center gap-1">
-            <span className="text-stone-700 dark:text-stone-200 font-semibold text-sm truncate leading-tight group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+            <span className={`font-semibold text-sm truncate leading-tight transition-colors ${
+              isDashboard
+                ? "text-amber-800 dark:text-amber-300"
+                : "text-stone-700 dark:text-stone-200 group-hover:text-amber-600 dark:group-hover:text-amber-400"
+            }`}>
               {project.name || project.playTitle}
             </span>
-            <span className="opacity-40 group-hover:opacity-80 transition-opacity shrink-0 text-stone-400 group-hover:text-amber-500 dark:text-stone-500 dark:group-hover:text-amber-400">
+            <span className={`transition-opacity shrink-0 ${
+              isDashboard
+                ? "opacity-70 text-amber-700 dark:text-amber-400"
+                : "opacity-40 group-hover:opacity-80 text-stone-400 group-hover:text-amber-500 dark:text-stone-500 dark:group-hover:text-amber-400"
+            }`}>
               <DashboardIcon />
             </span>
           </div>
-          {project.name && project.playTitle && project.name !== project.playTitle && (
-            <span className="text-stone-400 dark:text-stone-400 text-xs italic truncate leading-tight">
-              {project.playTitle}
+          {/* Second line: play title (when project name differs) + cut name (always shown) */}
+          {(project.name && project.playTitle && project.name !== project.playTitle) || activeCut?.name ? (
+            <span className="text-stone-400 dark:text-stone-500 text-xs truncate leading-tight">
+              {project.name && project.playTitle && project.name !== project.playTitle
+                ? <em>{project.playTitle}</em> : null}
+              {project.name && project.playTitle && project.name !== project.playTitle && activeCut?.name ? " " : null}
+              {activeCut?.name ? <span className="not-italic">({activeCut.name})</span> : null}
             </span>
-          )}
+          ) : null}
         </Link>
 
         {/* Nav links with icons */}
