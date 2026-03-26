@@ -374,7 +374,11 @@ export default function SpeechBlock({
           {!isContinuation && (
             <span className="text-xs font-normal text-stone-400 dark:text-stone-400 normal-case tracking-normal shrink-0">
               {hasCuts && displayKept < displayOriginal ? (
-                <><span className="text-amber-600">{displayKept.toLocaleString()}</span><span> / {displayOriginal.toLocaleString()}{metricLabel}</span></>
+                isClean ? (
+                  `(${displayKept.toLocaleString()}${metricLabel})`
+                ) : (
+                  <><span className="text-amber-600">{displayKept.toLocaleString()}</span><span> / {displayOriginal.toLocaleString()}{metricLabel}</span></>
+                )
               ) : (
                 `(${displayOriginal.toLocaleString()}${metricLabel})`
               )}

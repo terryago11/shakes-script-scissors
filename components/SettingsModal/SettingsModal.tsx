@@ -52,6 +52,8 @@ interface Props {
     name?: string;
     wordsPerMinute?: number;
     quickChangeThresholdMinutes?: number;
+    rehearsalMinBlockMinutes?: number;
+    rehearsalMaxBlockMinutes?: number;
   }) => void;
   onClose: () => void;
   onExportJson: () => void;
@@ -76,6 +78,8 @@ export default function SettingsModal({
   const [threshold, setThreshold] = useState(
     String(project.settings?.quickChangeThresholdMinutes ?? 2.0)
   );
+  const [minBlock, setMinBlock] = useState(String(project.settings?.rehearsalMinBlockMinutes ?? 5));
+  const [maxBlock, setMaxBlock] = useState(String(project.settings?.rehearsalMaxBlockMinutes ?? 60));
   const [wpmError, setWpmError] = useState("");
   const [thresholdError, setThresholdError] = useState("");
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -114,6 +118,8 @@ export default function SettingsModal({
       name: name.trim() || undefined,
       wordsPerMinute: Number(wpm),
       quickChangeThresholdMinutes: Number(threshold),
+      rehearsalMinBlockMinutes: Number(minBlock) || 5,
+      rehearsalMaxBlockMinutes: Number(maxBlock) || 60,
     });
     onClose();
   }
@@ -279,6 +285,37 @@ export default function SettingsModal({
               ) : (
                 <p className="mt-1 text-xs text-stone-400">Changes shorter than this are flagged in Casting.</p>
               )}
+            </div>
+
+            <div>
+              <label className={sectionLabel}>Rehearsal block duration (minutes)</label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <label className="text-xs text-stone-400 mb-1 block">Min</label>
+                  <input
+                    type="number"
+                    value={minBlock}
+                    onChange={(e) => setMinBlock(e.target.value)}
+                    min={1}
+                    max={30}
+                    step={1}
+                    className="w-full px-3 py-2 border border-stone-300 dark:border-stone-600 rounded-lg text-sm bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-stone-400 mb-1 block">Max</label>
+                  <input
+                    type="number"
+                    value={maxBlock}
+                    onChange={(e) => setMaxBlock(e.target.value)}
+                    min={10}
+                    max={180}
+                    step={5}
+                    className="w-full px-3 py-2 border border-stone-300 dark:border-stone-600 rounded-lg text-sm bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-stone-400">Filters suggested rehearsal blocks in the Dashboard.</p>
             </div>
 
             <div className="flex gap-2 justify-end pt-1">

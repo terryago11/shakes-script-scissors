@@ -181,18 +181,22 @@ function ProjectNav({
     name?: string;
     wordsPerMinute?: number;
     quickChangeThresholdMinutes?: number;
+    rehearsalMinBlockMinutes?: number;
+    rehearsalMaxBlockMinutes?: number;
   }) {
     if (updates.name !== undefined) {
       dispatch({ type: "RENAME_PROJECT", name: updates.name });
     }
-    if (updates.wordsPerMinute !== undefined || updates.quickChangeThresholdMinutes !== undefined) {
+    const { wordsPerMinute, quickChangeThresholdMinutes, rehearsalMinBlockMinutes, rehearsalMaxBlockMinutes } = updates;
+    if (wordsPerMinute !== undefined || quickChangeThresholdMinutes !== undefined ||
+        rehearsalMinBlockMinutes !== undefined || rehearsalMaxBlockMinutes !== undefined) {
       dispatch({
         type: "UPDATE_SETTINGS",
         settings: {
-          ...(updates.wordsPerMinute !== undefined ? { wordsPerMinute: updates.wordsPerMinute } : {}),
-          ...(updates.quickChangeThresholdMinutes !== undefined
-            ? { quickChangeThresholdMinutes: updates.quickChangeThresholdMinutes }
-            : {}),
+          ...(wordsPerMinute !== undefined ? { wordsPerMinute } : {}),
+          ...(quickChangeThresholdMinutes !== undefined ? { quickChangeThresholdMinutes } : {}),
+          ...(rehearsalMinBlockMinutes !== undefined ? { rehearsalMinBlockMinutes } : {}),
+          ...(rehearsalMaxBlockMinutes !== undefined ? { rehearsalMaxBlockMinutes } : {}),
         },
       });
     }
