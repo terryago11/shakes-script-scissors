@@ -29,7 +29,7 @@ interface Props {
   activeCut: Cut;
 }
 
-type Tab = "scenes" | "matrix" | "rehearsal" | "integrity";
+type Tab = "scenes" | "matrix" | "chart" | "rehearsal" | "integrity";
 
 /** Count words in a string (matches CutEngine logic) */
 function countWords(text: string): number {
@@ -164,6 +164,12 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
   const charSceneMatrix = buildCharSceneMatrix(play, activeCut, effectiveSceneOrder);
   const actorSceneMatrix = buildActorSceneMatrix(stageTime, project.actors, project.assignments);
 
+  // Actual scene durations (words / wpm) — used for correct matrix row totals in time metric
+  const sceneTimings = new Map<string, number>();
+  for (const [sceneId, sc] of Object.entries(lineCounts.byScene)) {
+    sceneTimings.set(sceneId, sc.words.afterCut / wpm);
+  }
+
   // Fully-cut scenes: had lines originally but afterCut = 0
   const cutSceneIds = new Set<string>(
     effectiveSceneOrder.filter((id) => {
@@ -218,6 +224,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: "scenes", label: "Scenes & Pauses" },
     { key: "matrix", label: "Matrix" },
+    { key: "chart", label: "Chart" },
     { key: "rehearsal", label: "Rehearsal" },
     { key: "integrity", label: integrityWarnings.length > 0 ? `Integrity ⚠ ${integrityWarnings.length}` : "Integrity" },
   ];
@@ -330,6 +337,28 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           metric={metric}
           cutSceneIds={cutSceneIds}
           characterAliases={activeCut.characterAliases}
+          viewType="table"
+          sceneTimings={sceneTimings}
+        />
+      )}
+
+      {/* Tab: Chart */}
+      {tab === "chart" && (
+        <DashboardMatrix
+          effectiveSceneOrder={effectiveSceneOrder}
+          sceneById={sceneById}
+          sceneActMap={sceneActMap}
+          characters={play.castList}
+          actors={project.actors}
+          assignments={project.assignments}
+          charSceneMatrix={charSceneMatrix}
+          stageTimeByChar={stageTime.byCharacter}
+          pauses={activeCut.pauses}
+          metric={metric}
+          cutSceneIds={cutSceneIds}
+          characterAliases={activeCut.characterAliases}
+          viewType="chart"
+          sceneTimings={sceneTimings}
         />
       )}
 

@@ -7,9 +7,11 @@ interface Props {
   play: Play;
   isFiltered?: boolean;
   onClick?: () => void;
+  /** When true, hide original counts and delta percentage (clean mode) */
+  hideOriginal?: boolean;
 }
 
-export default function ActorRow({ actor, counts, play, isFiltered, onClick }: Props) {
+export default function ActorRow({ actor, counts, play, isFiltered, onClick, hideOriginal }: Props) {
   const { original, afterCut, characters } = counts;
   const pct = original > 0 ? afterCut / original : 1;
 
@@ -34,8 +36,10 @@ export default function ActorRow({ actor, counts, play, isFiltered, onClick }: P
         </div>
         <div className="ml-auto text-xs text-stone-500 dark:text-stone-400 tabular-nums">
           <span className="font-medium">{afterCut.toLocaleString()}</span>
-          <span className="text-stone-300 dark:text-stone-600"> / {original.toLocaleString()}</span>
-          {original > 0 && afterCut < original && (
+          {!hideOriginal && (
+            <span className="text-stone-300 dark:text-stone-600"> / {original.toLocaleString()}</span>
+          )}
+          {!hideOriginal && original > 0 && afterCut < original && (
             <span className="text-amber-600 ml-1">−{Math.round((1 - afterCut / original) * 100)}%</span>
           )}
         </div>

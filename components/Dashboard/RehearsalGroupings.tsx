@@ -90,82 +90,78 @@ export default function RehearsalGroupings({
     );
   }
 
-  // Rehearsal blocks: consecutive scenes that share at least one actor
-  // Build scene → actor set map
-  const sceneActors = new Map<string, Set<string>>();
-  for (const sceneId of effectiveSceneOrder) {
-    const present = new Set<string>();
-    for (const actor of actors) {
-      const entries = actorScenes.get(actor.id) ?? [];
-      if (entries.some((e) => e.sceneId === sceneId)) present.add(actor.id);
-    }
-    sceneActors.set(sceneId, present);
+  // ── Cluster-based rehearsal blocks (union-find) ──────────────────────────────
+  // Build actor → scene set
+  const actorSceneSet = new Map<string, Set<string>>();
+  for (const actor of actors) {
+    const scenes = new Set((actorScenes.get(actor.id) ?? []).map((e) => e.sceneId));
+    actorSceneSet.set(actor.id, scenes);
   }
 
-  // Group consecutive scenes sharing actors into "blocks"
-  interface RehearsalBlock {
-    sceneIds: string[];
-    actorIds: Set<string>;
+  const actorIds = actors.map((a) => a.id);
+
+  // Union-find over actors
+  const parent = new Map<string, string>(actorIds.map((id) => [id, id]));
+  function find(x: string): string {
+    if (parent.get(x) !== x) parent.set(x, find(parent.get(x)!));
+    return parent.get(x)!;
+  }
+  function union(a: string, b: string) {
+    const ra = find(a), rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  }
+
+  // Merge actors who share ≥2 scenes
+  for (let i = 0; i < actorIds.length; i++) {
+    for (let j = i + 1; j < actorIds.length; j++) {
+      const ai = actorIds[i], aj = actorIds[j];
+      const si = actorSceneSet.get(ai) ?? new Set<string>();
+      const shared = [...si].filter((s) => actorSceneSet.get(aj)?.has(s));
+      if (shared.length >= 2) union(ai, aj);
+    }
+  }
+
+  // Group actors by cluster root
+  const clusterMap = new Map<string, string[]>();
+  for (const id of actorIds) {
+    const root = find(id);
+    if (!clusterMap.has(root)) clusterMap.set(root, []);
+    clusterMap.get(root)!.push(id);
+  }
+
+  interface RehearsalCluster {
+    actorIds: string[];
+    sceneIds: string[]; // in effectiveSceneOrder, deduplicated
     totalMinutes: number;
-    totalValue: number;
   }
 
-  const blocks: RehearsalBlock[] = [];
-  let currentBlock: RehearsalBlock | null = null;
+  const clusters: RehearsalCluster[] = [];
+  const sceneOrderIndex = new Map(effectiveSceneOrder.map((id, i) => [id, i]));
 
-  for (const sceneId of effectiveSceneOrder) {
-    const present = sceneActors.get(sceneId) ?? new Set();
-    if (present.size === 0) {
-      // No actors in scene — start fresh
-      currentBlock = null;
-      continue;
+  for (const [, clusterActors] of clusterMap) {
+    // Collect all scenes from any actor in this cluster
+    const allScenes = new Set<string>();
+    for (const aid of clusterActors) {
+      for (const sid of actorSceneSet.get(aid) ?? []) allScenes.add(sid);
     }
+    // Sort by effectiveSceneOrder
+    const sortedScenes = [...allScenes].sort(
+      (a, b) => (sceneOrderIndex.get(a) ?? 999) - (sceneOrderIndex.get(b) ?? 999)
+    );
+    if (sortedScenes.length < 2) continue;
 
-    const sceneMins = (() => {
-      const sc = lineCounts.byScene[sceneId];
-      return sc ? sc.words.afterCut / wpm : 0;
-    })();
-    const sceneVal = (() => {
-      const sc = lineCounts.byScene[sceneId];
-      if (!sc) return 0;
-      return metric === "time"
-        ? sc.words.afterCut / wpm
-        : metric === "words"
-        ? sc.words.afterCut
-        : sc.lines.afterCut;
-    })();
+    const totalMinutes = sortedScenes.reduce((sum, sid) => {
+      const sc = lineCounts.byScene[sid];
+      return sum + (sc ? sc.words.afterCut / wpm : 0);
+    }, 0);
 
-    if (!currentBlock) {
-      currentBlock = {
-        sceneIds: [sceneId],
-        actorIds: new Set(present),
-        totalMinutes: sceneMins,
-        totalValue: sceneVal,
-      };
-      blocks.push(currentBlock);
-    } else {
-      // Check overlap with current block actors
-      const overlap = [...present].some((aid) => currentBlock!.actorIds.has(aid));
-      if (overlap) {
-        currentBlock.sceneIds.push(sceneId);
-        for (const aid of present) currentBlock.actorIds.add(aid);
-        currentBlock.totalMinutes += sceneMins;
-        currentBlock.totalValue += sceneVal;
-      } else {
-        // No overlap — start a new block
-        currentBlock = {
-          sceneIds: [sceneId],
-          actorIds: new Set(present),
-          totalMinutes: sceneMins,
-          totalValue: sceneVal,
-        };
-        blocks.push(currentBlock);
-      }
-    }
+    clusters.push({ actorIds: clusterActors, sceneIds: sortedScenes, totalMinutes });
   }
 
-  // Filter to multi-scene blocks (single scenes aren't really "rehearsal blocks")
-  const multiBlocks = blocks.filter((b) => b.sceneIds.length > 1);
+  // Sort clusters by scene count descending
+  clusters.sort((a, b) => b.sceneIds.length - a.sceneIds.length);
+
+  const multiBlocks = clusters;
 
   return (
     <div className="flex gap-10 items-start">
@@ -252,24 +248,16 @@ export default function RehearsalGroupings({
             Suggested Rehearsal Blocks
           </h2>
           <p className="text-xs text-stone-400 dark:text-stone-400 mb-4">
-            Consecutive scenes sharing cast — group these into a single rehearsal call.
+            Actors sharing ≥2 scenes — call them together even if scenes aren't consecutive.
           </p>
           <div className="space-y-4">
-            {multiBlocks.map((block, idx) => {
-              const blockActors = actors.filter((a) => block.actorIds.has(a.id));
-              const firstScene = sceneById.get(block.sceneIds[0]);
-              const lastScene = sceneById.get(block.sceneIds[block.sceneIds.length - 1]);
-              const firstAct = firstScene ? sceneActMap.get(block.sceneIds[0]) : null;
-              const lastAct = lastScene
-                ? sceneActMap.get(block.sceneIds[block.sceneIds.length - 1])
-                : null;
-
-              const rangeLabel =
-                firstAct && lastAct && firstScene && lastScene
-                  ? firstScene.id === lastScene.id
-                    ? `${firstAct.title} · ${firstScene.title}`
-                    : `${firstAct.title} · ${firstScene.title} → ${lastAct.title} · ${lastScene.title}`
-                  : "";
+            {multiBlocks.map((cluster, idx) => {
+              const blockActors = actors.filter((a) => cluster.actorIds.includes(a.id));
+              // Cluster name: actor names joined, truncated if many
+              const nameList = blockActors.map((a) => a.name);
+              const clusterName = nameList.length > 4
+                ? `${nameList.slice(0, 3).join(" / ")} + ${nameList.length - 3} more`
+                : nameList.join(" / ");
 
               return (
                 <div
@@ -277,23 +265,22 @@ export default function RehearsalGroupings({
                   className="border border-stone-200 dark:border-stone-700 rounded-lg p-4"
                 >
                   <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <div className="text-sm font-medium text-stone-700 dark:text-stone-200">
-                        Block {idx + 1}
+                    <div className="min-w-0 mr-3">
+                      <div className="text-sm font-medium text-stone-700 dark:text-stone-200 truncate">
+                        {clusterName}
                       </div>
-                      <div className="text-xs text-stone-400 dark:text-stone-400 mt-0.5">{rangeLabel}</div>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-sm font-semibold text-stone-700 dark:text-stone-200 tabular-nums">
-                        {fmtMins(block.totalMinutes)}
+                        {fmtMins(cluster.totalMinutes)}
                       </div>
                       <div className="text-xs text-stone-400 dark:text-stone-400">
-                        {block.sceneIds.length} scenes
+                        {cluster.sceneIds.length} scenes
                       </div>
                     </div>
                   </div>
 
-                  {/* Actors needed */}
+                  {/* Actor chips */}
                   <div className="flex flex-wrap gap-1 mb-3">
                     {blockActors.map((actor) => (
                       <span
@@ -310,25 +297,36 @@ export default function RehearsalGroupings({
                     ))}
                   </div>
 
-                  {/* Scene list */}
+                  {/* Scene list with gap indicators */}
                   <div className="space-y-0.5">
-                    {block.sceneIds.map((sceneId) => {
+                    {cluster.sceneIds.map((sceneId, sIdx) => {
                       const scene = sceneById.get(sceneId);
                       const act = sceneActMap.get(sceneId);
                       if (!scene || !act) return null;
                       const sc = lineCounts.byScene[sceneId];
                       const sceneMins = sc ? sc.words.afterCut / wpm : 0;
+
+                      // Check if there's a gap before this scene in the effective order
+                      const prevSceneId = cluster.sceneIds[sIdx - 1];
+                      const prevIdx = prevSceneId != null ? (sceneOrderIndex.get(prevSceneId) ?? -1) : -1;
+                      const curIdx = sceneOrderIndex.get(sceneId) ?? -1;
+                      const hasGap = sIdx > 0 && curIdx - prevIdx > 1;
+
                       return (
-                        <div
-                          key={sceneId}
-                          className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-stone-200 dark:bg-stone-700 shrink-0" />
-                          <span className="text-stone-400 dark:text-stone-400 shrink-0">{act.title}</span>
-                          <span className="flex-1 truncate">{scene.title}</span>
-                          <span className="tabular-nums text-stone-400 dark:text-stone-400 shrink-0">
-                            {fmtMins(sceneMins)}
-                          </span>
+                        <div key={sceneId}>
+                          {hasGap && (
+                            <div className="text-stone-300 dark:text-stone-600 text-xs text-center py-0.5">
+                              ···
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-stone-200 dark:bg-stone-700 shrink-0" />
+                            <span className="text-stone-400 dark:text-stone-400 shrink-0">{act.title}</span>
+                            <span className="flex-1 truncate">{scene.title}</span>
+                            <span className="tabular-nums text-stone-400 dark:text-stone-400 shrink-0">
+                              {fmtMins(sceneMins)}
+                            </span>
+                          </div>
                         </div>
                       );
                     })}

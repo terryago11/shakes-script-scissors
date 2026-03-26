@@ -7,9 +7,11 @@ interface Props {
   onClick?: () => void;
   /** Overrides character.name for display (e.g. alias) */
   displayName?: string;
+  /** When true, hide original counts and delta percentage (clean mode) */
+  hideOriginal?: boolean;
 }
 
-export default function CharacterRow({ character, counts, isFiltered, onClick, displayName }: Props) {
+export default function CharacterRow({ character, counts, isFiltered, onClick, displayName, hideOriginal }: Props) {
   const { original, afterCut } = counts;
   const hasAdded = afterCut > original + 0.5;
   const hasCut = !hasAdded && afterCut < original;
@@ -35,13 +37,13 @@ export default function CharacterRow({ character, counts, isFiltered, onClick, d
           <span className={hasAdded ? "text-green-600 font-medium" : hasCut ? "text-red-500 font-medium" : "text-stone-500"}>
             {afterCut.toLocaleString()}
           </span>
-          {(hasCut || hasAdded) && (
+          {!hideOriginal && (hasCut || hasAdded) && (
             <span className="text-stone-300 dark:text-stone-600"> / {original.toLocaleString()}</span>
           )}
-          {hasCut && pctCut > 0 && (
+          {!hideOriginal && hasCut && pctCut > 0 && (
             <span className="text-red-400"> −{pctCut}%</span>
           )}
-          {hasAdded && pctAdd > 0 && (
+          {!hideOriginal && hasAdded && pctAdd > 0 && (
             <span className="text-green-500"> +{pctAdd}%</span>
           )}
         </span>
