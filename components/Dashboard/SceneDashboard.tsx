@@ -379,6 +379,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           characterAliases={activeCut.characterAliases}
           minBlockMinutes={project.settings?.rehearsalMinBlockMinutes ?? 5}
           maxBlockMinutes={project.settings?.rehearsalMaxBlockMinutes ?? 60}
+          activeCut={activeCut}
         />
       )}
 
