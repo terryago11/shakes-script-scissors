@@ -331,20 +331,30 @@ export default function RehearsalGroupings({
 
                   {/* Actor chips — only when actors are assigned */}
                   {blockActors.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {blockActors.map((actor) => (
-                        <span
-                          key={actor.id}
-                          className="text-xs px-2 py-0.5 rounded-full border font-medium"
-                          style={{
-                            borderColor: actor.color + "60",
-                            backgroundColor: actor.color + "18",
-                            color: actor.color,
-                          }}
-                        >
-                          {actor.name}
-                        </span>
-                      ))}
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {blockActors.map((actor) => {
+                        const blockCharNames = (actorToChars.get(actor.id) ?? [])
+                          .filter((cid) => blockCharIds.has(cid))
+                          .map((cid) => resolveCharacterName(cid, characterAliases, play.castList));
+                        return (
+                          <span
+                            key={actor.id}
+                            className="text-xs px-2 py-1 rounded-lg border font-medium flex flex-col items-center leading-tight"
+                            style={{
+                              borderColor: actor.color + "60",
+                              backgroundColor: actor.color + "18",
+                              color: actor.color,
+                            }}
+                          >
+                            <span>{actor.name}</span>
+                            {blockCharNames.length > 0 && (
+                              <span className="font-normal text-[10px] opacity-70">
+                                {blockCharNames.join(" / ")}
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })}
                     </div>
                   )}
 
