@@ -145,6 +145,16 @@ export default function RehearsalGroupings({
 }: Props) {
   const [clusterMode, setClusterMode] = useState<"character" | "actor">("character");
   const [showHelp, setShowHelp] = useState(false);
+  const [actorSearch, setActorSearch] = useState("");
+  const [collapsedActors, setCollapsedActors] = useState(new Set<string>());
+
+  function toggleCollapse(id: string) {
+    setCollapsedActors((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
   const charToActor = new Map<string, string>();
   const actorToChars = new Map<string, string[]>();
@@ -331,57 +341,94 @@ export default function RehearsalGroupings({
 
   const hasActors = actors.length > 0 && assignments.length > 0;
 
+  // Filter actors by search term (actor name or any assigned character name)
+  const filteredActors = actors.filter((actor) => {
+    if (!actorSearch) return true;
+    const term = actorSearch.toLowerCase();
+    if (actor.name.toLowerCase().includes(term)) return true;
+    return (actorToChars.get(actor.id) ?? []).some((cid) =>
+      resolveCharacterName(cid, characterAliases, play.castList).toLowerCase().includes(term)
+    );
+  });
+
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="flex gap-10 items-start">
       {/* By Actor */}
       <section className="flex-1 min-w-0">
-        <h2 className="text-xs font-semibold text-stone-400 dark:text-stone-400 uppercase tracking-wider mb-4">
-          By Actor
-        </h2>
+        <div className="flex items-center gap-2 mb-3">
+          <h2 className="text-xs font-semibold text-stone-400 dark:text-stone-400 uppercase tracking-wider">
+            By Actor
+          </h2>
+          {actors.length > 0 && (
+            <input
+              type="search"
+              placeholder="Filter actors/characters…"
+              value={actorSearch}
+              onChange={(e) => setActorSearch(e.target.value)}
+              className="ml-auto text-xs px-2 py-1 border border-stone-200 dark:border-stone-700 rounded bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 placeholder-stone-300 dark:placeholder-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-400 w-32"
+            />
+          )}
+        </div>
         {actors.length === 0 ? (
           <p className="text-sm text-stone-400 dark:text-stone-400">No actors assigned yet.</p>
+        ) : filteredActors.length === 0 ? (
+          <p className="text-sm text-stone-400 dark:text-stone-400">No actors match &ldquo;{actorSearch}&rdquo;.</p>
         ) : (
-          <div className="space-y-6">
-            {actors.map((actor) => {
+          <div className="space-y-4">
+            {filteredActors.map((actor) => {
               const entries = actorScenes.get(actor.id) ?? [];
               const total = actorTotals.get(actor.id) ?? 0;
               if (entries.length === 0) return null;
               const charIds = actorToChars.get(actor.id) ?? [];
+              const isCollapsed = collapsedActors.has(actor.id);
               return (
                 <div key={actor.id}>
-                  <div className="flex items-center gap-2 mb-2">
+                  <button
+                    onClick={() => toggleCollapse(actor.id)}
+                    className="flex items-center gap-2 mb-1 w-full text-left group"
+                    aria-expanded={!isCollapsed}
+                  >
+                    <span className="text-stone-400 dark:text-stone-500 text-xs w-3 shrink-0 select-none">
+                      {isCollapsed ? "▸" : "▾"}
+                    </span>
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: actor.color }} />
-                    <span className="font-semibold text-stone-700 dark:text-stone-200 text-sm">{actor.name}</span>
+                    <span className="font-semibold text-stone-700 dark:text-stone-200 text-sm group-hover:text-stone-900 dark:group-hover:text-stone-100">
+                      {actor.name}
+                    </span>
                     <span className="text-xs text-stone-400 dark:text-stone-400 ml-auto tabular-nums">
                       {entries.length} scenes ·{" "}
                       {metric === "time"
                         ? fmtMins(total)
                         : total.toLocaleString() + (metric === "words" ? " words" : " lines")}
                     </span>
-                  </div>
-                  <div className="text-xs text-stone-400 dark:text-stone-400 mb-2 pl-4">
-                    {charIds.map((cid) => resolveCharacterName(cid, characterAliases, play.castList)).join(" / ")}
-                  </div>
-                  <div className="pl-4 space-y-1">
-                    {entries.map(({ sceneId, value }) => {
-                      const scene = sceneById.get(sceneId);
-                      const act = sceneActMap.get(sceneId);
-                      if (!scene || !act) return null;
-                      return (
-                        <div key={sceneId} className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
-                          <span className="text-stone-400 dark:text-stone-400 shrink-0 w-16 truncate">{act.title}</span>
-                          <span className="flex-1 truncate">{scene.title}</span>
-                          <span
-                            className="tabular-nums font-medium px-1.5 py-0.5 rounded text-xs shrink-0"
-                            style={{ backgroundColor: actor.color + "20", color: actor.color }}
-                          >
-                            {metric === "time" ? fmtMins(value) : value.toLocaleString()}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  </button>
+                  {!isCollapsed && (
+                    <>
+                      <div className="text-xs text-stone-400 dark:text-stone-400 mb-2 pl-5">
+                        {charIds.map((cid) => resolveCharacterName(cid, characterAliases, play.castList)).join(" / ")}
+                      </div>
+                      <div className="pl-5 space-y-1">
+                        {entries.map(({ sceneId, value }) => {
+                          const scene = sceneById.get(sceneId);
+                          const act = sceneActMap.get(sceneId);
+                          if (!scene || !act) return null;
+                          return (
+                            <div key={sceneId} className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
+                              <span className="text-stone-400 dark:text-stone-400 shrink-0 w-16 truncate">{act.title}</span>
+                              <span className="flex-1 truncate">{scene.title}</span>
+                              <span
+                                className="tabular-nums font-medium px-1.5 py-0.5 rounded text-xs shrink-0"
+                                style={{ backgroundColor: actor.color + "20", color: actor.color }}
+                              >
+                                {metric === "time" ? fmtMins(value) : value.toLocaleString()}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })}

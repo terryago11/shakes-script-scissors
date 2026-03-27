@@ -363,14 +363,48 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
   - `docs/GETTING_STARTED.md`, `docs/USER_GUIDE.md`, `docs/FEATURES.md` — non-technical user guides
   - **TeiParser fix**: `parseSpeech` embedded-SD emitter now handles `type="mixed"` by expanding to sub-stages (same logic as `parseSceneUnits`), and handles `type="dumbshow"` with `isDance: true`; fixes mid-speech mixed SDs (e.g. Hamlet 2.2 `stg-1626`) showing combined text with no characters
 
+- **Group 18a**: Bugs + quick UI fixes — cut tool with inserted words (`data-inserted` attr + `resolveSelection.ts` skip); login page dark mode; cut name shown in nav; version + git date in footer, copyright in Settings modal; Default (135) WPM preset; quick-change threshold removed from CastingManager (read-only, points to Settings); dashboard nav active style; `@ Xwpm` appended to running time displays; dashboard header subtitle (acts · scenes · characters · actors); license switched to CC BY-NC-SA 4.0
+
 - **Group 18b** (v5.18): Word-edit insert stability — `applyEditsToLine` now uses a deterministic sort (`cut-start < cut-end < insert` at equal positions) and **splits cuts when an insert falls inside a cut range**, so an inserted word always stays visible in its original position between surrounding cuts; login page theme toggle (light/dark/auto, same as home page); nav draft/cut name always shown regardless of cut count or project name; WPM presets reordered Slow(100) → Amateur(130) → Default(135) → Experienced(150) → Professional(180); `≡ Info` drawer button visible on all screen sizes below `lg:` (removed `hidden md:block`); version bump to v5.18
 
 - **Group 18b (dashboard features)**: Chart tab — `DashboardMatrix` now accepts `viewType` prop from parent; `SceneDashboard` adds a 5th "Chart" tab that renders a sorted bar chart while the Matrix tab shows the table only (no internal toggle). Sticky matrix headers — actor row `sticky top-0 z-30`, character row `sticky top-7 z-20`, corner cell `sticky left-0 top-0 z-40`, scrollable container `max-h-[70vh] overflow-auto`. Row total fix — `SceneDashboard` computes `sceneTimings` (words/wpm per scene) and passes to `DashboardMatrix`; `getRowTotal` in Time metric uses scene duration directly instead of summing per-character stage times (which double-counted simultaneous actors). Clean mode — `ActBlock`, `SceneBlock`, `LineCountPanel` read `useViewMode()` and suppress `/ original` denominators and `−X%` deltas; passes `hideOriginal={isClean}` to `CharacterRow` and `ActorRow`. Matrix click improvements — `filterCharIds` is now a `Set<string>` for OR-based multi-select; `handleActorHeaderClick` toggles all actor chars at once; `handleRowLabelClick` toggles a scene column filter; `?` help tooltip explains filter interactions.
 
 - **Group 18b (dashboard + rehearsal)**: Rehearsal Blocks overhauled — complete-linkage hierarchical clustering with Jaccard similarity (threshold 0.33) on character/actor sets; scenes split into sub-scenes at major entrances (≥2 chars entering after dialogue has begun); "★ Full company" label only when ALL assigned actors are called; by-character/by-actor toggle (actor mode maps char IDs → actor IDs before Jaccard, collapsing doubling); onstage non-speakers included in sub-scene char sets via entrance/exit SD tracking; actor chips show characters they play in that block; large full-cast scenes (≥10 min, ≥80% of max speaking-character count) isolated as their own blocks regardless of clustering; `?` help button explains the algorithm; min/max block duration editable in Settings (default 5–60 min). CastingManager help text now links directly to the Rehearsal tab (`/projects/[id]/dashboard?tab=rehearsal`). Login page dark mode toggle repositioned to `fixed top-4 right-4` — same location as the home page. Scene list: song item label shows first **sung** line, not first prose preamble line. Song+dance SDs (matching both `\bsong\b` and `\bdance\b` regexes) now show **♪⊛** with ♪ in violet and ⊛ in cyan; scene list pill gets a diagonal violet/cyan stripe background; `+ time` tooltip reads "song & dance". Clean mode: speech block headers no longer show `/ original` count — only the cut count is displayed.
 
-### Not Started (Phase 4+)
+- **Group 18c — Casting improvements**: Six UX improvements to the Casting and Rehearsal pages. **#16 Suggest Replace/Extend** — when actors already exist, Suggest now shows a choice modal: _Replace_ clears the cast and suggests from scratch (dispatches `BULK_SET_CAST`); _Extend_ suggests only unassigned characters and appends them starting from the next actor number (new `EXTEND_CAST` store action). **#17 Actor stats + min stage time** — each actor chip shows `N lines · M words · X min` below the character names; chips with stage time below the configurable threshold (`minActorStageTimeMinutes`, default 10, new in `ProjectSettings`) get an amber border + ⚠ badge; the threshold is set in a new Settings field. **#18 Sort actors** — Sort dropdown (A–Z / Lines / Words / Stage Time / First Appearance) appears in the Actors section header when 2+ actors exist; First Appearance walks play units to find each actor's earliest speech position. **#20 Script nav dropdown everywhere** — `NavScriptMenu` now renders for the Script link on all pages (not just the script page); clicking a mode option calls `router.push()` to navigate to the script page AND sets the view mode in one click. **#21 Full-cast banner** — dismissible green banner above the Characters grid once every active speaking character is assigned, linking to the Rehearsal tab. **#30 Collapsible actors + search in Rehearsal** — "By Actor" section now has a search input (filters by actor name or any assigned character name) and a ▾/▸ collapse toggle per actor row.
 
-#### Stretch / Deferred
+### Phase 5
+
+#### Group 19 — Song/dance tool, sync entrances, props
+
+**#4 Full song/dance editing tool**
+New "Song/Dance" tool in edit toolbar. Capabilities: insert a new song/dance SD (modal: type, text, characters); toggle song/dance flag on existing SDs; duration `+ time` editor unchanged. New Cut fields: `insertedSDs?: Record<id, InsertedSD>` and `sdFlagOverrides?: Record<sdId, { isSong?: boolean; isDance?: boolean }>`.
+`components/ScriptEditor/StageDirectionBlock.tsx`, `lib/project/ProjectStore.tsx`, new `InsertedSDBlock.tsx`, types
+
+**#6 Sync entrances**
+"⟳ sync entrances" button on entrance SDs, mirroring "⟳ sync exits". Pre-fills character list from on-stage tracking at that point.
+`components/ScriptEditor/StageDirectionBlock.tsx`, `lib/cuts/StageTimeEngine.ts`
+
+**#2 Named props list**
+Scan `StageDirection.text` for prop keywords in a curated list. New "Props" section in Integrity tab. Returns `{ prop, sdId, sceneId, actNum, sceneNum }[]`. No TEI changes needed.
+`components/Dashboard/IntegrityChecks.tsx`, new `lib/cuts/PropsEngine.ts`
+
+---
+
+#### Group 20+ — Complex / deferred features
+
+- **#7 SD rewrite** — two-layer model (cosmetic text + character list); new `sdTextEdits?: Record<sdId, string>` in Cut
+- **#15 Compare two cuts** — Diff view dropdown to pick "original" side (any cut version, not just uncut TEI)
+- **#24 Scene subdivide** — split a scene into A/B/C sub-parts; new data model for scene parts
+- **#25 Act/scene descriptions** — short editable description field per act or scene
+- **#26 ZIP cue scripts as PDFs** — server-side PDF generation, download as ZIP
+- **#27 Export to Word (.docx)** — docx library integration with one-way-conversion warning
+- **#31 Tableau-style visualization** — character presence / stage time chart using D3 or Recharts
+- **#33 Fix "X" character listings** — investigate TEI `#X_Play` IDs surfacing as bare "X"
+- **#34 Word import** — parse a marked-up Word doc back into cuts (highly complex)
+
+---
+
+### Deferred / N/A
 - Google Drive backup integration
 - GUI/installer for non-technical users (would require Electron or web installer wizard)
