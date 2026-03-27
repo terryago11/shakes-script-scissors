@@ -183,13 +183,15 @@ function ProjectNav({
     quickChangeThresholdMinutes?: number;
     rehearsalMinBlockMinutes?: number;
     rehearsalMaxBlockMinutes?: number;
+    minActorStageTimeMinutes?: number;
   }) {
     if (updates.name !== undefined) {
       dispatch({ type: "RENAME_PROJECT", name: updates.name });
     }
-    const { wordsPerMinute, quickChangeThresholdMinutes, rehearsalMinBlockMinutes, rehearsalMaxBlockMinutes } = updates;
+    const { wordsPerMinute, quickChangeThresholdMinutes, rehearsalMinBlockMinutes, rehearsalMaxBlockMinutes, minActorStageTimeMinutes } = updates;
     if (wordsPerMinute !== undefined || quickChangeThresholdMinutes !== undefined ||
-        rehearsalMinBlockMinutes !== undefined || rehearsalMaxBlockMinutes !== undefined) {
+        rehearsalMinBlockMinutes !== undefined || rehearsalMaxBlockMinutes !== undefined ||
+        minActorStageTimeMinutes !== undefined) {
       dispatch({
         type: "UPDATE_SETTINGS",
         settings: {
@@ -197,6 +199,7 @@ function ProjectNav({
           ...(quickChangeThresholdMinutes !== undefined ? { quickChangeThresholdMinutes } : {}),
           ...(rehearsalMinBlockMinutes !== undefined ? { rehearsalMinBlockMinutes } : {}),
           ...(rehearsalMaxBlockMinutes !== undefined ? { rehearsalMaxBlockMinutes } : {}),
+          ...(minActorStageTimeMinutes !== undefined ? { minActorStageTimeMinutes } : {}),
         },
       });
     }
@@ -326,8 +329,8 @@ function ProjectNav({
           {navLinks.map(({ href, label, Icon }) => {
             const isScript = href === `/projects/${projectId}`;
             const isActive = isScript ? isScriptPage : pathname === href;
-            if (isScript && isScriptPage) {
-              return <NavScriptMenu key={href} projectId={projectId} isActive Icon={Icon} />;
+            if (isScript) {
+              return <NavScriptMenu key={href} projectId={projectId} isActive={isScriptPage} Icon={Icon} />;
             }
             return (
               <Link
@@ -418,6 +421,7 @@ function ProjectNav({
 /** Script nav item: link + view-mode dropdown */
 function NavScriptMenu({ projectId, isActive, Icon }: { projectId: string; isActive: boolean; Icon: React.FC }) {
   const { viewMode, setViewMode } = useViewMode();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -459,7 +463,7 @@ function NavScriptMenu({ projectId, isActive, Icon }: { projectId: string; isAct
           {modeOptions.map(({ value, icon, label, desc }) => (
             <button
               key={value}
-              onClick={() => { setViewMode(value); setOpen(false); }}
+              onClick={() => { setViewMode(value); router.push(`/projects/${projectId}`); setOpen(false); }}
               className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-start gap-2 ${
                 viewMode === value ? "text-amber-800 bg-amber-50 dark:text-amber-300 dark:bg-amber-900/30" : "text-stone-600 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800"
               }`}

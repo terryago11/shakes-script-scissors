@@ -6,6 +6,8 @@ export interface ProjectSettings {
   rehearsalMinBlockMinutes?: number;
   /** Maximum total minutes for a suggested rehearsal block. Defaults to 60. */
   rehearsalMaxBlockMinutes?: number;
+  /** Actors with less stage time (minutes) than this are flagged in Casting. Defaults to 10. */
+  minActorStageTimeMinutes?: number;
 }
 
 export interface Project {

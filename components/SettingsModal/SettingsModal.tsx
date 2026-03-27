@@ -54,6 +54,7 @@ interface Props {
     quickChangeThresholdMinutes?: number;
     rehearsalMinBlockMinutes?: number;
     rehearsalMaxBlockMinutes?: number;
+    minActorStageTimeMinutes?: number;
   }) => void;
   onClose: () => void;
   onExportJson: () => void;
@@ -80,6 +81,7 @@ export default function SettingsModal({
   );
   const [minBlock, setMinBlock] = useState(String(project.settings?.rehearsalMinBlockMinutes ?? 5));
   const [maxBlock, setMaxBlock] = useState(String(project.settings?.rehearsalMaxBlockMinutes ?? 60));
+  const [minActorTime, setMinActorTime] = useState(String(project.settings?.minActorStageTimeMinutes ?? 10));
   const [wpmError, setWpmError] = useState("");
   const [thresholdError, setThresholdError] = useState("");
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -120,6 +122,7 @@ export default function SettingsModal({
       quickChangeThresholdMinutes: Number(threshold),
       rehearsalMinBlockMinutes: Number(minBlock) || 5,
       rehearsalMaxBlockMinutes: Number(maxBlock) || 60,
+      minActorStageTimeMinutes: Number(minActorTime) || 10,
     });
     onClose();
   }
@@ -316,6 +319,20 @@ export default function SettingsModal({
                 </div>
               </div>
               <p className="mt-1 text-xs text-stone-400">Filters suggested rehearsal blocks in the Dashboard.</p>
+            </div>
+
+            <div>
+              <label className={sectionLabel}>Min actor stage time (minutes)</label>
+              <input
+                type="number"
+                value={minActorTime}
+                onChange={(e) => setMinActorTime(e.target.value)}
+                min={0}
+                max={60}
+                step={1}
+                className="w-full px-3 py-2 border border-stone-300 dark:border-stone-600 rounded-lg text-sm bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+              <p className="mt-1 text-xs text-stone-400">Actors with less stage time than this are flagged in Casting.</p>
             </div>
 
             <div className="flex gap-2 justify-end pt-1">

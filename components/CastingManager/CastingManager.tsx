@@ -76,6 +76,8 @@ function computeSimultaneousMap(
   return simMap;
 }
 
+type ActorSort = "az" | "lines" | "words" | "time" | "first";
+
 export default function CastingManager({ playId }: Props) {
   const { project, activeCut, dispatch } = useProject();
   const params = useParams<{ projectId: string }>();
@@ -85,11 +87,20 @@ export default function CastingManager({ playId }: Props) {
   const [editingActorId, setEditingActorId] = useState<string | null>(null);
   const [editingActorName, setEditingActorName] = useState("");
   const [confirmDeleteActorId, setConfirmDeleteActorId] = useState<string | null>(null);
-  // Suggest minimum cast
-  type SuggestedGroup = { actorIndex: number; charIds: string[] };
-  const [suggestedGroups, setSuggestedGroups] = useState<SuggestedGroup[] | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [actorSort, setActorSort] = useState<ActorSort>("az");
+  const [fullCastBannerDismissed, setFullCastBannerDismissed] = useState(false);
+
+  // #16 Suggest state machine
+  type SuggestedGroup = { actorIndex: number; charIds: string[] };
+  type SuggestState =
+    | { phase: "idle" }
+    | { phase: "choosing" }
+    | { phase: "preview"; groups: SuggestedGroup[]; mode: "replace" | "extend" };
+  const [suggestState, setSuggestState] = useState<SuggestState>({ phase: "idle" });
+
   const threshold = project?.settings?.quickChangeThresholdMinutes ?? 2.0;
+  const minActorStageTime = project?.settings?.minActorStageTimeMinutes ?? 10;
 
   useEffect(() => {
     fetch(`/api/play/${playId}`)
@@ -110,8 +121,31 @@ export default function CastingManager({ playId }: Props) {
 
   function handleSuggest() {
     if (!activeCut) return;
+    // If actors already exist, ask Replace or Extend first
+    if (project!.actors.length > 0) {
+      setSuggestState({ phase: "choosing" });
+      return;
+    }
+    runSuggest("replace");
+  }
 
-    const activeChars = speakingChars.filter((c) => !fullyCutCharIds.has(c.id));
+  function runSuggest(mode: "replace" | "extend") {
+    if (!activeCut) return;
+
+    const unassignedOnly = mode === "extend";
+
+    const activeChars = speakingChars.filter((c) => {
+      if (fullyCutCharIds.has(c.id)) return false;
+      if (unassignedOnly && charToActor[c.id]) return false;
+      return true;
+    });
+
+    if (activeChars.length === 0) {
+      // All assigned already
+      setSuggestState({ phase: "idle" });
+      return;
+    }
+
     const activeCharIds = activeChars.map((c) => c.id);
 
     // Resolve display name for a character (alias → castList → TEI fallback)
@@ -124,10 +158,6 @@ export default function CastingManager({ playId }: Props) {
     }
 
     // ── sameActorPairs: characters that share the same display name ────────
-    // These are either genuine TEI duplicates (e.g., two IDs both named
-    // "First Player") or play-within-a-play roles tied to a frame character.
-    // Characters with identical names and no simultaneous constraint must
-    // always be played by the same actor.
     const nameGroups = new Map<string, string[]>();
     for (const c of activeChars) {
       const n = displayName(c.id);
@@ -137,8 +167,6 @@ export default function CastingManager({ playId }: Props) {
     const sameActorPairs: Array<[string, string]> = [];
     for (const group of nameGroups.values()) {
       if (group.length < 2) continue;
-      // Only merge if they are NOT simultaneously on stage (which would be a
-      // data error, but guard against it anyway).
       for (let i = 1; i < group.length; i++) {
         const simSet = simultaneousMap.get(group[0]) ?? new Set();
         if (!simSet.has(group[i])) {
@@ -147,18 +175,13 @@ export default function CastingManager({ playId }: Props) {
       }
     }
 
-    // ── forbiddenPairs: quick-change conflicts between characters ──────────
     const forbiddenPairs = buildForbiddenPairs(play!, activeCut, project?.settings);
 
-    // ── characterLinks: director-specified "must share" pairs ──────────────
-    // These feed into sameActorPairs alongside the auto-detected same-name ones,
-    // and silently override any forbidden-pair constraint between the same two chars.
     const linkPairs = (activeCut?.characterLinks ?? []).filter(
       ([a, b]) => activeCharIds.includes(a) && activeCharIds.includes(b)
     );
     const allSameActorPairs = [...sameActorPairs, ...linkPairs];
 
-    // ── lineCounts: afterCut lines per character ───────────────────────────
     const lineCountsForSuggest: Record<string, number> = {};
     for (const c of activeChars) {
       lineCountsForSuggest[c.id] = lineCounts?.byCharacter[c.id]?.afterCut ?? 0;
@@ -175,29 +198,48 @@ export default function CastingManager({ playId }: Props) {
       if (!groups.has(actorIndex)) groups.set(actorIndex, []);
       groups.get(actorIndex)!.push(charId);
     }
-    setSuggestedGroups(
-      Array.from(groups.entries())
-        .sort(([a], [b]) => a - b)
-        .map(([actorIndex, charIds]) => ({ actorIndex, charIds }))
-    );
+    const sortedGroups = Array.from(groups.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([actorIndex, charIds]) => ({ actorIndex, charIds }));
+
+    setSuggestState({ phase: "preview", groups: sortedGroups, mode });
   }
 
   function handleApplySuggestion() {
-    if (!suggestedGroups) return;
-    const newActors: Actor[] = suggestedGroups.map((g, i) => ({
-      id: generateId(),
-      name: `Actor ${g.actorIndex + 1}`,
-      color: defaultColors[i % defaultColors.length],
-    }));
+    if (suggestState.phase !== "preview") return;
+    const { groups, mode } = suggestState;
+
+    const existingCount = project!.actors.length;
+    const usedColors = new Set(project!.actors.map((a) => a.color));
+    const newActors: Actor[] = groups.map((g, i) => {
+      const color = defaultColors.find((c) => !usedColors.has(c)) || defaultColors[i % defaultColors.length];
+      usedColors.add(color);
+      return {
+        id: generateId(),
+        name: `Actor ${existingCount + g.actorIndex + 1}`,
+        color,
+      };
+    });
     const newAssignments: ActorAssignment[] = [];
-    for (let i = 0; i < suggestedGroups.length; i++) {
+    for (let i = 0; i < groups.length; i++) {
       const actorId = newActors[i].id;
-      for (const charId of suggestedGroups[i].charIds) {
+      for (const charId of groups[i].charIds) {
         newAssignments.push({ characterId: charId, actorId });
       }
     }
-    dispatch({ type: "BULK_SET_CAST", actors: newActors, assignments: newAssignments });
-    setSuggestedGroups(null);
+
+    if (mode === "replace") {
+      // Name actors 1..N (ignoring existingCount for replace)
+      const replaceActors: Actor[] = groups.map((g, i) => ({
+        id: newActors[i].id,
+        name: `Actor ${g.actorIndex + 1}`,
+        color: defaultColors[i % defaultColors.length],
+      }));
+      dispatch({ type: "BULK_SET_CAST", actors: replaceActors, assignments: newAssignments });
+    } else {
+      dispatch({ type: "EXTEND_CAST", actors: newActors, assignments: newAssignments });
+    }
+    setSuggestState({ phase: "idle" });
   }
 
   // Build character → actor lookup
@@ -270,7 +312,6 @@ export default function CastingManager({ playId }: Props) {
   }
 
   // For each character: the set of actor IDs that would cause a doubling conflict
-  // (already assigned to a character simultaneously on stage with this one)
   function getConflictingActorIds(charId: string): Set<string> {
     const simSet = simultaneousMap.get(charId) ?? new Set<string>();
     const conflicting = new Set<string>();
@@ -298,26 +339,87 @@ export default function CastingManager({ playId }: Props) {
       name: activeCut?.characterAliases?.[c.id] ?? c.name,
     }));
 
+  // #17 Per-actor stats
+  const actorStatsMap = new Map<string, { lines: number; words: number; time: number }>();
+  for (const actor of project.actors) {
+    const charIds = project.assignments.filter((a) => a.actorId === actor.id).map((a) => a.characterId);
+    const lines = charIds.reduce((s, id) => s + (lineCounts?.byCharacter[id]?.afterCut ?? 0), 0);
+    const words = charIds.reduce((s, id) => s + (lineCounts?.words?.byCharacter[id]?.afterCut ?? 0), 0);
+    const time = charIds.reduce((s, id) => s + (stageTime?.byCharacter[id]?.minutes ?? 0), 0);
+    actorStatsMap.set(actor.id, { lines, words, time });
+  }
+
+  // #18 Sort actors
+  // First appearance: earliest unit index among all chars the actor plays
+  const actorFirstAppearance = new Map<string, number>();
+  {
+    let idx = 0;
+    for (const act of play.acts) {
+      for (const scene of act.scenes) {
+        for (const unit of scene.units) {
+          if (unit.type === "speech") {
+            const actorId = charToActor[unit.characterId];
+            if (actorId && !actorFirstAppearance.has(actorId)) {
+              actorFirstAppearance.set(actorId, idx);
+            }
+          }
+          idx++;
+        }
+      }
+    }
+  }
+
+  const sortedActors = [...project.actors].sort((a, b) => {
+    const sa = actorStatsMap.get(a.id) ?? { lines: 0, words: 0, time: 0 };
+    const sb = actorStatsMap.get(b.id) ?? { lines: 0, words: 0, time: 0 };
+    const fa = actorFirstAppearance.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+    const fb = actorFirstAppearance.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+    switch (actorSort) {
+      case "lines": return sb.lines - sa.lines || a.name.localeCompare(b.name);
+      case "words": return sb.words - sa.words || a.name.localeCompare(b.name);
+      case "time":  return sb.time - sa.time || a.name.localeCompare(b.name);
+      case "first": return fa - fb || a.name.localeCompare(b.name);
+      default:      return a.name.localeCompare(b.name);
+    }
+  });
+
+  // #21 Full cast banner
+  const activeNonCutChars = speakingChars.filter((c) => !fullyCutCharIds.has(c.id));
+  const isFullyCast =
+    activeNonCutChars.length > 0 && activeNonCutChars.every((c) => charToActor[c.id]);
+
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
       <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100 mb-2">Casting</h1>
       <p className="text-stone-500 dark:text-stone-400 text-sm mb-8">
-        Assign actors to characters. One actor can play multiple characters (double-casting).{" "}
-        Use the{" "}
-        <Link
-          href={`/projects/${projectId}/dashboard?tab=rehearsal`}
-          className="underline decoration-dotted hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
-        >
-          Rehearsal tab
-        </Link>{" "}
-        to plan rehearsal blocks based on your casting.
+        Assign actors to characters. One actor can play multiple characters (double-casting).
       </p>
 
       {/* Actor management */}
       <div className="mb-8">
-        <h2 className="text-sm font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-3">
-          Actors
-        </h2>
+        {/* Section header with sort */}
+        <div className="flex items-center gap-3 mb-3">
+          <h2 className="text-sm font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            Actors
+          </h2>
+          {project.actors.length > 1 && (
+            <div className="ml-auto flex items-center gap-1.5 text-xs text-stone-400 dark:text-stone-500">
+              <span>Sort:</span>
+              <select
+                value={actorSort}
+                onChange={(e) => setActorSort(e.target.value as ActorSort)}
+                className="border border-stone-200 dark:border-stone-700 rounded px-1.5 py-0.5 bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+              >
+                <option value="az">A–Z</option>
+                <option value="lines">Lines</option>
+                <option value="words">Words</option>
+                <option value="time">Stage Time</option>
+                <option value="first">First Appearance</option>
+              </select>
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-2 mb-3">
           <input
             type="text"
@@ -409,12 +511,56 @@ export default function CastingManager({ playId }: Props) {
           </div>
         )}
 
+        {/* #16 Replace / Extend choice modal */}
+        {suggestState.phase === "choosing" && (
+          <div className="mb-4 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900 px-4 py-3">
+            <p className="text-sm text-stone-700 dark:text-stone-200 mb-3">
+              You already have {project.actors.length} actor{project.actors.length !== 1 ? "s" : ""}.
+              What would you like to do?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => runSuggest("replace")}
+                className="flex-1 text-sm px-3 py-2 rounded-lg border border-red-300 dark:border-red-800 text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-950/60 transition-colors"
+              >
+                <span className="font-medium">Replace</span>
+                <span className="block text-xs opacity-70 font-normal mt-0.5">Clear existing cast and suggest from scratch</span>
+              </button>
+              <button
+                onClick={() => {
+                  const unassigned = speakingChars.filter(
+                    (c) => !fullyCutCharIds.has(c.id) && !charToActor[c.id]
+                  );
+                  if (unassigned.length === 0) {
+                    setSuggestState({ phase: "idle" });
+                    // Briefly show a message — no unassigned chars
+                    alert("All characters are already assigned.");
+                    return;
+                  }
+                  runSuggest("extend");
+                }}
+                className="flex-1 text-sm px-3 py-2 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-950/60 transition-colors"
+              >
+                <span className="font-medium">Extend</span>
+                <span className="block text-xs opacity-70 font-normal mt-0.5">Add actors only for unassigned characters</span>
+              </button>
+              <button
+                onClick={() => setSuggestState({ phase: "idle" })}
+                className="px-3 py-2 text-sm border border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Minimum cast suggestion preview */}
-        {suggestedGroups && (
+        {suggestState.phase === "preview" && (
           <div className="mb-4 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900 px-4 py-3">
             <div className="flex items-center gap-3 mb-2">
               <span className="text-sm font-medium text-stone-700 dark:text-stone-200">
-                Suggested minimum: {suggestedGroups.length} actor{suggestedGroups.length !== 1 ? "s" : ""}
+                {suggestState.mode === "extend" ? "Suggested additions: " : "Suggested minimum: "}
+                {suggestState.groups.length} actor{suggestState.groups.length !== 1 ? "s" : ""}
               </span>
               <div className="ml-auto flex gap-2">
                 <button
@@ -424,7 +570,7 @@ export default function CastingManager({ playId }: Props) {
                   Apply
                 </button>
                 <button
-                  onClick={() => setSuggestedGroups(null)}
+                  onClick={() => setSuggestState({ phase: "idle" })}
                   className="text-xs px-3 py-1.5 border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-white dark:hover:bg-stone-800"
                 >
                   Dismiss
@@ -432,40 +578,46 @@ export default function CastingManager({ playId }: Props) {
               </div>
             </div>
             <div className="space-y-1">
-              {suggestedGroups.map((g) => (
-                <div key={g.actorIndex} className="flex items-start gap-2 text-xs">
-                  <span
-                    className="w-3 h-3 rounded-full mt-0.5 shrink-0"
-                    style={{ backgroundColor: defaultColors[g.actorIndex % defaultColors.length] }}
-                  />
-                  <span className="text-stone-500 dark:text-stone-400 shrink-0">Actor {g.actorIndex + 1}:</span>
-                  <span className="text-stone-700 dark:text-stone-200">
-                    {[
-                      ...new Set(
-                        g.charIds.map(
-                          (id) =>
-                            activeCut?.characterAliases?.[id] ??
-                            speakingChars.find((c) => c.id === id)?.name ??
-                            characterIdToName(id)
-                        )
-                      ),
-                    ].join(", ")}
-                  </span>
-                </div>
-              ))}
+              {suggestState.groups.map((g) => {
+                const offset = suggestState.mode === "extend" ? project.actors.length : 0;
+                return (
+                  <div key={g.actorIndex} className="flex items-start gap-2 text-xs">
+                    <span
+                      className="w-3 h-3 rounded-full mt-0.5 shrink-0"
+                      style={{ backgroundColor: defaultColors[(offset + g.actorIndex) % defaultColors.length] }}
+                    />
+                    <span className="text-stone-500 dark:text-stone-400 shrink-0">Actor {offset + g.actorIndex + 1}:</span>
+                    <span className="text-stone-700 dark:text-stone-200">
+                      {[
+                        ...new Set(
+                          g.charIds.map(
+                            (id) =>
+                              activeCut?.characterAliases?.[id] ??
+                              speakingChars.find((c) => c.id === id)?.name ??
+                              characterIdToName(id)
+                          )
+                        ),
+                      ].join(", ")}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {project.actors.length > 0 && (
+        {/* Actor chips */}
+        {sortedActors.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {project.actors.map((actor) => {
+            {sortedActors.map((actor) => {
               const isEditing = editingActorId === actor.id;
               const isConfirmingDelete = confirmDeleteActorId === actor.id;
               const assignedCharIds = project.assignments
                 .filter((a) => a.actorId === actor.id)
                 .map((a) => a.characterId);
               const assignedCount = assignedCharIds.length;
+              const stats = actorStatsMap.get(actor.id) ?? { lines: 0, words: 0, time: 0 };
+              const isLowTime = stats.time > 0 && stats.time < minActorStageTime;
 
               // Resolve display names for assigned characters (deduplicated)
               const assignedCharNames = [
@@ -511,7 +663,11 @@ export default function CastingManager({ playId }: Props) {
               return (
                 <div
                   key={actor.id}
-                  className="group/chip flex items-start gap-2 px-3 py-2 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-sm"
+                  className={`group/chip flex items-start gap-2 px-3 py-2 rounded-lg border bg-white dark:bg-stone-900 text-sm ${
+                    isLowTime
+                      ? "border-amber-300 dark:border-amber-700 border-l-2"
+                      : "border-stone-200 dark:border-stone-700"
+                  }`}
                 >
                   <label
                     className="w-3 h-3 rounded-full cursor-pointer shrink-0 mt-0.5 hover:ring-2 hover:ring-offset-1 hover:ring-stone-400 transition-shadow"
@@ -564,6 +720,9 @@ export default function CastingManager({ playId }: Props) {
                           <span className="text-stone-300 dark:text-stone-600 opacity-0 group-hover/name:opacity-100 transition-opacity text-xs select-none" aria-hidden>✎</span>
                         </span>
                       )}
+                      {isLowTime && (
+                        <span className="text-amber-500 text-xs ml-0.5" title={`Stage time below ${minActorStageTime} min threshold`}>⚠</span>
+                      )}
                       <button
                         onClick={() => {
                           if (assignedCount > 0) {
@@ -581,6 +740,16 @@ export default function CastingManager({ playId }: Props) {
                     {assignedCharNames.length > 0 && (
                       <div className="text-xs text-stone-400 dark:text-stone-400 mt-0.5 leading-snug">
                         {assignedCharNames.join(", ")}
+                      </div>
+                    )}
+                    {/* #17 Actor stats */}
+                    {assignedCount > 0 && (stats.lines > 0 || stats.words > 0 || stats.time > 0) && (
+                      <div className={`text-xs mt-0.5 tabular-nums ${isLowTime ? "text-amber-600 dark:text-amber-400" : "text-stone-400 dark:text-stone-500"}`}>
+                        {stats.lines > 0 && `${stats.lines.toLocaleString()} lines`}
+                        {stats.lines > 0 && stats.words > 0 && " · "}
+                        {stats.words > 0 && `${stats.words.toLocaleString()} words`}
+                        {(stats.lines > 0 || stats.words > 0) && stats.time > 0 && " · "}
+                        {stats.time > 0 && `${Math.round(stats.time)} min`}
                       </div>
                     )}
                   </div>
@@ -665,6 +834,30 @@ export default function CastingManager({ playId }: Props) {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* #21 Full cast banner */}
+      {isFullyCast && !fullCastBannerDismissed && (
+        <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-lg border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-950/40 text-sm">
+          <span className="text-green-600 dark:text-green-400 shrink-0">✓</span>
+          <span className="text-green-800 dark:text-green-300 flex-1">
+            All characters cast.{" "}
+            <Link
+              href={`/projects/${projectId}/dashboard?tab=rehearsal`}
+              className="underline decoration-dotted hover:text-green-900 dark:hover:text-green-200"
+            >
+              Check the Rehearsal tab →
+            </Link>{" "}
+            for suggested rehearsal blocks.
+          </span>
+          <button
+            onClick={() => setFullCastBannerDismissed(true)}
+            className="text-green-500 dark:text-green-500 hover:text-green-700 dark:hover:text-green-300 text-lg leading-none shrink-0"
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
         </div>
       )}
 

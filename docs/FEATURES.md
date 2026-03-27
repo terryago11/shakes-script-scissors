@@ -71,7 +71,7 @@ A complete list of capabilities for power users. For a full walkthrough, see the
 | **Clean** | Cut content hidden; only the surviving script is visible |
 | **Diff** | Side-by-side: cut version (left) vs original (right) |
 
-All three modes are available in the script editor and in the exported HTML file.
+All three modes are available in the script editor and in the exported HTML file. The Script nav link is a dropdown on every page — clicking a mode navigates to the script and sets the mode in one click.
 
 ---
 
@@ -80,14 +80,18 @@ All three modes are available in the script editor and in the exported HTML file
 | Feature | Details |
 |---------|---------|
 | **Actor management** | Add, rename, delete actors; each actor gets a unique colour |
+| **Actor sort** | Sort the actor list by A–Z, Lines, Words, Stage Time, or First Appearance |
+| **Actor stats** | Each actor chip shows aggregated line/word/stage-time counts; chips below the min stage-time threshold get an amber border + ⚠ |
 | **Character assignment** | Assign any character to any actor via dropdown |
 | **Simultaneous-stage detection** | Built from entrance/exit SDs; conflicts flagged with ⚠ badge and pre-warnings in dropdown |
 | **Quick-change warnings** | Flags actor exits/entrances below your threshold (default 2 min) with act/scene/line location |
 | **Character aliases** | Per-cut display-name overrides; shown everywhere including cue scripts |
 | **Character links** | Force two characters to share the same actor (sky-blue pills); feeds into Suggest |
 | **Minimum cast suggestion** | Welsh–Powell graph colouring; respects simultaneous constraints, quick-change forbidden pairs, and character links |
+| **Suggest Replace/Extend** | When actors already exist: Replace clears and re-suggests; Extend suggests only unassigned characters and appends to the existing cast |
 | **Apply suggestion** | Creates actors and assignments in one click |
 | **Cut counts on cards** | Each character card shows cut line/word/time counts inline |
+| **Full-cast banner** | Dismissible green banner appears once all speaking characters are assigned; links to Rehearsal tab |
 
 ---
 
@@ -98,7 +102,7 @@ All three modes are available in the script editor and in the exported HTML file
 | **Scenes & Pauses tab** | Scene list with cut-only counts; actor presence chips; drag-reorder; pause insertion |
 | **Matrix tab** | Character × scene grid (lines/words/time); actor-grouped headers; sticky header rows; click column to filter rows (OR multi-select); click actor header to filter by all their chars; click row label to filter columns; `?` explains filter interactions; row and column totals; Time row total shows per-scene duration (not summed character times) |
 | **Chart tab** | Sorted horizontal bar chart of character lines/words/time; actor name column always fixed-width |
-| **Rehearsal tab** | By-Actor scene breakdown + Suggested Rehearsal Blocks; scenes split into sub-scenes at major entrances then clustered by shared cast (complete-linkage Jaccard); by-character or by-actor toggle; actor chips show characters per block; full-company scenes isolated; `?` explains the algorithm |
+| **Rehearsal tab** | By-Actor scene breakdown + Suggested Rehearsal Blocks; scenes split into sub-scenes at major entrances then clustered by shared cast (complete-linkage Jaccard); by-character or by-actor toggle; actor chips show characters per block; full-company scenes isolated; `?` explains the algorithm; filter By Actor list by actor or character name; collapse any actor row to hide scene detail |
 | **Integrity tab** | Missing entrance/exit SD warnings with scene/line locations; Name Diagnostics table |
 | **Metric toggle** | Switch between Lines / Words / Time for all dashboard counts |
 
@@ -123,6 +127,7 @@ All three modes are available in the script editor and in the exported HTML file
 | Quick-change threshold | 2.0 min | Minimum gap for a safe costume change |
 | Rehearsal min block | 5 min | Minimum duration for a suggested rehearsal block |
 | Rehearsal max block | 60 min | Maximum duration for a suggested rehearsal block |
+| Min actor stage time | 10 min | Actors with less stage time are flagged with ⚠ in the Casting page |
 | Theme | Auto | Light / Dark / Auto (follows OS); toggle also available on the login page |
 
 ---

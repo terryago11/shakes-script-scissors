@@ -55,6 +55,7 @@ type ProjectAction =
   | { type: "SET_CHARACTER_ALIAS"; characterId: string; alias: string | null }
   | { type: "TOGGLE_CHARACTER_LINK"; charIdA: string; charIdB: string }
   | { type: "BULK_SET_CAST"; actors: Actor[]; assignments: ActorAssignment[] }
+  | { type: "EXTEND_CAST"; actors: Actor[]; assignments: ActorAssignment[] }
   | { type: "SPLIT_SPEECH"; unitId: string; splitAtLineIndex: number; splitAtWordOffset?: number; newCharacterId?: string }
   | { type: "MERGE_SPEECH"; unitId: string; part2LineIds: string[] }
   | { type: "ADD_INSERTION"; insertion: Insertion }
@@ -417,6 +418,19 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
           ...p,
           actors: action.actors,
           assignments: action.assignments,
+          updatedAt: now(),
+        },
+      };
+    }
+
+    case "EXTEND_CAST": {
+      const p = state.project!;
+      return {
+        ...state,
+        project: {
+          ...p,
+          actors: [...p.actors, ...action.actors],
+          assignments: [...p.assignments, ...action.assignments],
           updatedAt: now(),
         },
       };
