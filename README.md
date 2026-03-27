@@ -28,6 +28,7 @@ ShakesScriptScissors lets you work through any of the 37 Folger Shakespeare text
 - **Character aliases** — give any character a production-specific display name (e.g. rename "FIRST PLAYER" to "Player King" for clarity); aliases apply everywhere — script view, line counts, matrix, cue scripts — while the original TEI name stays visible in muted text so the mapping is always traceable; aliases are per-cut, so different cut versions can have different names
 - **Character links** — pin two characters to always share the same actor (e.g. Theseus/Oberon in MND); linked pairs appear as sky-blue pills on each character card and override the Suggest algorithm so those characters are always grouped together regardless of quick-change constraints
 - **Suggest minimum cast** — click "Suggest minimum cast" to find the smallest possible company for your cut; the algorithm uses graph colouring (Welsh–Powell, sorted by line count) to group characters with no simultaneous conflicts; it respects your quick-change threshold setting — characters with too little turnaround time between scenes cannot share an actor — and honours all character links you've set; the suggestion panel shows character names under each actor slot and lets you Apply (creates the actors and assignments) or Dismiss
+- **Rehearsal link** — the casting help text links directly to the Rehearsal tab so you can move straight from setting up actors to planning calls
 
 ### Metrics
 - **Running time** — stage-time tracking from entrance/exit stage directions shows per-character and total show duration, cut vs. original; configurable words-per-minute rate
@@ -47,7 +48,7 @@ ShakesScriptScissors lets you work through any of the 37 Folger Shakespeare text
 - **Save / Open Project** — download your cut as a `.sss.json` file and reopen it later; share with collaborators or import on another machine
 
 ### Appearance
-- **Dark mode** — the tool respects your system preference automatically, or you can pin it to light or dark using the sun/moon/monitor toggle on the home page or in the settings panel
+- **Dark mode** — the tool respects your system preference automatically, or you can pin it to light or dark using the sun/moon/monitor toggle on the home page, login page, or in the settings panel; the toggle sits in the same position (top-right) on both the home and login pages
 - **Settings panel** — click the ⚙ gear in the nav to access project name, words-per-minute (slider with presets), quick-change threshold, theme, and save/export options all in one place
 - **Responsive layout** — works on tablet landscape (1024px) as the primary target; on smaller screens the nav collapses script controls behind a `☰` menu, nav link labels hide to icon-only, and the line-count panel shifts to a bottom drawer toggled by an `≡ Info` pill; the script editor goes full-width; the scene dashboard tabs scroll horizontally
 
