@@ -96,7 +96,8 @@ All three modes are available in the script editor and in the exported HTML file
 | Feature | Details |
 |---------|---------|
 | **Scenes & Pauses tab** | Scene list with cut-only counts; actor presence chips; drag-reorder; pause insertion |
-| **Matrix tab** | Character × scene grid (lines/words/time); actor-grouped headers; column filter; row + column totals; Table/Chart toggle |
+| **Matrix tab** | Character × scene grid (lines/words/time); actor-grouped headers; sticky header rows; click column to filter rows (OR multi-select); click actor header to filter by all their chars; click row label to filter columns; `?` explains filter interactions; row and column totals; Time row total shows per-scene duration (not summed character times) |
+| **Chart tab** | Sorted horizontal bar chart of character lines/words/time; actor name column always fixed-width |
 | **Rehearsal tab** | By-Actor scene breakdown + Suggested Rehearsal Blocks; scenes split into sub-scenes at major entrances then clustered by shared cast (complete-linkage Jaccard); by-character or by-actor toggle; actor chips show characters per block; full-company scenes isolated; `?` explains the algorithm |
 | **Integrity tab** | Missing entrance/exit SD warnings with scene/line locations; Name Diagnostics table |
 | **Metric toggle** | Switch between Lines / Words / Time for all dashboard counts |
