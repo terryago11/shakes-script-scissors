@@ -97,12 +97,12 @@ export default function HomePage() {
 
   return (
     <main className="max-w-4xl mx-auto px-6 py-12">
+      <div className="fixed top-4 right-4"><ThemeToggle /></div>
       <div className="mb-10">
-        <div className="flex items-start justify-between mb-2">
+        <div className="mb-2">
           <h1 className="text-4xl font-bold text-stone-800 dark:text-stone-100">
             ✂ ShakesScriptScissors
           </h1>
-          <ThemeToggle />
         </div>
         <p className="text-stone-500 dark:text-stone-400 text-lg">
           Cut Shakespeare scripts, track line counts, generate cue scripts.

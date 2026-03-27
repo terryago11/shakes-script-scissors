@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import type { Play, Act, Scene } from "@/types/play";
 import type { Project, Cut, Actor, ActorAssignment } from "@/types/project";
 export interface SongDanceItem {
@@ -141,7 +142,9 @@ function formatMinutes(m: number): string {
 export default function SceneDashboard({ play, project, activeCut }: Props) {
   const { dispatch } = useProject();
   const { metric, setMetric, wpm, setWpm } = useMetric();
-  const [tab, setTab] = useState<Tab>("scenes");
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get("tab") as Tab | null) ?? "scenes";
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   useEffect(() => {
     setWpm(project.settings?.wordsPerMinute ?? DEFAULT_WPM);
@@ -184,8 +187,9 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
     const items: SongDanceItem[] = [];
     for (const unit of scene.units) {
       if (unit.type === "speech" && unit.isSong) {
-        // Song speech (e.g. "Under the Greenwood Tree" — a <sp> containing <lg> stanzas)
-        const firstLine = unit.lines[0]?.text ?? "";
+        // Song speech — show the first *sung* line, not the first line (which may be prose preamble)
+        const firstSungLine = unit.lines.find((l) => l.isSong) ?? unit.lines[0];
+        const firstLine = firstSungLine?.text ?? "";
         const preview = firstLine.length > 35 ? firstLine.slice(0, 33) + "…" : firstLine;
         items.push({ id: unit.id, label: `${unit.characterName}: "${preview}"`, isSong: true, isDance: false });
       } else if (unit.type === "stage" && (unit.isSong || unit.isDance)) {

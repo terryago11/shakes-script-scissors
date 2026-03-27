@@ -100,20 +100,24 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
   void dispatch; // dispatch not used here; duration editing is in the dashboard
 
   // Derive text color for the SD based on type
+  // Song+dance together → violet for prose text (gradient only on the symbols)
   const sdTextColor = isSong
     ? "text-violet-600 dark:text-violet-400"
     : isDance
     ? "text-cyan-600 dark:text-cyan-400"
     : "text-stone-500 dark:text-stone-400";
 
-  const sdPrefix = isSong ? "♪ " : isDance ? "⊛ " : "";
+  // Both flags set → two separately-coloured symbols so neither is lost
+  const sdPrefixNode = isSong && isDance ? (
+    <><span className="text-violet-600 dark:text-violet-400 not-italic">♪</span><span className="text-cyan-600 dark:text-cyan-400 not-italic">⊛</span>{" "}</>
+  ) : isSong ? "♪ " : isDance ? "⊛ " : "";
 
   return (
     <div className={`group flex items-start gap-3 py-1.5 px-2 rounded ${isCut ? "opacity-50" : ""}`}>
       <div className="w-1 shrink-0" />
       <div className="flex-1 min-w-0">
         <div className={`text-sm italic ${sdTextColor} ${isCut ? "line-through text-stone-400 dark:text-stone-400" : ""}`}>
-          {sdPrefix}{stage.text}
+          {sdPrefixNode}{stage.text}
           {/* Read-only duration badge — editing happens in the Scenes & Pauses dashboard */}
           {currentDuration && !isCut && (
             <span className="not-italic ml-1.5 text-xs text-amber-600 dark:text-amber-400">

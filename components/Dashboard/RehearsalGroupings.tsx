@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { Act, Play, Scene } from "@/types/play";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
@@ -42,31 +43,43 @@ interface SubScene {
   sceneId: string;
   partIdx: number;
   totalParts: number;
-  charSet: Set<string>;
+  charSet: Set<string>;   // all chars present (speakers + onstage non-speakers)
   wordCount: number;
   minutes: number;
 }
 
-function buildSubScenes(
-  scene: Scene,
-  cut: Cut,
-  wpm: number,
-): SubScene[] {
-  // Walk units; split into segments at major entrances (≥2 chars entering at once)
-  // after at least one speech has occurred in the current segment.
+/**
+ * Walk a scene's units and split into sub-scenes at major entrances (≥2 chars
+ * entering at once after at least one speech in the current segment).
+ *
+ * Character sets include everyone onstage, not just speakers — needed for blocking.
+ */
+function buildSubScenes(scene: Scene, cut: Cut, wpm: number): SubScene[] {
   const segments: Array<{ chars: Set<string>; words: number }> = [
     { chars: new Set(), words: 0 },
   ];
 
+  // Track who's onstage across the whole scene so non-speaking onstage chars
+  // are included in each segment's character set.
+  const onstage = new Set<string>();
+
   for (const unit of scene.units) {
     if (unit.type === "stage") {
+      const chars = cut.stageDirectionEdits?.[unit.id] ?? unit.characters;
       if (unit.stageType === "entrance") {
-        const chars = cut.stageDirectionEdits?.[unit.id] ?? unit.characters;
+        for (const cid of chars) onstage.add(cid);
+
         const current = segments[segments.length - 1];
-        // Major entrance: ≥2 new characters + current segment already has speeches
+        // Major entrance: ≥2 entering + current segment already has speeches → split
         if (chars.length >= 2 && current.words > 0) {
-          segments.push({ chars: new Set(), words: 0 });
+          // New segment starts with everyone now onstage (including just-entered)
+          segments.push({ chars: new Set<string>(onstage), words: 0 });
+        } else {
+          // Minor entrance — add entering chars to the current segment
+          for (const cid of chars) current.chars.add(cid);
         }
+      } else if (unit.stageType === "exit") {
+        for (const cid of chars) onstage.delete(cid);
       }
     } else if (unit.type === "speech") {
       const isKept = (cut.cutMap[unit.id] ?? "kept") === "kept";
@@ -74,13 +87,18 @@ function buildSubScenes(
 
       const current = segments[segments.length - 1];
 
+      // Pull in everyone currently onstage (catches non-speakers present during this speech)
+      for (const cid of onstage) current.chars.add(cid);
+
       // Effective speakers (handle reassignments + multi-speaker)
       const speakers = cut.speechReassignments?.[unit.id]
         ?? unit.characterIds
         ?? [unit.characterId];
-      for (const cid of speakers) current.chars.add(cid);
+      for (const cid of speakers) {
+        current.chars.add(cid);
+        onstage.add(cid); // ensure speaker is tracked as onstage
+      }
 
-      // Word count (respecting line-level cuts)
       for (const line of unit.lines) {
         if (cut.lineCutMap?.[line.id] === "cut") continue;
         current.words += countWords(line.text);
@@ -125,12 +143,25 @@ export default function RehearsalGroupings({
   maxBlockMinutes = 60,
   activeCut,
 }: Props) {
+  const [clusterMode, setClusterMode] = useState<"character" | "actor">("character");
+  const [showHelp, setShowHelp] = useState(false);
+
   const charToActor = new Map<string, string>();
   const actorToChars = new Map<string, string[]>();
   for (const a of assignments) {
     charToActor.set(a.characterId, a.actorId);
     if (!actorToChars.has(a.actorId)) actorToChars.set(a.actorId, []);
     actorToChars.get(a.actorId)!.push(a.characterId);
+  }
+
+  // Convert a character set to an actor set (unmapped chars are dropped)
+  function charSetToActorSet(charSet: Set<string>): Set<string> {
+    const actorSet = new Set<string>();
+    for (const cid of charSet) {
+      const aid = charToActor.get(cid);
+      if (aid) actorSet.add(aid);
+    }
+    return actorSet;
   }
 
   // ── By Actor section ─────────────────────────────────────────────────────────
@@ -191,7 +222,7 @@ export default function RehearsalGroupings({
     allSubScenes.push(...subs);
   }
 
-  // ── Complete-linkage Jaccard clustering on sub-scenes ─────────────────────────
+  // ── Jaccard clustering (character-based or actor-based) ───────────────────────
   function jaccard(a: Set<string>, b: Set<string>): number {
     if (a.size === 0 && b.size === 0) return 0;
     let inter = 0;
@@ -200,10 +231,15 @@ export default function RehearsalGroupings({
     return union === 0 ? 0 : inter / union;
   }
 
+  // Resolve the set to use for similarity (actor mode maps chars → actor ids)
+  function simSet(ss: SubScene): Set<string> {
+    return clusterMode === "actor" ? charSetToActorSet(ss.charSet) : ss.charSet;
+  }
+
   const simCache = new Map<string, number>();
   function getSim(a: SubScene, b: SubScene): number {
     const key = a.id < b.id ? `${a.id}|${b.id}` : `${b.id}|${a.id}`;
-    if (!simCache.has(key)) simCache.set(key, jaccard(a.charSet, b.charSet));
+    if (!simCache.has(key)) simCache.set(key, jaccard(simSet(a), simSet(b)));
     return simCache.get(key)!;
   }
 
@@ -243,7 +279,6 @@ export default function RehearsalGroupings({
   const blocks: RehearsalBlock[] = [];
 
   for (const cluster of clusters) {
-    // Need sub-scenes from at least 2 distinct scenes to be worth rehearsing together
     const distinctScenes = new Set(cluster.items.map((ss) => ss.sceneId));
     if (distinctScenes.size < 2) continue;
 
@@ -253,7 +288,6 @@ export default function RehearsalGroupings({
     if (totalMins <= maxBlockMinutes) {
       blocks.push({ subScenes: cluster.items, totalMinutes: totalMins });
     } else {
-      // Split into sub-blocks ≤ maxBlockMinutes
       let current: SubScene[] = [];
       let currentMins = 0;
       for (const ss of cluster.items) {
@@ -274,10 +308,9 @@ export default function RehearsalGroupings({
     }
   }
 
-  // Sort blocks by total scene count descending
   blocks.sort((a, b) => new Set(b.subScenes.map((s) => s.sceneId)).size - new Set(a.subScenes.map((s) => s.sceneId)).size);
 
-  // Add each big scene as its own isolated "full company" block (in script order, at end)
+  // Add each big scene as its own isolated "full company" block (in script order)
   for (const bigId of effectiveSceneOrder.filter((id) => bigSceneIds.has(id))) {
     const bigMins = (lineCounts.byScene[bigId]?.words.afterCut ?? 0) / wpm;
     const bigCharSet = new Set<string>();
@@ -295,6 +328,8 @@ export default function RehearsalGroupings({
     };
     blocks.push({ subScenes: [bigSub], totalMinutes: bigMins, isBigScene: true });
   }
+
+  const hasActors = actors.length > 0 && assignments.length > 0;
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -356,13 +391,85 @@ export default function RehearsalGroupings({
 
       {/* Suggested Rehearsal Blocks */}
       <section className="flex-1 min-w-0">
-        <h2 className="text-xs font-semibold text-stone-400 dark:text-stone-400 uppercase tracking-wider mb-1">
-          Suggested Rehearsal Blocks
-        </h2>
-        <p className="text-xs text-stone-400 dark:text-stone-400 mb-4">
-          Scenes grouped by shared cast — call them together even if not consecutive.
-          Scenes split at major entrances where the cast changes.
+        <div className="flex items-center gap-3 mb-1">
+          <h2 className="text-xs font-semibold text-stone-400 dark:text-stone-400 uppercase tracking-wider">
+            Suggested Rehearsal Blocks
+          </h2>
+          <button
+            onClick={() => setShowHelp((v) => !v)}
+            title="How does this work?"
+            className={`w-4 h-4 rounded-full border text-[10px] font-bold leading-none flex items-center justify-center transition-colors shrink-0 ${
+              showHelp
+                ? "bg-stone-600 dark:bg-stone-400 border-stone-600 dark:border-stone-400 text-white dark:text-stone-900"
+                : "border-stone-300 dark:border-stone-600 text-stone-400 dark:text-stone-500 hover:border-stone-500 dark:hover:border-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
+            }`}
+          >
+            ?
+          </button>
+          {/* Character / Actor toggle */}
+          <div className="ml-auto flex items-center gap-1 bg-stone-100 dark:bg-stone-800 rounded-md p-0.5 text-xs">
+            <button
+              onClick={() => setClusterMode("character")}
+              className={`px-2 py-0.5 rounded transition-colors ${
+                clusterMode === "character"
+                  ? "bg-white dark:bg-stone-600 text-stone-700 dark:text-stone-200 shadow-sm font-medium"
+                  : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
+              }`}
+            >
+              By character
+            </button>
+            <button
+              onClick={() => setClusterMode("actor")}
+              disabled={!hasActors}
+              title={!hasActors ? "Assign actors in Casting first" : undefined}
+              className={`px-2 py-0.5 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                clusterMode === "actor"
+                  ? "bg-white dark:bg-stone-600 text-stone-700 dark:text-stone-200 shadow-sm font-medium"
+                  : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
+              }`}
+            >
+              By actor
+            </button>
+          </div>
+        </div>
+        <p className="text-xs text-stone-400 dark:text-stone-400 mb-1">
+          {clusterMode === "actor"
+            ? "Scenes grouped by shared actors — reflects doubling. Scenes split at major entrances."
+            : "Scenes grouped by shared characters (including onstage non-speakers). Scenes split at major entrances."}
         </p>
+
+        {showHelp && (
+          <div className="mb-4 p-3 rounded-lg bg-stone-50 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-700 text-xs text-stone-500 dark:text-stone-400 space-y-2">
+            <p className="font-semibold text-stone-600 dark:text-stone-300">How rehearsal blocks are suggested</p>
+            <p>
+              Each scene is first split into <strong className="text-stone-600 dark:text-stone-300">sub-scenes</strong> at major
+              entrances (two or more characters entering at once after dialogue has already begun).
+              This separates scenes that contain distinct dramatic units — for example, the mechanicals&apos;
+              rehearsal and the lovers&apos; quarrel within a single act.
+            </p>
+            <p>
+              Sub-scenes are then grouped by <strong className="text-stone-600 dark:text-stone-300">cast overlap</strong> using
+              complete-linkage hierarchical clustering with Jaccard similarity. Two groups only merge
+              if <em>every</em> pair of sub-scenes across them shares at least ⅓ of their cast — this
+              prevents a large mixed-cast scene from acting as a bridge and pulling unrelated scenes together.
+            </p>
+            <p>
+              In <strong className="text-stone-600 dark:text-stone-300">By character</strong> mode, similarity is computed on
+              character IDs directly (including characters onstage but not speaking). In{" "}
+              <strong className="text-stone-600 dark:text-stone-300">By actor</strong> mode, character IDs are first mapped
+              to actors, so doubling collapses into a single presence — useful once casting is set.
+            </p>
+            <p>
+              Blocks must contain at least two distinct scenes and fall within the min/max duration
+              you set in <strong className="text-stone-600 dark:text-stone-300">Settings</strong> (default 5–60 min).
+              Scenes whose cast is within 80% of the largest speaking-cast count <em>and</em> run
+              over 10 minutes are isolated as their own block; when every assigned actor appears in
+              a block it is labelled <strong className="text-stone-600 dark:text-stone-300">★ Full company</strong>.
+            </p>
+          </div>
+        )}
+
+        {!showHelp && <div className="mb-4" />}
 
         {blocks.length === 0 ? (
           <p className="text-sm text-stone-400 dark:text-stone-400">
@@ -370,19 +477,25 @@ export default function RehearsalGroupings({
           </p>
         ) : (
           <div className="space-y-4">
-            {blocks.map((block, idx) => {
+            {(() => {
+              let blockNum = 0;
+              return blocks.map((block, idx) => {
               const blockCharIds = new Set<string>();
               for (const ss of block.subScenes) for (const c of ss.charSet) blockCharIds.add(c);
               const blockActors = actors.filter((a) =>
                 (actorToChars.get(a.id) ?? []).some((cid) => blockCharIds.has(cid))
               );
               const distinctScenes = new Set(block.subScenes.map((ss) => ss.sceneId));
+              // "Full company" only when every assigned actor is called for this block
+              const isFullCompany = actors.length > 0 && blockActors.length === actors.length;
+              if (!isFullCompany) blockNum++;
+              const displayNum = blockNum;
 
               return (
                 <div
                   key={idx}
                   className={`border rounded-lg p-4 ${
-                    block.isBigScene
+                    isFullCompany
                       ? "border-amber-300 dark:border-amber-700 bg-amber-50/30 dark:bg-amber-950/10"
                       : "border-stone-200 dark:border-stone-700"
                   }`}
@@ -390,10 +503,10 @@ export default function RehearsalGroupings({
                   <div className="flex items-start justify-between mb-2">
                     <div className="min-w-0 mr-3">
                       <div className="text-sm font-medium text-stone-700 dark:text-stone-200 flex items-center gap-1.5">
-                        {block.isBigScene ? (
+                        {isFullCompany ? (
                           <><span className="text-amber-600 dark:text-amber-400">★</span> Full company</>
                         ) : (
-                          `Block ${idx + 1}`
+                          `Block ${displayNum}`
                         )}
                       </div>
                     </div>
@@ -472,7 +585,8 @@ export default function RehearsalGroupings({
                   </div>
                 </div>
               );
-            })}
+              });
+            })()}
           </div>
         )}
       </section>

@@ -211,20 +211,32 @@ export default function SceneList({
 
               {/* Song / dance sub-rows (speech songs + song/dance SDs) */}
               {sceneSongDanceSDs?.get(sceneId)?.map((item) => {
-                const prefix = item.isSong ? "♪" : "⊛";
+                const isBoth = item.isSong && item.isDance;
                 const colorClass = item.isSong
                   ? "text-violet-600 dark:text-violet-400"
                   : "text-cyan-600 dark:text-cyan-400";
-                const borderColor = item.isSong ? "border-violet-200 dark:border-violet-800" : "border-cyan-200 dark:border-cyan-800";
-                const bgColor = item.isSong ? "bg-violet-50 dark:bg-violet-950/30" : "bg-cyan-50 dark:bg-cyan-950/30";
+                const borderColor = isBoth
+                  ? "border-violet-200 dark:border-violet-800"
+                  : item.isSong ? "border-violet-200 dark:border-violet-800" : "border-cyan-200 dark:border-cyan-800";
+                const bgColor = isBoth ? "" : item.isSong ? "bg-violet-50 dark:bg-violet-950/30" : "bg-cyan-50 dark:bg-cyan-950/30";
+                // Diagonal stripe for song+dance: violet→cyan at 135°
+                const bgStyle = isBoth
+                  ? { background: "repeating-linear-gradient(135deg, color-mix(in srgb, #7c3aed 12%, transparent) 0px, color-mix(in srgb, #7c3aed 12%, transparent) 4px, color-mix(in srgb, #0891b2 12%, transparent) 4px, color-mix(in srgb, #0891b2 12%, transparent) 8px)" }
+                  : undefined;
                 const focusRing = item.isSong ? "focus:ring-violet-400" : "focus:ring-cyan-400";
                 const current = stageDurations?.[item.id];
                 const isEditing = editingDuration === item.id;
                 const canEdit = !!onSetStageDuration;
 
                 return (
-                  <div key={item.id} className={`mt-1.5 flex items-center gap-2 text-xs rounded px-2 py-1 ${bgColor} border ${borderColor}`}>
-                    <span className={`shrink-0 ${colorClass}`}>{prefix}</span>
+                  <div key={item.id} className={`mt-1.5 flex items-center gap-2 text-xs rounded px-2 py-1 ${bgColor} border ${borderColor}`} style={bgStyle}>
+                    {isBoth ? (
+                      <span className="shrink-0">
+                        <span className="text-violet-600 dark:text-violet-400">♪</span><span className="text-cyan-600 dark:text-cyan-400">⊛</span>
+                      </span>
+                    ) : (
+                      <span className={`shrink-0 ${colorClass}`}>{item.isSong ? "♪" : "⊛"}</span>
+                    )}
                     <span className={`flex-1 italic truncate ${colorClass}`} title={item.label}>{item.label}</span>
                     {canEdit && (
                       isEditing ? (
@@ -264,7 +276,7 @@ export default function SceneList({
                         <button
                           onClick={() => startEditDuration(item.id)}
                           className="shrink-0 text-xs text-stone-300 hover:text-amber-600 dark:text-stone-600 dark:hover:text-amber-400 transition-colors"
-                          title={`Add extra time for this ${item.isSong ? "song" : "dance"}`}
+                          title={`Add extra time for this ${item.isSong && item.isDance ? "song & dance" : item.isSong ? "song" : "dance"}`}
                         >
                           + time
                         </button>

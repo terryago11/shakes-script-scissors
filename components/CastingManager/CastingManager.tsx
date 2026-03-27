@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import type { Play, StageDirection } from "@/types/play";
 import { useProject } from "@/lib/project/ProjectStore";
 import { computeQuickChanges } from "@/lib/cuts/QuickChangeEngine";
@@ -76,6 +78,8 @@ function computeSimultaneousMap(
 
 export default function CastingManager({ playId }: Props) {
   const { project, activeCut, dispatch } = useProject();
+  const params = useParams<{ projectId: string }>();
+  const projectId = params?.projectId ?? "";
   const [play, setPlay] = useState<Play | null>(null);
   const [newActorName, setNewActorName] = useState("");
   const [editingActorId, setEditingActorId] = useState<string | null>(null);
@@ -298,7 +302,15 @@ export default function CastingManager({ playId }: Props) {
     <div className="max-w-4xl mx-auto px-6 py-8">
       <h1 className="text-2xl font-bold text-stone-800 dark:text-stone-100 mb-2">Casting</h1>
       <p className="text-stone-500 dark:text-stone-400 text-sm mb-8">
-        Assign actors to characters. One actor can play multiple characters (double-casting).
+        Assign actors to characters. One actor can play multiple characters (double-casting).{" "}
+        Use the{" "}
+        <Link
+          href={`/projects/${projectId}/dashboard?tab=rehearsal`}
+          className="underline decoration-dotted hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
+        >
+          Rehearsal tab
+        </Link>{" "}
+        to plan rehearsal blocks based on your casting.
       </p>
 
       {/* Actor management */}

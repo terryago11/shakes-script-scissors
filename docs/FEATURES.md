@@ -44,6 +44,7 @@ A complete list of capabilities for power users. For a full walkthrough, see the
 | **Colour coding** | Amber = baseline · Red = cut · Green = addition |
 | **Focus-mode scoping** | Line counts scope to a single scene in focus mode |
 | **Song/dance durations** | Enter custom durations for ♪/⊛ SDs; added to scene and total time |
+| **Song+dance combined** | SDs matching both song and dance (e.g. "Oberon leads the Fairies in song and dance.") show ♪⊛ with violet ♪ and cyan ⊛; scene list pill has a diagonal violet/cyan stripe |
 | **Intermissions** | Named pauses between scenes with custom durations |
 | **Running line counter** | Scene-relative line numbers every 5 lines; mode-aware (all lines in Standard; kept lines in Clean) |
 
@@ -96,7 +97,7 @@ All three modes are available in the script editor and in the exported HTML file
 |---------|---------|
 | **Scenes & Pauses tab** | Scene list with cut-only counts; actor presence chips; drag-reorder; pause insertion |
 | **Matrix tab** | Character × scene grid (lines/words/time); actor-grouped headers; column filter; row + column totals; Table/Chart toggle |
-| **Rehearsal tab** | By-Actor scene breakdown + Suggested Rehearsal Blocks (consecutive scenes with shared actors) |
+| **Rehearsal tab** | By-Actor scene breakdown + Suggested Rehearsal Blocks; scenes split into sub-scenes at major entrances then clustered by shared cast (complete-linkage Jaccard); by-character or by-actor toggle; actor chips show characters per block; full-company scenes isolated; `?` explains the algorithm |
 | **Integrity tab** | Missing entrance/exit SD warnings with scene/line locations; Name Diagnostics table |
 | **Metric toggle** | Switch between Lines / Words / Time for all dashboard counts |
 
@@ -119,6 +120,8 @@ All three modes are available in the script editor and in the exported HTML file
 | Project name | *(blank)* | Optional display name for the production |
 | Words per minute | 135 | Base rate for running-time calculations; presets: Slow (100) · Amateur (130) · Default (135) · Experienced (150) · Professional (180) |
 | Quick-change threshold | 2.0 min | Minimum gap for a safe costume change |
+| Rehearsal min block | 5 min | Minimum duration for a suggested rehearsal block |
+| Rehearsal max block | 60 min | Maximum duration for a suggested rehearsal block |
 | Theme | Auto | Light / Dark / Auto (follows OS); toggle also available on the login page |
 
 ---
