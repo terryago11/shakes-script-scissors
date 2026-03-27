@@ -7,6 +7,7 @@ import type { ScriptUnitWithStatus, LineCounts } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
 import type { Insertion } from "@/types/insertion";
 import { useMetric } from "@/lib/ui/MetricContext";
+import { useViewMode } from "@/lib/ui/ViewModeContext";
 import SceneBlock from "./SceneBlock";
 import PauseIndicator from "./PauseIndicator";
 
@@ -63,6 +64,8 @@ export default function ActBlock({
   // Generation increments each time act collapses → SceneBlocks remount in collapsed state
   const [generation, setGeneration] = useState(0);
   const { metric, wpm } = useMetric();
+  const { viewMode } = useViewMode();
+  const isClean = viewMode === "clean";
 
   function fmtMins(m: number): string {
     const r = Math.round(m);
@@ -127,7 +130,7 @@ export default function ActBlock({
                 <span className={timeMins.afterCut < timeMins.original - 0.01 ? "text-amber-600 font-medium" : ""}>
                   {fmtMins(timeMins.afterCut)}
                 </span>
-                {timeMins.afterCut < timeMins.original - 0.01 && (
+                {!isClean && timeMins.afterCut < timeMins.original - 0.01 && (
                   <span className="text-stone-300 dark:text-stone-600">/ {fmtMins(timeMins.original)}</span>
                 )}
                 <span className="text-stone-300 dark:text-stone-600">@ {wpm}wpm</span>
@@ -137,12 +140,14 @@ export default function ActBlock({
                 {counts!.original !== counts!.afterCut ? (
                   <>
                     <span className="text-amber-600 font-medium">{counts!.afterCut.toLocaleString()}</span>
-                    <span className="text-stone-300 dark:text-stone-600">/ {counts!.original.toLocaleString()}</span>
+                    {!isClean && (
+                      <span className="text-stone-300 dark:text-stone-600">/ {counts!.original.toLocaleString()}</span>
+                    )}
                   </>
                 ) : (
                   <span>{counts!.afterCut.toLocaleString()}</span>
                 )}
-                {pctCut > 0 && (
+                {!isClean && pctCut > 0 && (
                   <span className="text-amber-500 font-medium">−{pctCut}%</span>
                 )}
                 <span className="text-stone-300 dark:text-stone-600">{metric}</span>

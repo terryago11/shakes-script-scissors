@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import type { Play, Act, Scene } from "@/types/play";
 import type { Project, Cut, Actor, ActorAssignment } from "@/types/project";
 export interface SongDanceItem {
@@ -29,7 +30,7 @@ interface Props {
   activeCut: Cut;
 }
 
-type Tab = "scenes" | "matrix" | "rehearsal" | "integrity";
+type Tab = "scenes" | "matrix" | "chart" | "rehearsal" | "integrity";
 
 /** Count words in a string (matches CutEngine logic) */
 function countWords(text: string): number {
@@ -141,7 +142,9 @@ function formatMinutes(m: number): string {
 export default function SceneDashboard({ play, project, activeCut }: Props) {
   const { dispatch } = useProject();
   const { metric, setMetric, wpm, setWpm } = useMetric();
-  const [tab, setTab] = useState<Tab>("scenes");
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get("tab") as Tab | null) ?? "scenes";
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   useEffect(() => {
     setWpm(project.settings?.wordsPerMinute ?? DEFAULT_WPM);
@@ -164,6 +167,12 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
   const charSceneMatrix = buildCharSceneMatrix(play, activeCut, effectiveSceneOrder);
   const actorSceneMatrix = buildActorSceneMatrix(stageTime, project.actors, project.assignments);
 
+  // Actual scene durations (words / wpm) — used for correct matrix row totals in time metric
+  const sceneTimings = new Map<string, number>();
+  for (const [sceneId, sc] of Object.entries(lineCounts.byScene)) {
+    sceneTimings.set(sceneId, sc.words.afterCut / wpm);
+  }
+
   // Fully-cut scenes: had lines originally but afterCut = 0
   const cutSceneIds = new Set<string>(
     effectiveSceneOrder.filter((id) => {
@@ -178,8 +187,9 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
     const items: SongDanceItem[] = [];
     for (const unit of scene.units) {
       if (unit.type === "speech" && unit.isSong) {
-        // Song speech (e.g. "Under the Greenwood Tree" — a <sp> containing <lg> stanzas)
-        const firstLine = unit.lines[0]?.text ?? "";
+        // Song speech — show the first *sung* line, not the first line (which may be prose preamble)
+        const firstSungLine = unit.lines.find((l) => l.isSong) ?? unit.lines[0];
+        const firstLine = firstSungLine?.text ?? "";
         const preview = firstLine.length > 35 ? firstLine.slice(0, 33) + "…" : firstLine;
         items.push({ id: unit.id, label: `${unit.characterName}: "${preview}"`, isSong: true, isDance: false });
       } else if (unit.type === "stage" && (unit.isSong || unit.isDance)) {
@@ -218,6 +228,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: "scenes", label: "Scenes & Pauses" },
     { key: "matrix", label: "Matrix" },
+    { key: "chart", label: "Chart" },
     { key: "rehearsal", label: "Rehearsal" },
     { key: "integrity", label: integrityWarnings.length > 0 ? `Integrity ⚠ ${integrityWarnings.length}` : "Integrity" },
   ];
@@ -330,6 +341,28 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           metric={metric}
           cutSceneIds={cutSceneIds}
           characterAliases={activeCut.characterAliases}
+          viewType="table"
+          sceneTimings={sceneTimings}
+        />
+      )}
+
+      {/* Tab: Chart */}
+      {tab === "chart" && (
+        <DashboardMatrix
+          effectiveSceneOrder={effectiveSceneOrder}
+          sceneById={sceneById}
+          sceneActMap={sceneActMap}
+          characters={play.castList}
+          actors={project.actors}
+          assignments={project.assignments}
+          charSceneMatrix={charSceneMatrix}
+          stageTimeByChar={stageTime.byCharacter}
+          pauses={activeCut.pauses}
+          metric={metric}
+          cutSceneIds={cutSceneIds}
+          characterAliases={activeCut.characterAliases}
+          viewType="chart"
+          sceneTimings={sceneTimings}
         />
       )}
 
@@ -348,6 +381,9 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           metric={metric}
           wpm={wpm}
           characterAliases={activeCut.characterAliases}
+          minBlockMinutes={project.settings?.rehearsalMinBlockMinutes ?? 5}
+          maxBlockMinutes={project.settings?.rehearsalMaxBlockMinutes ?? 60}
+          activeCut={activeCut}
         />
       )}
 

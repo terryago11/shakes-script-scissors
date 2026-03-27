@@ -6,6 +6,7 @@ import type { Actor, ActorAssignment, ProjectSettings } from "@/types/project";
 import type { LineCounts } from "@/types/cut";
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import { useMetric } from "@/lib/ui/MetricContext";
+import { useViewMode } from "@/lib/ui/ViewModeContext";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
 import CharacterRow from "./CharacterRow";
 import ActorRow from "./ActorRow";
@@ -41,6 +42,8 @@ export default function LineCountPanel({
   stageTime, settings, isFocused, characterAliases,
 }: Props) {
   const { metric, setMetric } = useMetric();
+  const { viewMode } = useViewMode();
+  const isClean = viewMode === "clean";
   // Local tab state — "time" only available when stageTime is provided
   const [panelTab, setPanelTab] = useState<"lines" | "words" | "time">("lines");
 
@@ -156,13 +159,13 @@ export default function LineCountPanel({
             <span className="text-2xl font-bold text-stone-800 dark:text-stone-100">
               {formatMinutes(stageTime.totalMinutes)}
             </span>
-            {hasCuts && (
+            {!isClean && hasCuts && (
               <span className="text-sm text-stone-400 dark:text-stone-400">
                 / {formatMinutes(stageTime.originalTotalMinutes)}
               </span>
             )}
           </div>
-          {hasCuts && (
+          {!isClean && hasCuts && (
             <div className="mt-1 text-xs text-red-500 font-medium">
               −{Math.round((1 - stageTime.totalMinutes / stageTime.originalTotalMinutes) * 100)}% cut
             </div>
@@ -208,19 +211,19 @@ export default function LineCountPanel({
                       </div>
                       <span className="text-stone-400 dark:text-stone-400 shrink-0 tabular-nums">
                         {formatMinutes(minutes)}
-                        {(actorHasCuts || actorHasAdded) && (
+                        {!isClean && (actorHasCuts || actorHasAdded) && (
                           <span className="text-stone-300 dark:text-stone-600"> / {formatMinutes(originalMinutes)}</span>
                         )}
-                        {actorHasCuts && cutPct !== null && cutPct > 0 && (
+                        {!isClean && actorHasCuts && cutPct !== null && cutPct > 0 && (
                           <span className="text-red-500 ml-1">−{cutPct}%</span>
                         )}
-                        {actorHasAdded && addPct !== null && addPct > 0 && (
+                        {!isClean && actorHasAdded && addPct !== null && addPct > 0 && (
                           <span className="text-green-500 ml-1">+{addPct}%</span>
                         )}
                       </span>
                     </div>
                     <div className="h-1 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden relative">
-                      {(actorHasCuts || actorHasAdded) && (
+                      {!isClean && (actorHasCuts || actorHasAdded) && (
                         <div
                           className="absolute h-full bg-stone-200 dark:bg-stone-700 rounded-full"
                           style={{ width: `${origPctBar}%` }}
@@ -266,19 +269,19 @@ export default function LineCountPanel({
                     <span className="text-stone-600 dark:text-stone-300 truncate mr-2">{charName}</span>
                     <span className="text-stone-400 dark:text-stone-400 shrink-0 tabular-nums">
                       {formatMinutes(minutes)}
-                      {(charHasCuts || charHasAdded) && (
+                      {!isClean && (charHasCuts || charHasAdded) && (
                         <span className="text-stone-300 dark:text-stone-600"> / {formatMinutes(originalMinutes)}</span>
                       )}
-                      {charHasCuts && cutPct !== null && cutPct > 0 && (
+                      {!isClean && charHasCuts && cutPct !== null && cutPct > 0 && (
                         <span className="text-red-500 ml-1">−{cutPct}%</span>
                       )}
-                      {charHasAdded && addPct !== null && addPct > 0 && (
+                      {!isClean && charHasAdded && addPct !== null && addPct > 0 && (
                         <span className="text-green-500 ml-1">+{addPct}%</span>
                       )}
                     </span>
                   </div>
                   <div className="h-1 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden relative">
-                    {(charHasCuts || charHasAdded) && (
+                    {!isClean && (charHasCuts || charHasAdded) && (
                       <div
                         className="absolute h-full bg-stone-200 dark:bg-stone-700 rounded-full"
                         style={{ width: `${origPctBar}%` }}
@@ -318,9 +321,11 @@ export default function LineCountPanel({
         </div>
         <div className="flex items-baseline gap-2">
           <span className="text-2xl font-bold text-stone-800 dark:text-stone-100">{activeCounts.total.afterCut.toLocaleString()}</span>
-          <span className="text-sm text-stone-400 dark:text-stone-400">/ {activeCounts.total.original.toLocaleString()}</span>
+          {!isClean && (
+            <span className="text-sm text-stone-400 dark:text-stone-400">/ {activeCounts.total.original.toLocaleString()}</span>
+          )}
         </div>
-        {pct > 0 && (
+        {!isClean && pct > 0 && (
           <div className="mt-1 text-xs text-amber-600 font-medium">{pct}% cut</div>
         )}
         <div className="mt-2 h-1.5 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
@@ -353,6 +358,7 @@ export default function LineCountPanel({
                   play={play}
                   isFiltered={isFiltered}
                   onClick={onFilterActor ? () => handleActorClick(actor.id) : undefined}
+                  hideOriginal={isClean}
                 />
               );
             })}
@@ -382,6 +388,7 @@ export default function LineCountPanel({
                 isFiltered={filter?.type === "character" && filter.id === char.id}
                 onClick={onFilterCharacter ? () => handleCharacterClick(char.id) : undefined}
                 displayName={resolveCharacterName(char.id, characterAliases, play.castList)}
+                hideOriginal={isClean}
               />
             ))}
         </div>

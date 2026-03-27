@@ -299,7 +299,7 @@ export default function SceneBlock({
                   <span className={timeMins.afterCut < timeMins.original - 0.01 ? "text-amber-600 font-medium" : ""}>
                     {fmtMins(timeMins.afterCut)}
                   </span>
-                  {timeMins.afterCut < timeMins.original - 0.01 && (
+                  {viewMode !== "clean" && timeMins.afterCut < timeMins.original - 0.01 && (
                     <span className="text-stone-300 dark:text-stone-600">/ {fmtMins(timeMins.original)}</span>
                   )}
                   <span className="text-stone-300 dark:text-stone-600">@ {wpm}wpm</span>
@@ -311,10 +311,12 @@ export default function SceneBlock({
                   ) : (
                     <>
                       <span className="text-amber-600 font-medium">{displayKept.toLocaleString()}</span>
-                      <span className="text-stone-300 dark:text-stone-600">/ {displayOriginal.toLocaleString()}</span>
+                      {viewMode !== "clean" && (
+                        <span className="text-stone-300 dark:text-stone-600">/ {displayOriginal.toLocaleString()}</span>
+                      )}
                     </>
                   )}
-                  {pctCut > 0 && (
+                  {viewMode !== "clean" && pctCut > 0 && (
                     <span className="text-amber-500 font-medium">−{pctCut}%</span>
                   )}
                   <span className="text-stone-300 dark:text-stone-600">{metric}</span>

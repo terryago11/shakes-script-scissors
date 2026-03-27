@@ -2,6 +2,10 @@ export interface ProjectSettings {
   wordsPerMinute: number;
   /** Minutes below which an actor quick-change is flagged as a warning. Defaults to 2.0 at usage site. */
   quickChangeThresholdMinutes?: number;
+  /** Minimum total minutes for a suggested rehearsal block. Defaults to 5. */
+  rehearsalMinBlockMinutes?: number;
+  /** Maximum total minutes for a suggested rehearsal block. Defaults to 60. */
+  rehearsalMaxBlockMinutes?: number;
 }
 
 export interface Project {
