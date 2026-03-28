@@ -485,6 +485,7 @@ export default function ScriptEditor({ playId }: Props) {
     insertions: activeCut.insertions,
     onAddInsertion: handleAddInsertion,
     onRemoveInsertion: handleRemoveInsertion,
+    insertedSDs: activeCut.insertedSDs,
     onRestoreScene: handleRestoreScene,
   };
 

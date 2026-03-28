@@ -4,6 +4,7 @@ import React, { createContext, useContext, useReducer, useEffect, useCallback } 
 import type { Project, Actor, ActorAssignment, Cut, ProjectSettings } from "@/types/project";
 import type { SpeechEdit, EditOp } from "@/types/edit";
 import type { Insertion, InsertedLine } from "@/types/insertion";
+import type { InsertedSD } from "@/types/insertedsd";
 import { generateId, defaultColors } from "./projectUtils";
 
 const CURRENT_VERSION = 1;
@@ -65,7 +66,10 @@ type ProjectAction =
   | { type: "CLEAR_STAGE_DURATION"; stageId: string }
   | { type: "UNDO" }
   | { type: "REDO" }
-  | { type: "SET_PART_INDENT_OVERRIDE"; lineId: string; value: boolean | null };
+  | { type: "SET_PART_INDENT_OVERRIDE"; lineId: string; value: boolean | null }
+  | { type: "INSERT_SD"; sd: InsertedSD }
+  | { type: "REMOVE_INSERTED_SD"; insertedSdId: string }
+  | { type: "SET_SD_FLAGS"; sdId: string; isSong?: boolean; isDance?: boolean };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
   if (!state.project && action.type !== "LOAD" && action.type !== "REPLACE_PROJECT") {
@@ -233,6 +237,12 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
           : undefined,
         stageDurations: source?.stageDurations ? { ...source.stageDurations } : undefined,
         partIndentOverrides: source?.partIndentOverrides ? { ...source.partIndentOverrides } : undefined,
+        insertedSDs: source?.insertedSDs
+          ? Object.fromEntries(Object.entries(source.insertedSDs).map(([k, v]) => [k, { ...v, characters: [...v.characters] }]))
+          : undefined,
+        sdFlagOverrides: source?.sdFlagOverrides
+          ? Object.fromEntries(Object.entries(source.sdFlagOverrides).map(([k, v]) => [k, { ...v }]))
+          : undefined,
       };
       const newProject = {
         ...p,
@@ -559,6 +569,47 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
           return { ...c, partIndentOverrides: Object.keys(ovr).length > 0 ? ovr : undefined };
         }
         return { ...c, partIndentOverrides: { ...(c.partIndentOverrides ?? {}), [action.lineId]: action.value } };
+      });
+    }
+
+    case "INSERT_SD": {
+      return withUndo(state, (c) => ({
+        ...c,
+        insertedSDs: { ...(c.insertedSDs ?? {}), [action.sd.id]: action.sd },
+        cutMap: { ...c.cutMap, [action.sd.id]: "kept" },
+      }));
+    }
+
+    case "REMOVE_INSERTED_SD": {
+      return withUndo(state, (c) => {
+        const newInsertedSDs = { ...(c.insertedSDs ?? {}) };
+        delete newInsertedSDs[action.insertedSdId];
+        const newCutMap = { ...c.cutMap };
+        delete newCutMap[action.insertedSdId];
+        return {
+          ...c,
+          insertedSDs: Object.keys(newInsertedSDs).length > 0 ? newInsertedSDs : undefined,
+          cutMap: newCutMap,
+        };
+      });
+    }
+
+    case "SET_SD_FLAGS": {
+      return withUndo(state, (c) => {
+        const overrides = { ...(c.sdFlagOverrides ?? {}) };
+        if (action.isSong === undefined && action.isDance === undefined) {
+          delete overrides[action.sdId];
+        } else {
+          const existing = overrides[action.sdId] ?? {};
+          const updated: { isSong?: boolean; isDance?: boolean } = { ...existing };
+          if (action.isSong !== undefined) updated.isSong = action.isSong;
+          if (action.isDance !== undefined) updated.isDance = action.isDance;
+          overrides[action.sdId] = updated;
+        }
+        return {
+          ...c,
+          sdFlagOverrides: Object.keys(overrides).length > 0 ? overrides : undefined,
+        };
       });
     }
 

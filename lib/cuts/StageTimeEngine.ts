@@ -65,6 +65,28 @@ export function getOnStageAtUnit(
   return onStage;
 }
 
+/**
+ * Returns characters who speak in kept speeches after sceneUnits[targetIndex],
+ * stopping at (but not including) the next entrance SD.
+ * Used to suggest who should be listed on an entrance SD that may have missing characters.
+ */
+export function getSpeakersAfterUnit(
+  sceneUnits: ScriptUnit[],
+  targetIndex: number,
+  cutMap: Record<string, "cut" | "kept">
+): Set<string> {
+  const speakers = new Set<string>();
+  for (let i = targetIndex + 1; i < sceneUnits.length; i++) {
+    const unit = sceneUnits[i];
+    if (unit.type === "stage" && unit.stageType === "entrance") break;
+    if (unit.type === "speech" && cutMap[unit.id] !== "cut") {
+      if (unit.characterId) speakers.add(unit.characterId);
+      if (unit.characterIds) unit.characterIds.forEach((id) => speakers.add(id));
+    }
+  }
+  return speakers;
+}
+
 function ensureChar(byChar: Record<string, CharacterStageTime>, charId: string): CharacterStageTime {
   if (!byChar[charId]) {
     byChar[charId] = { characterId: charId, minutes: 0, originalMinutes: 0, scenes: [] };

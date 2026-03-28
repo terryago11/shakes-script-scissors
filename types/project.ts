@@ -103,4 +103,11 @@ export interface Cut {
    * Set via the "+ time" editor on highlighted song/dance SDs.
    */
   stageDurations?: Record<string, number>;
+  /** Director-inserted stage directions keyed by their generated ID. Each appears after a specific unit. */
+  insertedSDs?: Record<string, import("./insertedsd").InsertedSD>;
+  /**
+   * Overrides isSong/isDance on existing TEI SDs without modifying the parsed Play data.
+   * A missing key means use the TEI value; an explicit false overrides a TEI true.
+   */
+  sdFlagOverrides?: Record<string, { isSong?: boolean; isDance?: boolean }>;
 }

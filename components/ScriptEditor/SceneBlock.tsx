@@ -6,15 +6,17 @@ import type { Actor, ActorAssignment } from "@/types/project";
 import type { ScriptUnitWithStatus, SceneCounts } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
 import type { Insertion } from "@/types/insertion";
+import type { InsertedSD } from "@/types/insertedsd";
 import { useMetric } from "@/lib/ui/MetricContext";
 import { useViewMode } from "@/lib/ui/ViewModeContext";
 import { useEditMode } from "@/lib/ui/EditModeContext";
 import { useProject } from "@/lib/project/ProjectStore";
-import { getOnStageAtUnit } from "@/lib/cuts/StageTimeEngine";
+import { getOnStageAtUnit, getSpeakersAfterUnit } from "@/lib/cuts/StageTimeEngine";
 import SpeechBlock from "./SpeechBlock";
 import StageDirectionBlock from "./StageDirectionBlock";
 import InsertionBlock from "./InsertionBlock";
 import InsertionModal from "./InsertionModal";
+import InsertedSDBlock from "./InsertedSDBlock";
 
 interface Props {
   scene: Scene;
@@ -50,6 +52,8 @@ interface Props {
   insertions?: Record<string, Insertion>;
   onAddInsertion?: (insertion: Insertion) => void;
   onRemoveInsertion?: (insertionId: string, lineIds: string[]) => void;
+  /** All inserted SDs for the active cut — SceneBlock renders ones whose afterUnitId is in this scene */
+  insertedSDs?: Record<string, InsertedSD>;
   /** Called when at least one unit is restored via "restore all" */
   onRestoreScene?: () => void;
 }
@@ -62,6 +66,7 @@ export default function SceneBlock({
   characterAliases, stageDirectionEdits,
   speechSplits, onSplit, onMerge,
   insertions, onAddInsertion, onRemoveInsertion,
+  insertedSDs,
   onRestoreScene,
 }: Props) {
   // Unified insertion modal state: null = closed, create = new insertion, edit = editing existing
@@ -75,7 +80,7 @@ export default function SceneBlock({
   const [insertionModalState, setInsertionModalState] = useState<InsertionModalState>(null);
   const { metric, wpm } = useMetric();
   const { activeTool } = useEditMode();
-  const { dispatch: projectDispatch } = useProject();
+  const { dispatch: projectDispatch, activeCut } = useProject();
 
   function fmtMins(m: number): string {
     const r = Math.round(m);
@@ -252,6 +257,23 @@ export default function SceneBlock({
     return map;
   })();
 
+  // Pre-compute entrance suggestions for each entrance SD (enables ⟳ sync entrances button)
+  // Looks forward to find speakers who aren't yet on stage at that point.
+  const entranceSuggestionsAtSd: Map<string, Set<string>> = (() => {
+    if (showOriginal) return new Map();
+    const cutMap = activeCut?.cutMap ?? {};
+    const map = new Map<string, Set<string>>();
+    scene.units.forEach((unit, idx) => {
+      if (unit.type === "stage" && unit.stageType === "entrance") {
+        const onStage = getOnStageAtUnit(scene.units, idx, stageDirectionEdits);
+        const speakers = getSpeakersAfterUnit(scene.units, idx, cutMap);
+        const suggestions = new Set([...speakers].filter((c) => !onStage.has(c)));
+        if (suggestions.size > 0) map.set(unit.id, suggestions);
+      }
+    });
+    return map;
+  })();
+
   // Pre-compute on-stage character set for each speech (enables → ALL in chip editor)
   const onStageAtSpeech: Map<string, Set<string>> = (() => {
     if (showOriginal) return new Map();
@@ -411,8 +433,30 @@ export default function SceneBlock({
                   onToggle={showOriginal ? null : (onToggle ? () => onToggle(unit.id) : null)}
                   castList={castList}
                   onStageAtSd={showOriginal ? undefined : onStageAtExitSd.get(unit.id)}
+                  entranceSuggestionsAtSd={showOriginal ? undefined : entranceSuggestionsAtSd.get(unit.id)}
                 />
               );
+            }
+
+            // Inserted SDs that follow this unit
+            if (!showOriginal && insertedSDs) {
+              for (const isd of Object.values(insertedSDs)) {
+                if (isd.afterUnitId !== unit.id) continue;
+                const isdStatus = activeCut?.cutMap[isd.id] === "cut" ? "cut" : "kept";
+                // In clean view, InsertedSDBlock handles its own hiding when cut
+                elements.push(
+                  <InsertedSDBlock
+                    key={isd.id}
+                    sd={isd}
+                    status={isdStatus}
+                    castList={castList}
+                    characterAliases={characterAliases}
+                    onToggle={onToggle ? () => onToggle(isd.id) : null}
+                    onRemove={(id) => projectDispatch({ type: "REMOVE_INSERTED_SD", insertedSdId: id })}
+                    onEdit={(updated) => projectDispatch({ type: "INSERT_SD", sd: updated })}
+                  />
+                );
+              }
             }
 
             // Insert zone — thin hover-reveal strip after each unit

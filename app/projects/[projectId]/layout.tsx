@@ -523,6 +523,7 @@ const TOOL_CONFIG: Record<Exclude<EditTool, "none">, { icon: string; label: stri
   "sd-chars": { icon: "⊕",     label: "SD Chars",      desc: "Edit character lists on entrance and exit stage directions." },
   reassign: { icon: "⇄",        label: "Reassign",      desc: "Click a character name to reassign that speech to another character." },
   split:    { icon: "⌥",        label: "Split/Indent",  desc: "Click anywhere within a line to split at a word, or click ✂ between lines for a clean split. Use ⇤/⊕ buttons on first/last lines of a speech to toggle shared-verse indentation." },
+  "song-dance": { icon: "♪⊛",  label: "Song/Dance",    desc: "Toggle ♪ song / ⊛ dance flags on existing stage directions, or click + Insert SD to add a new song/dance stage direction." },
 };
 
 function EditToolbar({ activeTool, setActiveTool }: { activeTool: EditTool; setActiveTool: (t: EditTool) => void }) {
