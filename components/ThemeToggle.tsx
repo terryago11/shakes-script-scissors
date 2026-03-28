@@ -36,10 +36,21 @@ function MonitorIcon() {
   );
 }
 
+function QuillIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M12 2 C 10 2, 4 6, 2 12 L 4 10 C 5 7, 8 5, 12 2Z" fill="currentColor" opacity="0.8"/>
+      <path d="M2 12 L5 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="6" y1="10" x2="3" y2="13" stroke="currentColor" strokeWidth="1"/>
+    </svg>
+  );
+}
+
 const options = [
   { value: "light" as const, Icon: SunIcon, title: "Light mode" },
   { value: "dark" as const, Icon: MoonIcon, title: "Dark mode" },
   { value: "auto" as const, Icon: MonitorIcon, title: "Auto (system)" },
+  { value: "1602" as const, Icon: QuillIcon, title: "1602 (Renaissance)" },
 ] as const;
 
 export default function ThemeToggle() {

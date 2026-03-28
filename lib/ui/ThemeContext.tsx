@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from "react";
 
-type Theme = "light" | "dark" | "auto";
+export type Theme = "light" | "dark" | "auto" | "1602";
 
 interface ThemeContextValue {
   theme: Theme;
@@ -17,7 +17,7 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("auto");
+  const [theme, setThemeState] = useState<Theme>("auto");
   const [systemDark, setSystemDark] = useState(false);
 
   // Detect system preference on mount and listen for changes
@@ -31,6 +31,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => mq.removeEventListener("change", handleChange);
   }, []);
 
+  // Read persisted theme from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem("sss_theme") as Theme | null;
+    if (stored && ["light", "dark", "auto", "1602"].includes(stored)) {
+      setThemeState(stored);
+    }
+  }, []);
+
+  function setTheme(t: Theme) {
+    setThemeState(t);
+    localStorage.setItem("sss_theme", t);
+  }
+
   const isDark = theme === "dark" || (theme === "auto" && systemDark);
 
   // Apply/remove dark class on <html>
@@ -41,6 +54,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       document.documentElement.classList.remove("dark");
     }
   }, [isDark]);
+
+  // Apply/remove renaissance class on <html>
+  useEffect(() => {
+    if (theme === "1602") {
+      document.documentElement.classList.add("renaissance");
+    } else {
+      document.documentElement.classList.remove("renaissance");
+    }
+  }, [theme]);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, isDark }}>

@@ -128,7 +128,7 @@ All three modes are available in the script editor and in the exported HTML file
 | Rehearsal min block | 5 min | Minimum duration for a suggested rehearsal block |
 | Rehearsal max block | 60 min | Maximum duration for a suggested rehearsal block |
 | Min actor stage time | 10 min | Actors with less stage time are flagged with ⚠ in the Casting page |
-| Theme | Auto | Light / Dark / Auto (follows OS); toggle also available on the login page |
+| Theme | Auto | **Light** / **Dark** / **Auto** (follows OS) / **1602** (Renaissance printing-press); toggle (☼ ☽ □ ✒) also available on the login page and home page |
 
 ---
 
