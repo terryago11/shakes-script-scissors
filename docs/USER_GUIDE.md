@@ -312,7 +312,7 @@ Click the **⚙ gear** icon in the nav bar.
 | Project name | Optional display name for this production (e.g. "2026 Tour") |
 | Words per minute | Base rate for running-time calculations |
 | Quick-change threshold | Minimum costume-change time in minutes (default: 2.0) |
-| Theme | Light / Dark / Auto (follows OS preference) |
+| Theme | **Light** / **Dark** / **Auto** (follows OS) / **1602** — a Renaissance printing-press theme with parchment background and period typography; toggle also available on the home and login pages via the ☼ ☽ □ ✒ buttons |
 
 ---
 

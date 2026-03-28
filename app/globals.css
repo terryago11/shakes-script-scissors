@@ -12,3 +12,133 @@
     display: none !important;
   }
 }
+
+/* ─── 1602 Renaissance printing-press theme ─── */
+@custom-variant renaissance (&:where(.renaissance, .renaissance *));
+
+html.renaissance {
+  /* Parchment-ify the stone color scale */
+  --color-white: oklch(0.94 0.03 85);
+  --color-stone-50:  oklch(0.91 0.035 82);
+  --color-stone-100: oklch(0.87 0.04  80);
+  --color-stone-200: oklch(0.82 0.045 78);
+  --color-stone-300: oklch(0.74 0.05  75);
+  --color-stone-400: oklch(0.62 0.05  65);
+  --color-stone-500: oklch(0.48 0.055 55);
+  --color-stone-600: oklch(0.36 0.05  48);
+  --color-stone-700: oklch(0.26 0.04  42);
+  --color-stone-800: oklch(0.19 0.035 38);
+  --color-stone-900: oklch(0.13 0.03  35);
+  --color-stone-950: oklch(0.09 0.025 33);
+  /* Amber/red accent → rubric red */
+  --color-amber-100: oklch(0.88 0.06  40);
+  --color-amber-300: oklch(0.65 0.12  32);
+  --color-amber-400: oklch(0.55 0.14  28);
+  --color-amber-700: oklch(0.35 0.12  25);
+  --color-amber-900: oklch(0.22 0.09  22);
+}
+
+html.renaissance body {
+  font-family: "IM Fell English", Georgia, "Times New Roman", serif;
+  background:
+    repeating-linear-gradient(
+      88deg, transparent 0, transparent 6px,
+      rgba(90,60,20,0.03) 6px, rgba(90,60,20,0.03) 7px
+    ),
+    repeating-linear-gradient(
+      2deg, transparent 0, transparent 12px,
+      rgba(90,60,20,0.025) 12px, rgba(90,60,20,0.025) 13px
+    ),
+    linear-gradient(160deg, #f5e8c4 0%, #ede0b0 40%, #f0e4be 70%, #ead8a8 100%);
+  color: #1a0800;
+  line-height: 1.7;
+  text-rendering: optimizeLegibility;
+}
+
+/* Square everything — no rounded corners (clunky printing press!) */
+html.renaissance * {
+  border-radius: 0 !important;
+}
+
+/* Woodcut-style border colour override */
+html.renaissance [class*="border"] {
+  border-color: #6b3f1e !important;
+}
+
+/* Buttons: woodcut block look */
+html.renaissance button {
+  font-family: "IM Fell English SC", Georgia, serif;
+  letter-spacing: 0.04em;
+}
+
+/* Act/scene/character headings: small caps + spaced */
+html.renaissance h1,
+html.renaissance h2,
+html.renaissance h3,
+html.renaissance h4,
+html.renaissance h5 {
+  font-family: "IM Fell English SC", Georgia, serif;
+  font-variant: small-caps;
+  letter-spacing: 0.08em;
+}
+
+/* Nav bar: a broadsheet masthead */
+html.renaissance nav {
+  font-family: "UnifrakturMaguntia", Georgia, serif;
+  letter-spacing: 0.05em;
+  border-bottom: 3px double #6b3f1e !important;
+}
+
+/* Decorative double-rule dividers */
+html.renaissance hr,
+html.renaissance .border-t,
+html.renaissance .divide-y > * + * {
+  border-top: 2px double #6b3f1e !important;
+}
+
+/* Modals: manuscript page feel */
+html.renaissance [role="dialog"],
+html.renaissance .fixed.inset-0 > div {
+  border: 3px double #6b3f1e;
+}
+
+/* Strikethrough cuts: sepia brown instead of red */
+html.renaissance .line-through {
+  color: #7a3010 !important;
+  text-decoration-color: #7a3010 !important;
+}
+
+/* Scrollbar */
+html.renaissance ::-webkit-scrollbar { width: 10px; }
+html.renaissance ::-webkit-scrollbar-track { background: #ead8a8; }
+html.renaissance ::-webkit-scrollbar-thumb {
+  background: #6b3f1e;
+  border: 1px solid #ead8a8;
+}
+
+/* Input fields: vellum parchment */
+html.renaissance input,
+html.renaissance select,
+html.renaissance textarea {
+  font-family: "IM Fell English", Georgia, serif;
+  border: 2px solid #6b3f1e !important;
+}
+
+/* Text justification: period column setting */
+html.renaissance p,
+html.renaissance .text-sm {
+  text-align: justify;
+}
+
+/* Italics used heavily in period printing */
+html.renaissance em {
+  font-style: italic;
+  color: #5c2010;
+}
+
+/* Ornamental section separators */
+html.renaissance .border-t::before {
+  content: "❧ ";
+  color: #8b1a1a;
+  font-size: 0.85em;
+}
