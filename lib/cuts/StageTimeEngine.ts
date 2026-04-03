@@ -66,25 +66,41 @@ export function getOnStageAtUnit(
 }
 
 /**
- * Returns characters who speak in kept speeches after sceneUnits[targetIndex],
- * stopping at (but not including) the next entrance SD.
- * Used to suggest who should be listed on an entrance SD that may have missing characters.
+ * Returns characters expected to enter at sceneUnits[targetIndex] (an entrance SD):
+ * chars who appear in exit SDs later in the scene but have no prior entrance SD before targetIndex.
+ * Purely entrance/exit SD tracking — does not look at speakers.
  */
-export function getSpeakersAfterUnit(
+export function getExpectedEntrantsAtUnit(
   sceneUnits: ScriptUnit[],
   targetIndex: number,
-  cutMap: Record<string, "cut" | "kept">
+  edits?: Record<string, string[]>
 ): Set<string> {
-  const speakers = new Set<string>();
-  for (let i = targetIndex + 1; i < sceneUnits.length; i++) {
+  // Collect chars who entered before targetIndex
+  const alreadyEntered = new Set<string>();
+  for (let i = 0; i < targetIndex; i++) {
     const unit = sceneUnits[i];
-    if (unit.type === "stage" && unit.stageType === "entrance") break;
-    if (unit.type === "speech" && cutMap[unit.id] !== "cut") {
-      if (unit.characterId) speakers.add(unit.characterId);
-      if (unit.characterIds) unit.characterIds.forEach((id) => speakers.add(id));
+    if (unit.type === "stage" && unit.stageType === "entrance") {
+      for (const charId of getEffectiveCharacters(unit, edits)) {
+        alreadyEntered.add(charId);
+      }
     }
   }
-  return speakers;
+  // Collect chars who exit after targetIndex
+  const exitLater = new Set<string>();
+  for (let i = targetIndex + 1; i < sceneUnits.length; i++) {
+    const unit = sceneUnits[i];
+    if (unit.type === "stage" && unit.stageType === "exit") {
+      for (const charId of getEffectiveCharacters(unit, edits)) {
+        exitLater.add(charId);
+      }
+    }
+  }
+  // Suggest chars who exit later but haven't entered yet
+  const suggestions = new Set<string>();
+  for (const charId of exitLater) {
+    if (!alreadyEntered.has(charId)) suggestions.add(charId);
+  }
+  return suggestions;
 }
 
 function ensureChar(byChar: Record<string, CharacterStageTime>, charId: string): CharacterStageTime {
@@ -228,6 +244,20 @@ export function computeStageTime(
         if (speechDuration && speechDuration > 0) {
           totalMinutes += speechDuration;
           originalTotalMinutes += speechDuration;
+        }
+
+        // Per-line song durations (set via lineSongOverrides + stageDurations in dashboard).
+        // Adds to total/scene running time only (same policy as speech-level song durations).
+        if (cut.lineSongOverrides || cut.stageDurations) {
+          for (const line of unit.lines) {
+            const effectiveIsSong = cut.lineSongOverrides?.[line.id] ?? line.isSong ?? false;
+            if (!effectiveIsSong) continue;
+            const lineDuration = cut.stageDurations?.[line.id];
+            if (lineDuration && lineDuration > 0) {
+              totalMinutes += lineDuration;
+              originalTotalMinutes += lineDuration;
+            }
+          }
         }
       }
     }

@@ -110,4 +110,9 @@ export interface Cut {
    * A missing key means use the TEI value; an explicit false overrides a TEI true.
    */
   sdFlagOverrides?: Record<string, { isSong?: boolean; isDance?: boolean }>;
+  /**
+   * Per-line song overrides: lineId → true (mark as sung) | false (un-mark a TEI sung line).
+   * Absent key = use the TEI parser's isSong value.
+   */
+  lineSongOverrides?: Record<string, boolean>;
 }

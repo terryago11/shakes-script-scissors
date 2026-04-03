@@ -69,7 +69,8 @@ type ProjectAction =
   | { type: "SET_PART_INDENT_OVERRIDE"; lineId: string; value: boolean | null }
   | { type: "INSERT_SD"; sd: InsertedSD }
   | { type: "REMOVE_INSERTED_SD"; insertedSdId: string }
-  | { type: "SET_SD_FLAGS"; sdId: string; isSong?: boolean; isDance?: boolean };
+  | { type: "SET_SD_FLAGS"; sdId: string; isSong?: boolean; isDance?: boolean }
+  | { type: "TOGGLE_LINE_SONG"; lineId: string; currentValue: boolean };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
   if (!state.project && action.type !== "LOAD" && action.type !== "REPLACE_PROJECT") {
@@ -243,6 +244,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         sdFlagOverrides: source?.sdFlagOverrides
           ? Object.fromEntries(Object.entries(source.sdFlagOverrides).map(([k, v]) => [k, { ...v }]))
           : undefined,
+        lineSongOverrides: source?.lineSongOverrides ? { ...source.lineSongOverrides } : undefined,
       };
       const newProject = {
         ...p,
@@ -609,6 +611,23 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         return {
           ...c,
           sdFlagOverrides: Object.keys(overrides).length > 0 ? overrides : undefined,
+        };
+      });
+    }
+
+    case "TOGGLE_LINE_SONG": {
+      return withUndo(state, (c) => {
+        const overrides = { ...(c.lineSongOverrides ?? {}) };
+        if (action.currentValue) {
+          // Currently song: toggle off — if TEI default is true, set false; if TEI default is false (was manually set), delete key
+          overrides[action.lineId] = false;
+        } else {
+          // Currently not song: toggle on
+          overrides[action.lineId] = true;
+        }
+        return {
+          ...c,
+          lineSongOverrides: Object.keys(overrides).length > 0 ? overrides : undefined,
         };
       });
     }

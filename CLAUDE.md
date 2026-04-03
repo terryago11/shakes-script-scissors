@@ -53,7 +53,8 @@ Both updates should be done together whenever play texts are refreshed.
 | Path | Purpose |
 |------|---------|
 | `lib/folger/FolgerClient.ts` | Fetches TEI XML from DraCor; `PLAYS` array maps `id` → `slug` |
-| `lib/folger/TeiParser.ts` | Parses TEI XML into `Play` domain objects; sets `stageType` + `isSong` on SDs; extracts `castList` names verbatim from TEI (handles both `<role><name>` and bare `<role>` formats); stores raw `<speaker>` text as `Speech.speakerTag` |
+| `lib/folger/TeiParser.ts` | Parses TEI XML into `Play` domain objects; sets `stageType` + `isSong` on SDs; extracts `castList` names verbatim from TEI (handles both `<role><name>` and bare `<role>` formats); stores raw `<speaker>` text as `Speech.speakerTag`; `extractAllTextSkippingStages` skips inline `<stage>` children for spoken text extraction; `Line.stageNote` captures inline delivery directions from `<stage>` inside `<l>` or `<p>/<lb>` prose |
+| `lib/cuts/PropsEngine.ts` | Scans `StageDirection.text` for prop keywords; returns `PropMention[]` used by the Integrity tab Props section |
 | `lib/folger/PlayCache.ts` | LRU in-memory cache for parsed plays (server-side) |
 | `lib/cuts/CutEngine.ts` | Pure fn: `(Play, Cut, assignments, actors)` → `LineCounts` + filtered units |
 | `lib/cuts/StageTimeEngine.ts` | Computes per-character on-stage time from entrance/exit SDs; returns cut vs original minutes |
@@ -74,7 +75,7 @@ Both updates should be done together whenever play texts are refreshed.
 - `Scene`: `id`, `number`, `title`, `units[]`, `sceneType?` (`"chorus"|"epilogue"|"prologue"` — undefined means a regular scene)
 - `Speech`: `characterId` (e.g. `#Hamlet_Ham`), `characterName`, `speakerTag` (raw `<speaker>` tag text verbatim, e.g. `"GHOST OF HAMLET'S FATHER"`), `deliveryNote?` (pre-speech delivery qualifier, e.g. `"[within]"`, shown inline after the character name), `lines[]`, `lineCount`
 - `StageDirection`: `id`, `text`, `characters[]`, `stageType?` (`"entrance"|"exit"|"business"|"delivery"` — `"dumbshow"` in TEI is normalised to `"business"` with `isDance: true`), `isSong?`, `isDance?`
-- `Line`: `id`, `ftln` (Folger through-line number), `text`, `isSong?`, `poemIndent?` (B-rhyme in a poem stanza → indented), `partIndent?` (part="F"/part="I"+prev — shared verse fragment → proportionally indented), `partIndentChars?` (char count of preceding parts, drives indent width)
+- `Line`: `id`, `ftln` (Folger through-line number), `text`, `isSong?`, `poemIndent?` (B-rhyme in a poem stanza → indented), `partIndent?` (part="F"/part="I"+prev — shared verse fragment → proportionally indented), `partIndentChars?` (char count of preceding parts, drives indent width), `stageNote?` (inline `<stage type="delivery">` text preceding the spoken content on that line, e.g. `"To Helen."` in AWW 1.1.80; rendered as italic muted `[text]` before the line; not part of editable spoken text)
 
 ### `Project` (stored as JSON in localStorage)
 - `name?: string` — optional display name (e.g. "2026 Production"); distinct from `playTitle`
@@ -89,6 +90,8 @@ Both updates should be done together whenever play texts are refreshed.
   - `characterLinks?: Array<[charIdA, charIdB]>` — director-specified pairs that must share the same actor; IDs stored in sorted order for stable equality checks; fed into Suggest as `sameActorPairs` overrides, which take precedence over quick-change forbidden pairs; per-cut, cloned when duplicating a cut
   - `stageDurations?: Record<stageId | speechId, number>` — director-specified extra minutes for song/dance SDs or speeches; added to total and scene running times but not attributed to individual characters
   - `pauses?: Record<"after:{sceneId}", { name: string; minutes: number }>` — named intermissions inserted between scenes; duration adds to total running time
+  - `insertedSDs?: Record<insertedSDId, InsertedSD>` — director-created song/dance SDs inserted after any speech or inserted SD; each has `text`, `characters[]`, `isSong?`, `isDance?`, `afterUnitId`; rendered with green left border
+  - `sdFlagOverrides?: Record<sdId, { isSong?: boolean; isDance?: boolean }>` — per-SD song/dance flag overrides; toggles TEI `isSong`/`isDance` per production needs
 - `actors[]`: name + color hex
 - `assignments[]`: `characterId` → `actorId` (double-casting: one actor → many characters)
 - `settings?: { wordsPerMinute: number; quickChangeThresholdMinutes?: number }` — used for stage time and quick-change calculations
@@ -101,7 +104,7 @@ The DraCor TEI format uses:
 - `<p xml:id="p-N"><lb xml:id="ftln-N"/>text</p>` for prose (multiple `<lb>` per `<p>` = multiple lines)
 - `<lg xml:id="stz-N">` for stanzas/songs (contains `<l>` children)
 - `<l part="I|F" prev="#ftln-N">` — shared verse lines split across speakers; `part="I"` (no prev) starts the chain, `part="I"+prev` marks middle fragments, `part="F"` closes it; `partIndentChars` stores the cumulative preceding-text length for proportional indentation
-- `<stage>` elements inside `<sp>`: pre-first-line stages (e.g. `<stage type="location">, within</stage>`) become `Speech.deliveryNote`; stages that appear between lines split the speech into multiple `Speech` + `StageDirection` units
+- `<stage>` elements inside `<sp>`: pre-first-line stages (e.g. `<stage type="location">, within</stage>`) become `Speech.deliveryNote`; stages that appear between lines split the speech into multiple `Speech` + `StageDirection` units; `<stage>` elements **inside** `<l>` verse or `<p>/<lb>` prose (e.g. `<stage type="delivery">To Helen.</stage>`) become `Line.stageNote` — extracted separately via `extractAllTextSkippingStages` so the stage text does not appear in `line.text`
 - Top-level body divs: `act`, `prologue`, `epilogue`, `induction` — all collected in document order; `divType` on `Act` distinguishes non-act structural divs
 - Scene-level div types: `scene`, `chorus`, `epilogue`, `prologue` — `sceneType` on `Scene` distinguishes non-scene units
 - `<div type="act" n="1">` and `<div type="scene" n="1">`
@@ -373,25 +376,17 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
 
 - **Group 18c — Casting improvements**: Six UX improvements to the Casting and Rehearsal pages. **#16 Suggest Replace/Extend** — when actors already exist, Suggest now shows a choice modal: _Replace_ clears the cast and suggests from scratch (dispatches `BULK_SET_CAST`); _Extend_ suggests only unassigned characters and appends them starting from the next actor number (new `EXTEND_CAST` store action). **#17 Actor stats + min stage time** — each actor chip shows `N lines · M words · X min` below the character names; chips with stage time below the configurable threshold (`minActorStageTimeMinutes`, default 10, new in `ProjectSettings`) get an amber border + ⚠ badge; the threshold is set in a new Settings field. **#18 Sort actors** — Sort dropdown (A–Z / Lines / Words / Stage Time / First Appearance) appears in the Actors section header when 2+ actors exist; First Appearance walks play units to find each actor's earliest speech position. **#20 Script nav dropdown everywhere** — `NavScriptMenu` now renders for the Script link on all pages (not just the script page); clicking a mode option calls `router.push()` to navigate to the script page AND sets the view mode in one click. **#21 Full-cast banner** — dismissible green banner above the Characters grid once every active speaking character is assigned, linking to the Rehearsal tab. **#30 Collapsible actors + search in Rehearsal** — "By Actor" section now has a search input (filters by actor name or any assigned character name) and a ▾/▸ collapse toggle per actor row.
 
-### Phase 5
-
-#### Group 19 — Song/dance tool, sync entrances, props
-
-**#4 Full song/dance editing tool**
-New "Song/Dance" tool in edit toolbar. Capabilities: insert a new song/dance SD (modal: type, text, characters); toggle song/dance flag on existing SDs; duration `+ time` editor unchanged. New Cut fields: `insertedSDs?: Record<id, InsertedSD>` and `sdFlagOverrides?: Record<sdId, { isSong?: boolean; isDance?: boolean }>`.
-`components/ScriptEditor/StageDirectionBlock.tsx`, `lib/project/ProjectStore.tsx`, new `InsertedSDBlock.tsx`, types
-
-**#6 Sync entrances**
-"⟳ sync entrances" button on entrance SDs, mirroring "⟳ sync exits". Pre-fills character list from on-stage tracking at that point.
-`components/ScriptEditor/StageDirectionBlock.tsx`, `lib/cuts/StageTimeEngine.ts`
-
-**#2 Named props list**
-Scan `StageDirection.text` for prop keywords in a curated list. New "Props" section in Integrity tab. Returns `{ prop, sdId, sceneId, actNum, sceneNum }[]`. No TEI changes needed.
-`components/Dashboard/IntegrityChecks.tsx`, new `lib/cuts/PropsEngine.ts`
+- **Group 19 — Song/dance tool, sync entrances, props, polish**
+  - **#4 Edit SDs tool** (renamed from "SD Chars"): hover strip between units opens `InsertedSDModal` to insert a new song/dance SD; inserted SDs stored in `Cut.insertedSDs`, rendered by `InsertedSDBlock.tsx` with green left border; song/dance flag toggle on existing SDs via `Cut.sdFlagOverrides`; insert zones interleaved before and after each inserted SD so you can insert between two inserted SDs; edit/remove buttons on `InsertedSDBlock` appear only in Edit SDs mode
+  - **#6 Sync entrances**: ⟳ sync entrances button on entrance SDs; pre-fills character list from `getExpectedEntrantsAtUnit` (walks forward for later exits, backward for prior entrances — mirrors sync exits logic); `lib/cuts/StageTimeEngine.ts`
+  - **#2 Props list**: `lib/cuts/PropsEngine.ts` scans `StageDirection.text` for a curated prop keyword list; new "Props" collapsible section in the Integrity tab (`IntegrityChecks.tsx`); returns `{ prop, sdId, sceneId, actNum, sceneNum }[]`
+  - **Inline delivery stage notes**: `Line.stageNote` — `<stage>` elements inside `<l>` or `<p>/<lb>` prose (e.g. `<stage type="delivery">To Helen.</stage>` in AWW 1.1.80) are extracted into `stageNote` and not included in `line.text`; `extractAllTextSkippingStages` added to `TeiParser.ts`; rendered as italic muted `[text]` before the line in `SpeechBlock.tsx`
+  - **Mobile hamburger**: clicking Edit in the hamburger dropdown closes the menu (`onActivated` callback in `NavEditModeButton`)
+  - **Info pill**: `≡ Info` pill moved to `bottom-16 left-4` (was `bottom-4 right-4`) to avoid overlap with Next.js dev tools badge
 
 ---
 
-#### Group 20+ — Complex / deferred features
+### Group 20+ — Complex / deferred features
 
 - **#7 SD rewrite** — two-layer model (cosmetic text + character list); new `sdTextEdits?: Record<sdId, string>` in Cut
 - **#15 Compare two cuts** — Diff view dropdown to pick "original" side (any cut version, not just uncut TEI)

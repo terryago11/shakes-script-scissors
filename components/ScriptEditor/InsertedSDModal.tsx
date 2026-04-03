@@ -25,8 +25,6 @@ export default function InsertedSDModal({ afterUnitId, castList, existing, onCon
   const [text, setText] = useState(existing?.text ?? "");
   const [stageType, setStageType] = useState<InsertedSD["stageType"]>(existing?.stageType ?? "business");
   const [selectedChars, setSelectedChars] = useState<string[]>(existing?.characters ?? []);
-  const [isSong, setIsSong] = useState(existing?.isSong ?? false);
-  const [isDance, setIsDance] = useState(existing?.isDance ?? false);
 
   const showChars = stageType === "entrance" || stageType === "exit";
 
@@ -45,8 +43,6 @@ export default function InsertedSDModal({ afterUnitId, castList, existing, onCon
       text: text.trim(),
       characters: showChars ? selectedChars : [],
       stageType,
-      isSong: isSong || undefined,
-      isDance: isDance || undefined,
     };
     onConfirm(sd);
     onClose();
@@ -135,28 +131,6 @@ export default function InsertedSDModal({ afterUnitId, castList, existing, onCon
               </div>
             </div>
           )}
-
-          {/* Song / Dance flags */}
-          <div className="flex gap-3">
-            <label className="flex items-center gap-1.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={isSong}
-                onChange={(e) => setIsSong(e.target.checked)}
-                className="rounded border-stone-300 dark:border-stone-600 text-violet-500 focus:ring-violet-400"
-              />
-              <span className="text-sm text-violet-600 dark:text-violet-400">♪ Song</span>
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={isDance}
-                onChange={(e) => setIsDance(e.target.checked)}
-                className="rounded border-stone-300 dark:border-stone-600 text-cyan-500 focus:ring-cyan-400"
-              />
-              <span className="text-sm text-cyan-600 dark:text-cyan-400">⊛ Dance</span>
-            </label>
-          </div>
 
           <div className="flex items-center justify-end gap-2 pt-1">
             <button

@@ -374,7 +374,7 @@ function ProjectNav({
             {hamburgerOpen && (
               <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg shadow-lg p-3 z-50 flex flex-col gap-3">
                 <div className="text-xs text-stone-400 dark:text-stone-500 uppercase tracking-wider font-semibold">Script controls</div>
-                <NavEditModeButton />
+                <NavEditModeButton onActivated={() => setHamburgerOpen(false)} />
                 <NavJumpSelect />
               </div>
             )}
@@ -484,7 +484,7 @@ function NavScriptMenu({ projectId, isActive, Icon }: { projectId: string; isAct
   );
 }
 
-function NavEditModeButton() {
+function NavEditModeButton({ onActivated }: { onActivated?: () => void }) {
   const { activeTool, setActiveTool } = useEditMode();
   const { viewMode, setViewMode } = useViewMode();
   if (activeTool !== "none") return null;
@@ -494,6 +494,7 @@ function NavEditModeButton() {
         // Clean view is read-only; switch to standard before entering edit mode
         if (viewMode === "clean") setViewMode("standard");
         setActiveTool("cut");
+        onActivated?.();
       }}
       className="text-xs px-3 py-1.5 rounded border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-500 dark:text-stone-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:border-amber-300 dark:hover:border-amber-800 hover:text-amber-700 dark:hover:text-amber-400 transition-colors shrink-0"
       title={viewMode === "clean" ? "Enter edit mode (will switch to Standard view)" : "Enter edit mode"}
@@ -520,10 +521,10 @@ const TOOL_CONFIG: Record<Exclude<EditTool, "none">, { icon: string; label: stri
   cut:      { icon: "✂\uFE0E",  label: "Cut",          desc: "Drag to select text — release to cut. Spans speeches freely.", guide: CUT_GUIDE },
   insert:   { icon: "+",        label: "Insert",        desc: "Click between units to insert custom text, or click anywhere within a line to insert a word." },
   restore:  { icon: "↺",        label: "Restore",       desc: "Click ↩ on any speech to restore it. Use ↩ restore all on any scene header to restore every cut in that scene at once." },
-  "sd-chars": { icon: "⊕",     label: "SD Chars",      desc: "Edit character lists on entrance and exit stage directions." },
+  "edit-sds": { icon: "⊕",     label: "Edit SDs",      desc: "Edit character lists on entrance/exit SDs, sync exits/entrances, and insert new stage directions between units." },
   reassign: { icon: "⇄",        label: "Reassign",      desc: "Click a character name to reassign that speech to another character." },
   split:    { icon: "⌥",        label: "Split/Indent",  desc: "Click anywhere within a line to split at a word, or click ✂ between lines for a clean split. Use ⇤/⊕ buttons on first/last lines of a speech to toggle shared-verse indentation." },
-  "song-dance": { icon: "♪⊛",  label: "Song/Dance",    desc: "Toggle ♪ song / ⊛ dance flags on existing stage directions, or click + Insert SD to add a new song/dance stage direction." },
+  "song-dance": { icon: "♪⊛",  label: "Song/Dance",    desc: "Toggle ♪ song / ⊛ dance flags on existing stage directions. Click any line to toggle it as a sung line." },
 };
 
 function EditToolbar({ activeTool, setActiveTool }: { activeTool: EditTool; setActiveTool: (t: EditTool) => void }) {

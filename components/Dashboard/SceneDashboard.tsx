@@ -181,7 +181,19 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
     })
   );
 
-  // Build a map of sceneId → song/dance items (speeches with <lg> stanzas + song/dance SDs)
+  // Build a map of sceneId → song/dance items (speeches with <lg> stanzas + song/dance SDs + line overrides)
+  // Also build lineId → { sceneId, charName, text } for line song overrides lookup
+  const lineSceneMap = new Map<string, { sceneId: string; charName: string; text: string }>();
+  for (const [sceneId, scene] of sceneById) {
+    for (const unit of scene.units) {
+      if (unit.type === "speech") {
+        for (const line of unit.lines) {
+          lineSceneMap.set(line.id, { sceneId, charName: unit.characterName, text: line.text });
+        }
+      }
+    }
+  }
+
   const sceneSongDanceItems = new Map<string, SongDanceItem[]>();
   for (const [sceneId, scene] of sceneById) {
     const items: SongDanceItem[] = [];
@@ -192,11 +204,29 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
         const firstLine = firstSungLine?.text ?? "";
         const preview = firstLine.length > 35 ? firstLine.slice(0, 33) + "…" : firstLine;
         items.push({ id: unit.id, label: `${unit.characterName}: "${preview}"`, isSong: true, isDance: false });
-      } else if (unit.type === "stage" && (unit.isSong || unit.isDance)) {
-        items.push({ id: unit.id, label: unit.text, isSong: !!unit.isSong, isDance: !!unit.isDance });
+      } else if (unit.type === "stage") {
+        // Apply sdFlagOverrides on top of TEI values
+        const flagOverride = activeCut.sdFlagOverrides?.[unit.id];
+        const isSong = flagOverride?.isSong ?? unit.isSong ?? false;
+        const isDance = flagOverride?.isDance ?? unit.isDance ?? false;
+        if (isSong || isDance) {
+          items.push({ id: unit.id, label: unit.text, isSong, isDance });
+        }
       }
     }
     if (items.length > 0) sceneSongDanceItems.set(sceneId, items);
+  }
+
+  // Add director-marked song lines (lineSongOverrides = true) to sceneSongDanceItems
+  const lineSongOverrides = activeCut.lineSongOverrides ?? {};
+  for (const [lineId, isSong] of Object.entries(lineSongOverrides)) {
+    if (!isSong) continue;
+    const info = lineSceneMap.get(lineId);
+    if (!info) continue;
+    const existing = sceneSongDanceItems.get(info.sceneId) ?? [];
+    const preview = info.text.length > 35 ? info.text.slice(0, 33) + "…" : info.text;
+    existing.push({ id: lineId, label: `${info.charName}: "${preview}"`, isSong: true, isDance: false });
+    sceneSongDanceItems.set(info.sceneId, existing);
   }
 
   function handleSetPause(afterSceneId: string, name: string, minutes: number) {

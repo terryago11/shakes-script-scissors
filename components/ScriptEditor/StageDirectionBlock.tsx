@@ -1,12 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import type { Character, StageDirection } from "@/types/play";
-import type { InsertedSD } from "@/types/insertedsd";
 import { useProject } from "@/lib/project/ProjectStore";
 import { useEditMode } from "@/lib/ui/EditModeContext";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
-import InsertedSDModal from "./InsertedSDModal";
 
 interface Props {
   stage: StageDirection;
@@ -22,7 +19,6 @@ interface Props {
 export default function StageDirectionBlock({ stage, status, onToggle, castList, onStageAtSd, entranceSuggestionsAtSd }: Props) {
   const { activeCut, dispatch } = useProject();
   const { activeTool } = useEditMode();
-  const [insertSDOpen, setInsertSDOpen] = useState(false);
 
   const isCut = status === "cut";
   const readonly = onToggle === null;
@@ -33,7 +29,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
     (stage.stageType === "entrance" || stage.stageType === "exit");
 
   // Interactive chip controls (×, +add, ⟳ sync) — only when SD Chars tool is active
-  const showInteractiveChips = !readonly && showChips && activeTool === "sd-chars";
+  const showInteractiveChips = !readonly && showChips && activeTool === "edit-sds";
 
   const effectiveChars: string[] = (showChips || showInteractiveChips)
     ? (activeCut?.stageDirectionEdits?.[stage.id] ?? stage.characters)
@@ -132,10 +128,6 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
     dispatch({ type: "SET_SD_FLAGS", sdId: stage.id, isSong, isDance: !isDance });
   }
 
-  function handleInsertSD(sd: InsertedSD) {
-    dispatch({ type: "INSERT_SD", sd });
-  }
-
   // Derive text color for the SD based on type
   // Song+dance together → violet for prose text (gradient only on the symbols)
   const sdTextColor = isSong
@@ -223,7 +215,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
                     ⟳ sync entrances
                   </button>
                   <span className="absolute bottom-full left-0 mb-1 hidden group-hover/sync-ent:block bg-stone-800 text-white text-[10px] leading-snug rounded px-2 py-1.5 whitespace-nowrap z-50 shadow-lg pointer-events-none">
-                    Adds characters who speak next in the scene but are not yet listed as entering
+                    Adds characters who exit later in the scene but have no prior entrance SD
                   </span>
                 </span>
               )}
@@ -269,13 +261,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
               >
                 ⊛ dance
               </button>
-              <button
-                onClick={() => setInsertSDOpen(true)}
-                className="text-xs px-2 py-0.5 rounded border bg-stone-50 text-stone-400 border-stone-200 hover:text-green-600 hover:border-green-300 dark:bg-stone-900 dark:text-stone-500 dark:border-stone-700 dark:hover:text-green-400 dark:hover:border-green-700 transition-colors"
-                title="Insert a new stage direction after this one"
-              >
-                + Insert SD
-              </button>
+
             </div>
           )}
         </div>
@@ -290,14 +276,6 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
         )}
       </div>
 
-      {insertSDOpen && (
-        <InsertedSDModal
-          afterUnitId={stage.id}
-          castList={castList}
-          onConfirm={handleInsertSD}
-          onClose={() => setInsertSDOpen(false)}
-        />
-      )}
     </>
   );
 }

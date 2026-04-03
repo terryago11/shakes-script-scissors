@@ -78,7 +78,7 @@ export default function InsertedSDBlock({
             <span className="text-[10px] text-green-600 dark:text-green-500 italic font-normal bg-green-100 dark:bg-green-900/50 px-1 rounded shrink-0">
               inserted
             </span>
-            {activeTool === "song-dance" && !isCut && (
+            {activeTool === "edit-sds" && !isCut && (
               <div className="ml-auto flex items-center gap-1 shrink-0">
                 <button
                   onClick={(e) => { e.stopPropagation(); setEditOpen(true); }}

@@ -11,12 +11,13 @@ import { useMetric } from "@/lib/ui/MetricContext";
 import { useViewMode } from "@/lib/ui/ViewModeContext";
 import { useEditMode } from "@/lib/ui/EditModeContext";
 import { useProject } from "@/lib/project/ProjectStore";
-import { getOnStageAtUnit, getSpeakersAfterUnit } from "@/lib/cuts/StageTimeEngine";
+import { getOnStageAtUnit, getExpectedEntrantsAtUnit } from "@/lib/cuts/StageTimeEngine";
 import SpeechBlock from "./SpeechBlock";
 import StageDirectionBlock from "./StageDirectionBlock";
 import InsertionBlock from "./InsertionBlock";
 import InsertionModal from "./InsertionModal";
 import InsertedSDBlock from "./InsertedSDBlock";
+import InsertedSDModal from "./InsertedSDModal";
 
 interface Props {
   scene: Scene;
@@ -75,9 +76,15 @@ export default function SceneBlock({
     | { mode: "create"; afterUnitId: string }
     | { mode: "edit"; insertion: Insertion };
 
+  type InsertSDModalState =
+    | null
+    | { mode: "create"; afterUnitId: string }
+    | { mode: "edit"; sd: InsertedSD };
+
   // Default to collapsed so after act re-expand, scenes are collapsed and user can pick
   const [collapsed, setCollapsed] = useState(false);
   const [insertionModalState, setInsertionModalState] = useState<InsertionModalState>(null);
+  const [insertSDModalState, setInsertSDModalState] = useState<InsertSDModalState>(null);
   const { metric, wpm } = useMetric();
   const { activeTool } = useEditMode();
   const { dispatch: projectDispatch, activeCut } = useProject();
@@ -243,6 +250,8 @@ export default function SceneBlock({
 
   // Insert zones are available when the Insert tool is active
   const canInsert = !showOriginal && activeTool === "insert" && viewMode !== "diff" && !!onAddInsertion;
+  // Insert SD zones are available when the Edit SDs tool is active
+  const canInsertSD = !showOriginal && activeTool === "edit-sds" && viewMode !== "diff";
 
   // Pre-compute on-stage character set for each exit SD (enables Auto-fill button)
   // Uses raw scene.units (cut-independent) so the on-stage set reflects actual entrances/exits.
@@ -258,16 +267,13 @@ export default function SceneBlock({
   })();
 
   // Pre-compute entrance suggestions for each entrance SD (enables ⟳ sync entrances button)
-  // Looks forward to find speakers who aren't yet on stage at that point.
+  // Looks at exit SDs later in the scene to find chars who exit but have no prior entrance SD.
   const entranceSuggestionsAtSd: Map<string, Set<string>> = (() => {
     if (showOriginal) return new Map();
-    const cutMap = activeCut?.cutMap ?? {};
     const map = new Map<string, Set<string>>();
     scene.units.forEach((unit, idx) => {
       if (unit.type === "stage" && unit.stageType === "entrance") {
-        const onStage = getOnStageAtUnit(scene.units, idx, stageDirectionEdits);
-        const speakers = getSpeakersAfterUnit(scene.units, idx, cutMap);
-        const suggestions = new Set([...speakers].filter((c) => !onStage.has(c)));
+        const suggestions = getExpectedEntrantsAtUnit(scene.units, idx, stageDirectionEdits);
         if (suggestions.size > 0) map.set(unit.id, suggestions);
       }
     });
@@ -438,43 +444,75 @@ export default function SceneBlock({
               );
             }
 
-            // Inserted SDs that follow this unit
-            if (!showOriginal && insertedSDs) {
-              for (const isd of Object.values(insertedSDs)) {
-                if (isd.afterUnitId !== unit.id) continue;
-                const isdStatus = activeCut?.cutMap[isd.id] === "cut" ? "cut" : "kept";
-                // In clean view, InsertedSDBlock handles its own hiding when cut
-                elements.push(
-                  <InsertedSDBlock
-                    key={isd.id}
-                    sd={isd}
-                    status={isdStatus}
-                    castList={castList}
-                    characterAliases={characterAliases}
-                    onToggle={onToggle ? () => onToggle(isd.id) : null}
-                    onRemove={(id) => projectDispatch({ type: "REMOVE_INSERTED_SD", insertedSdId: id })}
-                    onEdit={(updated) => projectDispatch({ type: "INSERT_SD", sd: updated })}
-                  />
-                );
-              }
-            }
+            // Collect inserted SDs that follow this unit (stable order — IDs generated sequentially)
+            const unitInsertedSDs = !showOriginal && insertedSDs
+              ? Object.values(insertedSDs).filter((isd) => isd.afterUnitId === unit.id)
+              : [];
 
-            // Insert zone — thin hover-reveal strip after each unit
-            if (canInsert) {
-              elements.push(
+            // Helper renderers for insert zones
+            function renderInsertZone(afterId: string) {
+              if (!canInsert) return null;
+              return (
                 <div
-                  key={`insert-zone-${unit.id}`}
+                  key={`insert-zone-${afterId}`}
                   className="group/insert h-2 hover:h-7 transition-[height] flex items-center overflow-hidden"
                 >
                   <button
                     className="opacity-0 group-hover/insert:opacity-100 transition-opacity text-xs px-2 py-0.5 rounded border border-green-300 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-700 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 w-full text-left"
-                    onClick={(e) => { e.stopPropagation(); setInsertionModalState({ mode: "create", afterUnitId: unit.id }); }}
+                    onClick={(e) => { e.stopPropagation(); setInsertionModalState({ mode: "create", afterUnitId: afterId }); }}
                   >
                     + Insert here
                   </button>
                 </div>
               );
             }
+            function renderInsertSDZone(afterId: string) {
+              if (!canInsertSD) return null;
+              return (
+                <div
+                  key={`insert-sd-zone-${afterId}`}
+                  className="group/insert-sd h-2 hover:h-7 transition-[height] flex items-center overflow-hidden"
+                >
+                  <button
+                    className="opacity-0 group-hover/insert-sd:opacity-100 transition-opacity text-xs px-2 py-0.5 rounded border border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/50 dark:text-sky-400 dark:hover:bg-sky-900/50 w-full text-left"
+                    onClick={(e) => { e.stopPropagation(); setInsertSDModalState({ mode: "create", afterUnitId: afterId }); }}
+                  >
+                    + Insert SD
+                  </button>
+                </div>
+              );
+            }
+
+            // Interleave: zone → [SD → zone]* → SD zone
+            // First zone anchors to the unit itself; subsequent zones anchor to the preceding inserted SD.
+            const insertZone0 = renderInsertZone(unit.id);
+            if (insertZone0) elements.push(insertZone0);
+
+            for (const isd of unitInsertedSDs) {
+              const isdStatus = activeCut?.cutMap[isd.id] === "cut" ? "cut" : "kept";
+              elements.push(
+                <InsertedSDBlock
+                  key={isd.id}
+                  sd={isd}
+                  status={isdStatus}
+                  castList={castList}
+                  characterAliases={characterAliases}
+                  onToggle={onToggle ? () => onToggle(isd.id) : null}
+                  onRemove={(id) => projectDispatch({ type: "REMOVE_INSERTED_SD", insertedSdId: id })}
+                  onEdit={(sd) => setInsertSDModalState({ mode: "edit", sd })}
+                />
+              );
+              // Insert zone after each inserted SD (anchored to the SD's id)
+              const zoneAfterIsd = renderInsertZone(isd.id);
+              if (zoneAfterIsd) elements.push(zoneAfterIsd);
+            }
+
+            // Insert SD zone — at the very end, after all inserted SDs
+            const lastAnchorId = unitInsertedSDs.length > 0
+              ? unitInsertedSDs[unitInsertedSDs.length - 1].id
+              : unit.id;
+            const sdZone = renderInsertSDZone(lastAnchorId);
+            if (sdZone) elements.push(sdZone);
 
             return elements;
           })}
@@ -501,6 +539,24 @@ export default function SceneBlock({
             setInsertionModalState(null);
           }}
           onCancel={() => setInsertionModalState(null)}
+        />
+      )}
+
+      {/* Insert SD modal — rendered outside the collapsed check so it stays mounted */}
+      {insertSDModalState && (
+        <InsertedSDModal
+          afterUnitId={
+            insertSDModalState.mode === "create"
+              ? insertSDModalState.afterUnitId
+              : insertSDModalState.sd.afterUnitId
+          }
+          castList={castList}
+          existing={insertSDModalState.mode === "edit" ? insertSDModalState.sd : undefined}
+          onConfirm={(sd) => {
+            projectDispatch({ type: "INSERT_SD", sd });
+            setInsertSDModalState(null);
+          }}
+          onClose={() => setInsertSDModalState(null)}
         />
       )}
     </div>
