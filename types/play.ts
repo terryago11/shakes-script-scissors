@@ -63,6 +63,10 @@ export interface Line {
   /** Character count of all preceding parts in the shared-line chain.
    *  Used for proportional ch-based indent so the fragment visually "completes" the line. */
   partIndentChars?: number;
+  /** Inline stage direction text preceding this line's spoken text (e.g. "To Helen.").
+   *  Extracted from <stage> elements inside <l> or <p>/<lb> prose; rendered as italic muted
+   *  annotation before the line text. Not part of the editable spoken text. */
+  stageNote?: string;
 }
 
 export interface StageDirection {

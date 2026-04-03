@@ -186,6 +186,8 @@ export default function SpeechBlock({
   const isSongSpeech = speech.isSong === true;
   // Duration added in the Scenes & Pauses dashboard for this song
   const stageDuration = isSongSpeech && !isCut ? (activeCut?.stageDurations?.[speech.id] ?? null) : null;
+  // Line-level song overrides (Song/Dance tool)
+  const lineSongOverrides = activeCut?.lineSongOverrides;
 
   // Per-cut partIndent overrides
   const partIndentOverrides = activeCut?.partIndentOverrides;
@@ -433,8 +435,11 @@ export default function SpeechBlock({
           {speech.lines.flatMap((line, lineIndex) => {
             const lineStatus = lineStatusMap.get(line.id) ?? "kept";
             const isLineCut = !isCut && lineStatus === "cut";
-            // Per-line song coloring: only lines with isSong=true get violet + italic
-            const isLineSong = !isCut && !isLineCut && line.isSong === true;
+            // Per-line song: TEI value overridden by lineSongOverrides
+            const effectiveLineSong = lineSongOverrides?.[line.id] ?? line.isSong ?? false;
+            const isLineSong = !isCut && !isLineCut && effectiveLineSong;
+            // Duration badge for song lines with a set duration
+            const lineSongDuration = isLineSong ? (activeCut?.stageDurations?.[line.id] ?? null) : null;
             // Poem B-rhyme indent
             const isLinePoem = !isCut && !isLineCut && line.poemIndent === true;
             // Shared-verse indent — respects per-cut override
@@ -516,6 +521,15 @@ export default function SpeechBlock({
             const isSuppressed = partIndentOverrides?.[line.id] === false;
             const isManuallyAdded = partIndentOverrides?.[line.id] === true;
 
+            // Song/Dance tool: click a line to toggle its sung status
+            const canToggleLineSong = !readonly && !isCut && !isLineCut && activeTool === "song-dance" && viewMode !== "diff";
+            const lineSongClickHandler = canToggleLineSong
+              ? (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  dispatch({ type: "TOGGLE_LINE_SONG", lineId: line.id, currentValue: effectiveLineSong });
+                }
+              : undefined;
+
             // Click handler for line text — insert mode: open word-insert popover;
             // split mode: split at clicked word boundary (clean lines without existing ops only)
             const canInteractWithLine = showWordGapsInMode && !isLineCut && !hasOpsOnLine;
@@ -546,12 +560,14 @@ export default function SpeechBlock({
                     ? "text-violet-700 dark:text-violet-300 italic pl-4"
                     : isLinePoem
                       ? "pl-6"
-                      : ""}`}
+                      : ""}${canToggleLineSong ? " cursor-pointer hover:bg-violet-50 dark:hover:bg-violet-950/20 rounded" : ""}`}
                 style={effectivePartIndent ? {
                   paddingLeft: isManuallyAdded && !line.partIndent
                     ? "10ch"
                     : `${((line.partIndentChars ?? 3) * 0.5).toFixed(1)}ch`,
                 } : undefined}
+                onClick={lineSongClickHandler}
+                title={canToggleLineSong ? (effectiveLineSong ? "Click to un-mark as sung" : "Click to mark as sung ♪") : undefined}
               >
                 {/* partIndent toggle (Split mode — first/last line of speech) */}
                 {showPartIndentToggle && (
@@ -591,8 +607,20 @@ export default function SpeechBlock({
                     ? activeTool === "insert" ? "Click to insert a word here" : "Click to split at this word"
                     : undefined}
                 >
+                  {line.stageNote && (
+                    <span className="text-xs font-normal italic normal-case tracking-normal text-stone-400 dark:text-stone-500 mr-1 shrink-0">
+                      [{line.stageNote}]
+                    </span>
+                  )}
                   {standardContent}
                 </span>
+
+                {/* Read-only duration badge for song lines */}
+                {lineSongDuration && (
+                  <span className="not-italic text-xs text-amber-600 dark:text-amber-400 shrink-0">
+                    (+{lineSongDuration % 1 === 0 ? lineSongDuration : lineSongDuration.toFixed(1)}m)
+                  </span>
+                )}
 
                 {lineNum != null && (
                   <span className="text-sm text-stone-700 dark:text-stone-300 tabular-nums select-none shrink-0 font-normal not-italic leading-none">

@@ -6,6 +6,8 @@ import type { Cut } from "@/types/project";
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
 import { characterIdToName } from "@/lib/folger/TeiParser";
+import { scanProps } from "@/lib/cuts/PropsEngine";
+import type { PropReference } from "@/lib/cuts/PropsEngine";
 
 interface SdLocation {
   actTitle: string;
@@ -307,6 +309,59 @@ function extractSdRefs(
   ];
 }
 
+function PropsSection({ refs }: { refs: PropReference[] }) {
+  const [open, setOpen] = useState(false);
+
+  // Group by prop keyword
+  const byProp = new Map<string, PropReference[]>();
+  for (const r of refs) {
+    const arr = byProp.get(r.prop) ?? [];
+    arr.push(r);
+    byProp.set(r.prop, arr);
+  }
+  const sorted = [...byProp.entries()].sort(([a], [b]) => a.localeCompare(b));
+
+  return (
+    <div className="mt-6 border-t border-stone-200 dark:border-stone-700 pt-4">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="text-sm font-semibold text-stone-500 dark:text-stone-400 flex items-center gap-1.5 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
+      >
+        <span>{open ? "▼" : "▶"}</span>
+        <span>Props</span>
+        <span className="font-normal text-stone-400 dark:text-stone-400">
+          ({sorted.length} prop type{sorted.length !== 1 ? "s" : ""}, {refs.length} reference{refs.length !== 1 ? "s" : ""})
+        </span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3">
+          {sorted.length === 0 ? (
+            <p className="text-xs text-stone-400 dark:text-stone-500 italic">No prop references found in stage directions.</p>
+          ) : (
+            sorted.map(([prop, propRefs]) => (
+              <div key={prop} className="text-xs">
+                <span className="font-semibold text-stone-600 dark:text-stone-300 capitalize">{prop}</span>
+                <span className="text-stone-400 dark:text-stone-500 ml-1">×{propRefs.length}</span>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {propRefs.map((r) => (
+                    <span
+                      key={r.sdId}
+                      className="px-1.5 py-0.5 rounded bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 border border-stone-200 dark:border-stone-700"
+                      title={r.sdText}
+                    >
+                      Act {r.actNum}.{r.sceneNum} ~l.{r.approxLine}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NameDiagnosticsTable({
   play,
   characterAliases,
@@ -477,6 +532,7 @@ export default function IntegrityChecks({ play, activeCut, stageTime, characterA
           />
         </div>
       )}
+      <PropsSection refs={scanProps(play, activeCut)} />
       <NameDiagnosticsTable play={play} characterAliases={characterAliases} />
     </div>
   );

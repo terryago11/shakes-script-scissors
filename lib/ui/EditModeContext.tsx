@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState } from "react";
 
-export type EditTool = "none" | "cut" | "insert" | "restore" | "sd-chars" | "reassign" | "split";
+export type EditTool = "none" | "cut" | "insert" | "restore" | "edit-sds" | "reassign" | "split" | "song-dance";
 
 interface EditModeContextValue {
   activeTool: EditTool;

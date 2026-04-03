@@ -46,6 +46,8 @@ interface Props {
   insertions?: Record<string, Insertion>;
   onAddInsertion?: (insertion: Insertion) => void;
   onRemoveInsertion?: (insertionId: string, lineIds: string[]) => void;
+  /** All inserted SDs for the active cut — forwarded to SceneBlock */
+  insertedSDs?: Record<string, import("@/types/insertedsd").InsertedSD>;
   /** Called when at least one unit is restored in a scene */
   onRestoreScene?: () => void;
 }
@@ -58,6 +60,7 @@ export default function ActBlock({
   characterAliases, stageDirectionEdits,
   speechSplits, onSplit, onMerge,
   insertions, onAddInsertion, onRemoveInsertion,
+  insertedSDs,
   onRestoreScene,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
@@ -187,6 +190,7 @@ export default function ActBlock({
                   insertions={showOriginal ? undefined : insertions}
                   onAddInsertion={showOriginal ? undefined : onAddInsertion}
                   onRemoveInsertion={showOriginal ? undefined : onRemoveInsertion}
+                  insertedSDs={showOriginal ? undefined : insertedSDs}
                   onRestoreScene={showOriginal ? undefined : onRestoreScene}
                 />
                 {pauseEntry && (

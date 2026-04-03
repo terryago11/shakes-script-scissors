@@ -485,6 +485,7 @@ export default function ScriptEditor({ playId }: Props) {
     insertions: activeCut.insertions,
     onAddInsertion: handleAddInsertion,
     onRemoveInsertion: handleRemoveInsertion,
+    insertedSDs: activeCut.insertedSDs,
     onRestoreScene: handleRestoreScene,
   };
 
@@ -603,7 +604,7 @@ export default function ScriptEditor({ playId }: Props) {
       {/* Drawer toggle — all screen sizes below lg: */}
       {viewMode !== "diff" && (
         <button
-          className="no-print lg:hidden fixed bottom-4 right-4 z-50 px-3 py-2 text-sm font-medium rounded-full shadow-md bg-amber-100 dark:bg-amber-900/50 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors"
+          className="no-print lg:hidden fixed bottom-16 left-4 z-50 px-3 py-2 text-sm font-medium rounded-full shadow-md bg-amber-100 dark:bg-amber-900/50 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors"
           onClick={() => setPanelOpen((o) => !o)}
           aria-label={panelOpen ? "Close line counts" : "Show line counts"}
         >

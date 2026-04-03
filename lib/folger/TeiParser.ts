@@ -342,9 +342,17 @@ function parseSpeech(
       const ftln = parseFtln(lineId, n);
       const partAttr = getAttr(child, "@_part") ?? "";
       const prevAttr = getAttr(child, "@_prev") ?? "";
-      const text = extractAllText(getChildren(child)).trim();
+      const lChildren = getChildren(child);
+      const text = extractAllTextSkippingStages(lChildren).trim();
+      // Collect inline <stage> text as a stageNote (e.g. "To Helena." in MND 3.2.296)
+      const stageNoteText = lChildren
+        .filter((c) => typeof c === "object" && c !== null && getTagName(c) === "stage")
+        .map((c) => extractAllText(getChildren(c)).trim())
+        .filter(Boolean)
+        .join(" ");
       if (text) {
         const line: Line = { id: lineId, ftln, text };
+        if (stageNoteText) line.stageNote = stageNoteText;
         if (partAttr === "I" && !prevAttr) {
           // First fragment — start chain, no indent on this line
           partCtx.accumulatedText = text;
@@ -888,6 +896,38 @@ function extractText(node: unknown): string {
   return "";
 }
 
+/**
+ * Same as extractAllText but skips top-level <stage> elements entirely.
+ * Used for <l> and <lg><l> verse lines to exclude inline stage directions
+ * from spoken text (they are captured separately as Line.stageNote).
+ */
+function extractAllTextSkippingStages(nodes: unknown[]): string {
+  let text = "";
+  for (const node of nodes) {
+    if (!node || typeof node !== "object") {
+      if (typeof node === "string") text += node;
+      continue;
+    }
+    const n = node as XmlNode;
+    if ("#text" in n) {
+      text += String(n["#text"] || "");
+      continue;
+    }
+    const tag = getTagName(n);
+    if (!tag) continue;
+    if (tag === "lb" || tag === "speaker") continue;
+    if (tag === "stage") continue; // skip inline stage directions
+    if (tag === "gap") { text += "[…]"; continue; }
+    const children = getChildren(n);
+    const childText = extractAllTextSkippingStages(children);
+    if (childText && text.length > 0 && !text.endsWith(" ") && !childText.startsWith(" ")) {
+      text += " ";
+    }
+    text += childText;
+  }
+  return text;
+}
+
 function extractAllText(nodes: unknown[]): string {
   let text = "";
   for (const node of nodes) {
@@ -933,9 +973,16 @@ function extractLgLines(lgNode: unknown, speechId: string, startIndex: number, i
       const lineId = getAttr(child, "@_xml:id") || `${speechId}-lg-l-${lineIndex}`;
       const n = getAttr(child, "@_n") || "";
       const ftln = parseFtln(lineId, n);
-      const text = extractAllText(getChildren(child)).trim();
+      const lgLChildren = getChildren(child);
+      const text = extractAllTextSkippingStages(lgLChildren).trim();
+      const lgStageNoteText = lgLChildren
+        .filter((c) => typeof c === "object" && c !== null && getTagName(c) === "stage")
+        .map((c) => extractAllText(getChildren(c)).trim())
+        .filter(Boolean)
+        .join(" ");
       if (text) {
         const line: Line = { id: lineId, ftln, text };
+        if (lgStageNoteText) line.stageNote = lgStageNoteText;
         if (isSong) {
           line.isSong = true;
         } else if (stanzaPos.n % 2 === 1) {
@@ -996,12 +1043,18 @@ function splitProseByLb(pChildren: unknown[], speechId: string, startIndex: numb
   let currentLbId = "";
   let currentFtln = 0;
   let currentText = "";
+  let pendingStageNote: string | undefined;
   let lineIndex = startIndex;
 
   function flush() {
     const text = currentText.trim();
     if (text && currentLbId) {
-      lines.push({ id: currentLbId, ftln: currentFtln, text });
+      const line: Line = { id: currentLbId, ftln: currentFtln, text };
+      if (pendingStageNote) {
+        line.stageNote = pendingStageNote;
+        pendingStageNote = undefined;
+      }
+      lines.push(line);
       lineIndex++;
     }
     currentText = "";
@@ -1017,6 +1070,13 @@ function splitProseByLb(pChildren: unknown[], speechId: string, startIndex: numb
       currentLbId = getAttr(child, "@_xml:id") || `${speechId}-lb-${lineIndex}`;
       const n = getAttr(child, "@_n") || "";
       currentFtln = parseFtln(currentLbId, n);
+    } else if (tag === "stage") {
+      // Inline stage direction inside a prose paragraph (e.g. <stage type="delivery">To Helen.</stage>).
+      // Captured as stageNote on the line — rendered as italic muted annotation, not spoken text.
+      const stageText = extractAllText(getChildren(child)).trim();
+      if (stageText) {
+        pendingStageNote = (pendingStageNote ? pendingStageNote + " " : "") + stageText;
+      }
     } else if ("#text" in (child as Record<string, unknown>)) {
       currentText += String((child as Record<string, unknown>)["#text"] || "");
     } else if (tag) {

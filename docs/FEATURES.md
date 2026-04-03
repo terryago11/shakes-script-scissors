@@ -29,6 +29,9 @@ A complete list of capabilities for power users. For a full walkthrough, see the
 | **Stage direction cuts** | Stage directions are cuttable; entrance/exit cuts affect on-stage tracking |
 | **SD character editing** | Add or remove individual characters from any stage direction |
 | **SD sync exits** | ⟳ sync exits pre-fills exit SDs from on-stage tracking |
+| **SD sync entrances** | ⟳ sync entrances pre-fills entrance SDs from on-stage tracking |
+| **Insert song/dance SD** | Edit SDs tool: hover strip between any two units → insert a new song/dance stage direction with custom text and characters |
+| **Song/dance flag toggle** | Edit SDs tool: toggle the ♪ or ⊛ flag on any existing SD per production needs |
 | **Restore** | Restore individual speeches, stage directions, or all cuts in a scene |
 | **Undo/Redo** | 20-step undo/redo history within an edit session |
 
@@ -103,7 +106,7 @@ All three modes are available in the script editor and in the exported HTML file
 | **Matrix tab** | Character × scene grid (lines/words/time); actor-grouped headers; sticky header rows; click column to filter rows (OR multi-select); click actor header to filter by all their chars; click row label to filter columns; `?` explains filter interactions; row and column totals; Time row total shows per-scene duration (not summed character times) |
 | **Chart tab** | Sorted horizontal bar chart of character lines/words/time; actor name column always fixed-width |
 | **Rehearsal tab** | By-Actor scene breakdown + Suggested Rehearsal Blocks; scenes split into sub-scenes at major entrances then clustered by shared cast (complete-linkage Jaccard); by-character or by-actor toggle; actor chips show characters per block; full-company scenes isolated; `?` explains the algorithm; filter By Actor list by actor or character name; collapse any actor row to hide scene detail |
-| **Integrity tab** | Missing entrance/exit SD warnings with scene/line locations; Name Diagnostics table |
+| **Integrity tab** | Missing entrance/exit SD warnings with scene/line locations; Name Diagnostics table; Props section listing prop mentions (swords, letters, etc.) extracted from SD text |
 | **Metric toggle** | Switch between Lines / Words / Time for all dashboard counts |
 
 ---
@@ -164,6 +167,8 @@ Project
     characterLinks? — Array<[charIdA, charIdB]>
     stageDurations? — Record<stageId|speechId, minutes>
     pauses?         — Record<"after:{sceneId}", { name, minutes }>
+    insertedSDs?    — Record<insertedSDId, InsertedSD>  (song/dance SDs added by director)
+    sdFlagOverrides? — Record<sdId, { isSong?, isDance? }>  (per-production flag overrides)
   actors[]
     name, color
   assignments[]
@@ -185,7 +190,7 @@ Play
         Speech
           characterId, characterName, speakerTag
           deliveryNote?   — inline stage qualifier, e.g. "[within]"
-          lines[]         — each line has id, ftln, text
+          lines[]         — each line has id, ftln, text, stageNote?
           lineCount
           isSong?
         StageDirection
