@@ -49,7 +49,7 @@ ShakesScriptScissors lets you work through any of the 37 Folger Shakespeare text
 - **Save / Open Project** — download your cut as a `.sss.json` file and reopen it later; share with collaborators or import on another machine
 
 ### Appearance
-- **Dark mode** — the tool respects your system preference automatically, or you can pin it to light or dark using the sun/moon/monitor toggle on the home page, login page, or in the settings panel; the toggle sits in the same position (top-right) on both the home and login pages
+- **Theme switcher** — four modes: Light, Dark, Auto (system preference), and **1602** — a Renaissance printing-press theme with parchment background, IM Fell English typography, square corners, woodcut-brown borders, and UnifrakturMaguntia nav text; toggle via the sun/moon/monitor/quill buttons on the home page, login page, or in the settings panel
 - **Settings panel** — click the ⚙ gear in the nav to access project name, words-per-minute (slider with presets), quick-change threshold, rehearsal block duration limits, minimum actor stage time, theme, and save/export options all in one place
 - **Responsive layout** — works on tablet landscape (1024px) as the primary target; on smaller screens the nav collapses script controls behind a `☰` menu, nav link labels hide to icon-only, and the line-count panel shifts to a bottom drawer toggled by an `≡ Info` pill; the script editor goes full-width; the scene dashboard tabs scroll horizontally
 
