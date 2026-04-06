@@ -39,6 +39,7 @@ The script editor is the main working view. It shows the full play divided by ac
 - ♪ violet/italic — a sung line or song stage direction
 - ⊛ cyan — a dance or dumbshow stage direction
 - `[within]` after a character name — a delivery qualifier (e.g. speaking offstage)
+- `[To Helen.]` before a line in italic muted text — an inline delivery stage note embedded in the TEI (e.g. a direction to address a specific character mid-speech); not part of the editable spoken text
 
 ---
 
@@ -81,7 +82,9 @@ The toolbar shows the active tool. Switch tools using the buttons:
 
 Stage directions can be cut or restored the same way as speeches. Entrance and exit SDs affect the on-stage tracking and stage time calculations — see [Line Counts and Running Time](#4-line-counts-and-running-time).
 
-**SD character list**: hover a stage direction to reveal the character chip list. Click **+** to add a character; click **×** on a chip to remove one. Use **⟳ sync exits** to pre-fill an exit SD's character list from on-stage tracking.
+**SD character list**: hover a stage direction to reveal the character chip list. Click **+** to add a character; click **×** on a chip to remove one. Use **⟳ sync exits** to pre-fill an exit SD's character list from on-stage tracking. Use **⟳ sync entrances** (on entrance SDs) to do the same for entrances.
+
+**Edit SDs tool**: in Edit mode, select **Edit SDs** from the toolbar. A thin hover strip appears between every pair of units in the scene — click it to open the **Insert SD** modal where you can create a new song or dance stage direction (type custom text, select characters, set ♪/⊛ flags). Inserted SDs appear with a green left border and can be edited or removed via buttons that appear in Edit SDs mode. You can also toggle the ♪ or ⊛ flag on any *existing* SD in the play — useful when the TEI doesn't mark a moment as a song or dance but your production treats it as one.
 
 ### Speech reassignment
 
@@ -269,6 +272,8 @@ Flags potential data gaps in the TEI source:
 - **Missing Entrance SDs**: characters with kept speeches but no entrance SD.
 
 Each warning card is expandable and shows the scenes involved and the approximate line number of the nearest complementary SD.
+
+**Props** (collapsible): scans all kept stage directions for prop keywords (swords, letters, keys, torches, etc.) and lists each mention with its act, scene, and stage direction. Useful for compiling a props list for the stage manager.
 
 **Name Diagnostics** (collapsible): a developer/dramaturg table showing every character's name from each source — TEI ID, cast list, raw speaker tag, ID-normalized fallback, SD references, and resolved display name. Sky-blue rows have an active alias.
 

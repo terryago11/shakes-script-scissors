@@ -29,7 +29,8 @@ A complete list of capabilities for power users. For a full walkthrough, see the
 | **Stage direction cuts** | Stage directions are cuttable; entrance/exit cuts affect on-stage tracking |
 | **SD character editing** | Add or remove individual characters from any stage direction |
 | **SD sync exits** | ⟳ sync exits pre-fills exit SDs from on-stage tracking |
-| **SD sync entrances** | ⟳ sync entrances pre-fills entrance SDs from on-stage tracking |
+| **SD sync entrances** | ⟳ sync entrances pre-fills an entrance SD's character list from on-stage tracking (mirrors sync exits logic) |
+| **Inline stage notes** | `<stage>` elements inside a verse line or prose line render as italic muted `[To Helen.]` before the spoken text; extracted separately from editable line text |
 | **Insert song/dance SD** | Edit SDs tool: hover strip between any two units → insert a new song/dance stage direction with custom text and characters |
 | **Song/dance flag toggle** | Edit SDs tool: toggle the ♪ or ⊛ flag on any existing SD per production needs |
 | **Restore** | Restore individual speeches, stage directions, or all cuts in a scene |
