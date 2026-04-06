@@ -388,16 +388,24 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
 
 ---
 
-### Group 20+ — Complex / deferred features
+### Group 20 — Self-contained improvements
 
-- **#7 SD rewrite** — two-layer model (cosmetic text + character list); new `sdTextEdits?: Record<sdId, string>` in Cut
 - **#15 Compare two cuts** — Diff view dropdown to pick "original" side (any cut version, not just uncut TEI)
-- **#24 Scene subdivide** — split a scene into A/B/C sub-parts; new data model for scene parts
 - **#25 Act/scene descriptions** — short editable description field per act or scene
+- **#33 Fix "X" character listings** — investigate TEI `#X_Play` IDs surfacing as bare "X"
+
+### Group 21 — Export enhancements
+
 - **#26 ZIP cue scripts as PDFs** — server-side PDF generation, download as ZIP
 - **#27 Export to Word (.docx)** — docx library integration with one-way-conversion warning
-- **#31 Tableau-style visualization** — character presence / stage time chart using D3 or Recharts
-- **#33 Fix "X" character listings** — investigate TEI `#X_Play` IDs surfacing as bare "X"
+
+### Group 22 — Heavy structural features
+
+- **#7 SD rewrite** — two-layer model (cosmetic text + character list); new `sdTextEdits?: Record<sdId, string>` in Cut
+- **#24 Scene subdivide** — split a scene into A/B/C sub-parts; new data model for scene parts
+
+### Group 23 — Word import
+
 - **#34 Word import** — parse a marked-up Word doc back into cuts (highly complex)
 
 ---
@@ -405,3 +413,4 @@ For each actor: their lines preceded by the last 2–3 words of the previous spe
 ### Deferred / N/A
 - Google Drive backup integration
 - GUI/installer for non-technical users (would require Electron or web installer wizard)
+- **#31 Tableau-style visualization** — character presence / stage time chart using D3 or Recharts
