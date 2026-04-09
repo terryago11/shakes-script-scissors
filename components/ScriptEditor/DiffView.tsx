@@ -1,7 +1,7 @@
 "use client";
 
 import type { Act, Character, Scene, ScriptUnit } from "@/types/play";
-import type { Actor, ActorAssignment } from "@/types/project";
+import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import type { ScriptUnitWithStatus } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
 import type { Insertion } from "@/types/insertion";
@@ -27,6 +27,20 @@ interface Props {
   onClearEdits: (unitId: string) => void;
   /** Cut-level character display-name aliases */
   characterAliases?: Record<string, string>;
+  /** All cuts in the project, for the diff picker dropdowns */
+  cuts?: Cut[];
+  /** ID of the currently active cut (default for left picker) */
+  activeCutId?: string;
+  /** Currently selected left-column cut ID (null = active cut) */
+  diffLeftId?: string | null;
+  /** Currently selected right-column cut ID (null = original text) */
+  diffRightId?: string | null;
+  onSetDiffLeft?: (id: string | null) => void;
+  onSetDiffRight?: (id: string | null) => void;
+  /** Pre-computed units from the right-side cut (via computeCuts), used to show full cut status in the right column */
+  rightUnitsByScene?: Map<string, ScriptUnitWithStatus[]>;
+  /** Speech edits from the right-side cut, applied to the right column */
+  rightSpeechEdits?: Record<string, SpeechEdit>;
 }
 
 export default function DiffView({
@@ -43,6 +57,14 @@ export default function DiffView({
   onToggle,
   onClearEdits,
   characterAliases,
+  cuts,
+  activeCutId,
+  diffLeftId,
+  diffRightId,
+  onSetDiffLeft,
+  onSetDiffRight,
+  rightUnitsByScene,
+  rightSpeechEdits,
 }: Props) {
   // Build character→actor color map
   const charColor: Record<string, string> = {};
@@ -51,14 +73,57 @@ export default function DiffView({
     if (actor) charColor[a.characterId] = actor.color;
   }
 
+  const selectCls = "text-xs bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-amber-400 max-w-[180px] truncate";
+  const effectiveLeftId = diffLeftId ?? activeCutId ?? null;
+  const sameCut = effectiveLeftId !== null && effectiveLeftId === diffRightId;
+
   return (
     <div className="px-4 py-6">
-      {/* Column header strip */}
-      <div className="flex items-center mb-4 text-xs font-medium text-stone-400 dark:text-stone-400 select-none">
-        <div className="flex-1 px-1">Modified script</div>
-        <div className="w-px bg-transparent" />
-        <div className="flex-1 px-1">Original</div>
+      {/* Column header strip — shows cut pickers when multiple cuts exist */}
+      <div className="flex items-stretch mb-4 gap-0">
+        <div className="flex-1 min-w-0 flex items-center gap-2 px-1 text-xs font-medium text-stone-400 dark:text-stone-400">
+          <span className="shrink-0">Left:</span>
+          {cuts && cuts.length > 1 && onSetDiffLeft ? (
+            <select
+              value={effectiveLeftId ?? ""}
+              onChange={(e) => onSetDiffLeft(e.target.value || null)}
+              className={selectCls}
+            >
+              {cuts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}{c.id === activeCutId ? " ●" : ""}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span>{cuts?.find((c) => c.id === effectiveLeftId)?.name ?? "Active cut"}</span>
+          )}
+        </div>
+        <div className="w-px bg-stone-100 dark:bg-stone-800 shrink-0" />
+        <div className="flex-1 min-w-0 flex items-center gap-2 px-1 text-xs font-medium text-stone-400 dark:text-stone-400">
+          <span className="shrink-0">Right:</span>
+          {cuts && onSetDiffRight ? (
+            <select
+              value={diffRightId ?? ""}
+              onChange={(e) => onSetDiffRight(e.target.value || null)}
+              className={selectCls}
+            >
+              <option value="">Original text</option>
+              {cuts.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          ) : (
+            <span>Original</span>
+          )}
+        </div>
       </div>
+
+      {sameCut && (
+        <div className="mb-4 text-xs text-stone-400 dark:text-stone-500 italic px-1">
+          Both columns showing the same cut.
+        </div>
+      )}
 
       {orderedGroups.map((group) => {
         const displayScenes = focusedSceneId
@@ -81,6 +146,10 @@ export default function DiffView({
               const origUnits = origUnitsByScene?.get(scene.id) ?? [];
               // Set of IDs that exist in the original play (to detect insertions and :s2 parts)
               const origUnitIds = new Set(origUnits.map((u) => u.id));
+              // Pre-computed right-cut units indexed by ID — used when comparing two cuts
+              const rightUnitsById: Map<string, ScriptUnitWithStatus> | undefined = rightUnitsByScene
+                ? new Map((rightUnitsByScene.get(scene.id) ?? []).map((u) => [u.unit.id, u]))
+                : undefined;
 
               // Skip scene if filter is active and scene has no matching speeches
               if (filteredCharacterIds && filteredCharacterIds.size > 0) {
@@ -227,23 +296,33 @@ export default function DiffView({
                                 // :s2 split part — blank cell (the original speech is shown in Part 1's row above)
                                 <div className="flex-1 min-w-0 bg-stone-50/50 dark:bg-stone-900/50" />
                               ) : (
-                                <div
-                                  className={`flex-1 min-w-0 bg-stone-50/50 dark:bg-stone-900/50 ${
-                                    !hasChanges ? "opacity-50" : ""
-                                  }`}
-                                >
-                                  <SpeechBlock
-                                    speech={origSpeech ?? unit}
-                                    status="kept"
-                                    actorColor={charColor[unit.characterId]}
-                                    onToggle={null}
-                                    lineStatuses={undefined}
-                                    speechEdit={undefined}
-                                    onClearEdits={undefined}
-                                    isContinuation={origContinuationIds.has(unit.id)}
-                                    speechLineOffset={origSpeechStartLines.get(unit.id)}
-                                  />
-                                </div>
+                                (() => {
+                                  const rightEntry = rightUnitsById?.get(unit.id);
+                                  const rightStatus = rightUnitsById !== undefined
+                                    ? (rightEntry?.status ?? "kept")
+                                    : "kept";
+                                  const rightLineStatuses = rightEntry?.lineStatuses;
+                                  const rightIsCut = rightStatus === "cut";
+                                  return (
+                                    <div
+                                      className={`flex-1 min-w-0 bg-stone-50/50 dark:bg-stone-900/50 ${
+                                        rightIsCut ? "bg-red-50/30 dark:bg-red-950/20" : (!hasChanges ? "opacity-50" : "")
+                                      }`}
+                                    >
+                                      <SpeechBlock
+                                        speech={origSpeech ?? unit}
+                                        status={rightStatus}
+                                        actorColor={charColor[unit.characterId]}
+                                        onToggle={null}
+                                        lineStatuses={rightLineStatuses}
+                                        speechEdit={rightSpeechEdits?.[unit.id]}
+                                        onClearEdits={undefined}
+                                        isContinuation={origContinuationIds.has(unit.id)}
+                                        speechLineOffset={origSpeechStartLines.get(unit.id)}
+                                      />
+                                    </div>
+                                  );
+                                })()
                               )}
                             </ViewModeProvider>
                           </div>
@@ -280,18 +359,27 @@ export default function DiffView({
 
                             {/* Right: original (readonly, no edits applied) */}
                             <ViewModeProvider forceValue="standard">
-                              <div
-                                className={`flex-1 min-w-0 bg-stone-50/50 dark:bg-stone-900/50 ${
-                                  !isCut ? "opacity-50" : ""
-                                }`}
-                              >
-                                <StageDirectionBlock
-                                  stage={unit}
-                                  status="kept"
-                                  onToggle={null}
-                                  castList={castList}
-                                />
-                              </div>
+                              {(() => {
+                                const rightSdEntry = rightUnitsById?.get(unit.id);
+                                const rightSdStatus = rightUnitsById !== undefined
+                                  ? (rightSdEntry?.status ?? "kept")
+                                  : "kept";
+                                const rightSdIsCut = rightSdStatus === "cut";
+                                return (
+                                  <div
+                                    className={`flex-1 min-w-0 bg-stone-50/50 dark:bg-stone-900/50 ${
+                                      rightSdIsCut ? "bg-red-50/30 dark:bg-red-950/20" : (!isCut ? "opacity-50" : "")
+                                    }`}
+                                  >
+                                    <StageDirectionBlock
+                                      stage={unit}
+                                      status={rightSdStatus}
+                                      onToggle={null}
+                                      castList={castList}
+                                    />
+                                  </div>
+                                );
+                              })()}
                             </ViewModeProvider>
                           </div>
                         );

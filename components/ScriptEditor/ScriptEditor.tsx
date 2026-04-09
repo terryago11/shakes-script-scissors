@@ -144,6 +144,9 @@ export default function ScriptEditor({ playId }: Props) {
   const [filter, setFilter] = useState<FilterState>(null);
   const [easterEggVisible, setEasterEggVisible] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  // Diff mode cut pickers: null = active cut (left) / original text (right)
+  const [diffLeftId, setDiffLeftId] = useState<string | null>(null);
+  const [diffRightId, setDiffRightId] = useState<string | null>(null);
   const { setScenes, setActiveSceneId, jumpingRef, focusedSceneId, setFocusedSceneId, setHiddenSceneIds } = useSceneJump();
   const { activeTool, setActiveTool } = useEditMode();
   const { viewMode } = useViewMode();
@@ -267,6 +270,13 @@ export default function ScriptEditor({ playId }: Props) {
     return () => { clearTimeout(timeout); observer.disconnect(); };
   }, [play, setActiveSceneId]);
 
+  // Reset diff pickers if their referenced cuts are deleted
+  useEffect(() => {
+    if (!project) return;
+    if (diffLeftId && !project.cuts.find((c) => c.id === diffLeftId)) setDiffLeftId(null);
+    if (diffRightId && !project.cuts.find((c) => c.id === diffRightId)) setDiffRightId(null);
+  }, [project?.cuts, diffLeftId, diffRightId]);
+
   if (loading) {
     return <div className="flex items-center justify-center py-24 text-stone-400">Loading {playId}…</div>;
   }
@@ -289,6 +299,21 @@ export default function ScriptEditor({ playId }: Props) {
     project.assignments,
     project.actors
   );
+
+  // Diff mode: resolve left/right cuts
+  const leftDiffCut = diffLeftId ? (project.cuts.find((c) => c.id === diffLeftId) ?? activeCut) : activeCut;
+  const rightDiffCut = diffRightId ? (project.cuts.find((c) => c.id === diffRightId) ?? null) : null;
+
+  // Recompute left units only when a different cut is selected for left column
+  const diffLeftUnits = (viewMode === "diff" && diffLeftId && diffLeftId !== activeCut.id)
+    ? computeCuts(play, leftDiffCut, project.assignments, project.actors).unitsByScene
+    : unitsByScene;
+
+  // Right column: when a cut is selected, compute its full unit statuses for DiffView
+  const diffRightUnits = (viewMode === "diff" && rightDiffCut && play)
+    ? computeCuts(play, rightDiffCut, project.assignments, project.actors).unitsByScene
+    : undefined;
+  const diffRightSpeechEdits = rightDiffCut?.speechEdits;
 
   const stageTime = computeStageTime(play, activeCut, project.settings);
 
@@ -528,10 +553,10 @@ export default function ScriptEditor({ playId }: Props) {
         {viewMode === "diff" ? (
           <DiffView
             orderedGroups={orderedGroups}
-            unitsByScene={unitsByScene}
+            unitsByScene={diffLeftUnits}
             origUnitsByScene={origUnitsByScene}
-            insertions={activeCut.insertions}
-            speechEdits={activeCut.speechEdits}
+            insertions={leftDiffCut.insertions}
+            speechEdits={leftDiffCut.speechEdits}
             assignments={project.assignments}
             actors={project.actors}
             castList={play.castList}
@@ -539,7 +564,15 @@ export default function ScriptEditor({ playId }: Props) {
             focusedSceneId={focusedSceneId}
             onToggle={handleToggle}
             onClearEdits={handleClearEdits}
-            characterAliases={activeCut.characterAliases}
+            characterAliases={leftDiffCut.characterAliases}
+            cuts={project.cuts}
+            activeCutId={activeCut.id}
+            diffLeftId={diffLeftId}
+            diffRightId={diffRightId}
+            onSetDiffLeft={setDiffLeftId}
+            onSetDiffRight={setDiffRightId}
+            rightUnitsByScene={diffRightUnits}
+            rightSpeechEdits={diffRightSpeechEdits}
           />
         ) : (
           <div className={`px-4 pb-6 ${

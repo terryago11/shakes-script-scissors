@@ -70,7 +70,9 @@ type ProjectAction =
   | { type: "INSERT_SD"; sd: InsertedSD }
   | { type: "REMOVE_INSERTED_SD"; insertedSdId: string }
   | { type: "SET_SD_FLAGS"; sdId: string; isSong?: boolean; isDance?: boolean }
-  | { type: "TOGGLE_LINE_SONG"; lineId: string; currentValue: boolean };
+  | { type: "TOGGLE_LINE_SONG"; lineId: string; currentValue: boolean }
+  | { type: "SET_ACT_DESCRIPTION"; actId: string; description: string | null }
+  | { type: "SET_SCENE_DESCRIPTION"; sceneId: string; description: string | null };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
   if (!state.project && action.type !== "LOAD" && action.type !== "REPLACE_PROJECT") {
@@ -630,6 +632,42 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
           lineSongOverrides: Object.keys(overrides).length > 0 ? overrides : undefined,
         };
       });
+    }
+
+    case "SET_ACT_DESCRIPTION": {
+      const p = state.project!;
+      const actDescriptions = { ...(p.actDescriptions ?? {}) };
+      if (action.description === null) {
+        delete actDescriptions[action.actId];
+      } else {
+        actDescriptions[action.actId] = action.description;
+      }
+      return {
+        ...state,
+        project: {
+          ...p,
+          actDescriptions: Object.keys(actDescriptions).length > 0 ? actDescriptions : undefined,
+          updatedAt: now(),
+        },
+      };
+    }
+
+    case "SET_SCENE_DESCRIPTION": {
+      const p = state.project!;
+      const sceneDescriptions = { ...(p.sceneDescriptions ?? {}) };
+      if (action.description === null) {
+        delete sceneDescriptions[action.sceneId];
+      } else {
+        sceneDescriptions[action.sceneId] = action.description;
+      }
+      return {
+        ...state,
+        project: {
+          ...p,
+          sceneDescriptions: Object.keys(sceneDescriptions).length > 0 ? sceneDescriptions : undefined,
+          updatedAt: now(),
+        },
+      };
     }
 
     default:

@@ -24,6 +24,8 @@ interface Props {
   minBlockMinutes?: number;
   maxBlockMinutes?: number;
   activeCut: Cut;
+  actDescriptions?: Record<string, string>;
+  sceneDescriptions?: Record<string, string>;
 }
 
 function fmtMins(m: number): string {
@@ -142,6 +144,8 @@ export default function RehearsalGroupings({
   minBlockMinutes = 5,
   maxBlockMinutes = 60,
   activeCut,
+  actDescriptions,
+  sceneDescriptions,
 }: Props) {
   const [clusterMode, setClusterMode] = useState<"character" | "actor">("character");
   const [showHelp, setShowHelp] = useState(false);
@@ -414,15 +418,23 @@ export default function RehearsalGroupings({
                           const act = sceneActMap.get(sceneId);
                           if (!scene || !act) return null;
                           return (
-                            <div key={sceneId} className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
-                              <span className="text-stone-400 dark:text-stone-400 shrink-0 w-16 truncate">{act.title}</span>
-                              <span className="flex-1 truncate">{scene.title}</span>
-                              <span
-                                className="tabular-nums font-medium px-1.5 py-0.5 rounded text-xs shrink-0"
-                                style={{ backgroundColor: actor.color + "20", color: actor.color }}
-                              >
-                                {metric === "time" ? fmtMins(value) : value.toLocaleString()}
-                              </span>
+                            <div key={sceneId} className="text-xs text-stone-600 dark:text-stone-300">
+                              <div className="flex items-center gap-2">
+                                <span className="text-stone-400 dark:text-stone-400 shrink-0 w-16 truncate">{act.title}</span>
+                                <span className="flex-1 truncate">{scene.title}</span>
+                                <span
+                                  className="tabular-nums font-medium px-1.5 py-0.5 rounded text-xs shrink-0"
+                                  style={{ backgroundColor: actor.color + "20", color: actor.color }}
+                                >
+                                  {metric === "time" ? fmtMins(value) : value.toLocaleString()}
+                                </span>
+                              </div>
+                              {(() => {
+                                const note = sceneDescriptions?.[sceneId] || actDescriptions?.[act.id];
+                                return note ? (
+                                  <div className="text-[10px] text-stone-400 dark:text-stone-500 italic ml-[72px] truncate">{note}</div>
+                                ) : null;
+                              })()}
                             </div>
                           );
                         })}
@@ -618,13 +630,21 @@ export default function RehearsalGroupings({
                           {hasGap && (
                             <div className="text-stone-300 dark:text-stone-600 text-xs text-center py-0.5">···</div>
                           )}
-                          <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-stone-200 dark:bg-stone-700 shrink-0" />
-                            <span className="text-stone-400 dark:text-stone-400 shrink-0">{act.title}</span>
-                            <span className="flex-1 truncate">{label}</span>
-                            <span className="tabular-nums text-stone-400 dark:text-stone-400 shrink-0">
-                              {fmtMins(ss.minutes)}
-                            </span>
+                          <div className="text-xs text-stone-500 dark:text-stone-400">
+                            <div className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-stone-200 dark:bg-stone-700 shrink-0" />
+                              <span className="text-stone-400 dark:text-stone-400 shrink-0">{act.title}</span>
+                              <span className="flex-1 truncate">{label}</span>
+                              <span className="tabular-nums text-stone-400 dark:text-stone-400 shrink-0">
+                                {fmtMins(ss.minutes)}
+                              </span>
+                            </div>
+                            {(() => {
+                              const note = sceneDescriptions?.[ss.sceneId] || actDescriptions?.[act.id];
+                              return note ? (
+                                <div className="text-[10px] text-stone-400 dark:text-stone-500 italic ml-4 truncate">{note}</div>
+                              ) : null;
+                            })()}
                           </div>
                         </div>
                       );

@@ -63,6 +63,8 @@ const ProjectSchema = z.object({
   assignments: z.array(AssignmentSchema),
   cuts: z.array(CutSchema).min(1),
   activeCutId: z.string().nullable(),
+  actDescriptions: z.record(z.string(), z.string()).optional(),
+  sceneDescriptions: z.record(z.string(), z.string()).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
