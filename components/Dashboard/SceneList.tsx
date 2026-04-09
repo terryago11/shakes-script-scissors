@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useRef } from "react";
 import type { Act, Scene } from "@/types/play";
 import type { LineCounts } from "@/types/cut";
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
@@ -28,6 +28,12 @@ interface Props {
   stageDurations?: Record<string, number>;
   onSetStageDuration?: (stageId: string, minutes: number) => void;
   onClearStageDuration?: (stageId: string) => void;
+  /** Production notes per act, keyed by act ID */
+  actDescriptions?: Record<string, string>;
+  /** Production notes per scene, keyed by scene ID */
+  sceneDescriptions?: Record<string, string>;
+  onSetActDescription?: (actId: string, description: string | null) => void;
+  onSetSceneDescription?: (sceneId: string, description: string | null) => void;
 }
 
 function formatMinutes(m: number): string {
@@ -54,10 +60,18 @@ export default function SceneList({
   stageDurations,
   onSetStageDuration,
   onClearStageDuration,
+  actDescriptions,
+  sceneDescriptions,
+  onSetActDescription,
+  onSetSceneDescription,
 }: Props) {
   const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null);
   const [editingDuration, setEditingDuration] = useState<string | null>(null); // SD id being edited
   const [durationInput, setDurationInput] = useState("");
+  // Scene/act description editing
+  const [editingDescId, setEditingDescId] = useState<string | null>(null); // "scene:{id}" or "act:{id}"
+  const [descInput, setDescInput] = useState("");
+  const descInputRef = useRef<HTMLInputElement>(null);
 
   // Find max value for bar scaling across all scenes
   let maxVal = 1;
@@ -124,19 +138,49 @@ export default function SceneList({
     if (e.key === "Escape") { setEditingDuration(null); setDurationInput(""); }
   }
 
+  function startEditDesc(key: string, currentValue: string) {
+    setDescInput(currentValue);
+    setEditingDescId(key);
+    // Focus happens via autoFocus on the input
+  }
+
+  function commitDesc(key: string) {
+    const trimmed = descInput.trim();
+    if (key.startsWith("scene:")) {
+      const sceneId = key.slice(6);
+      onSetSceneDescription?.(sceneId, trimmed || null);
+    } else if (key.startsWith("act:")) {
+      const actId = key.slice(4);
+      onSetActDescription?.(actId, trimmed || null);
+    }
+    setEditingDescId(null);
+    setDescInput("");
+  }
+
+  function handleDescKey(e: React.KeyboardEvent, key: string) {
+    if (e.key === "Enter") commitDesc(key);
+    if (e.key === "Escape") { setEditingDescId(null); setDescInput(""); }
+  }
+
   const canReorder = !!onSetSceneOrder;
 
   return (
     <div className="space-y-0">
       {canReorder && (
         <p className="text-xs text-stone-400 dark:text-stone-400 mb-3 flex items-center gap-1">
-          <span>⠿</span> Drag scenes to reorder
+          <span>⠿</span> Drag scenes to reorder | Add notes to acts or scenes as needed
         </p>
       )}
-      {effectiveSceneOrder.map((sceneId, idx) => {
+      {(() => {
+        let lastActId: string | null = null;
+        return effectiveSceneOrder.map((sceneId, idx) => {
         const scene = sceneById.get(sceneId);
         const act = sceneActMap.get(sceneId);
         if (!scene || !act) return null;
+
+        // Render act header row when act changes
+        const actChanged = act.id !== lastActId;
+        lastActId = act.id;
 
         const sc = lineCounts.byScene[sceneId];
         const original = sc
@@ -162,8 +206,54 @@ export default function SceneList({
 
         const isDragOver = dragOverSceneId === sceneId;
 
+        // Act description header row (only at act boundary)
+        const actDescKey = `act:${act.id}`;
+        const actDesc = actDescriptions?.[act.id];
+
         return (
-          <div key={sceneId}>
+          <React.Fragment key={sceneId}>
+            {actChanged && onSetActDescription && (
+              <div className="pt-3 pb-1 group/actdesc">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+                    {act.title}
+                  </span>
+                  {editingDescId === actDescKey ? (
+                    <input
+                      autoFocus
+                      type="text"
+                      value={descInput}
+                      onChange={(e) => setDescInput(e.target.value)}
+                      onBlur={() => commitDesc(actDescKey)}
+                      onKeyDown={(e) => handleDescKey(e, actDescKey)}
+                      placeholder="Add act note…"
+                      className="flex-1 text-xs italic px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 placeholder-stone-300 dark:placeholder-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    />
+                  ) : actDesc ? (
+                    <>
+                      <span className="text-xs italic text-stone-400 dark:text-stone-500 flex-1">{actDesc}</span>
+                      <button
+                        onClick={() => startEditDesc(actDescKey, actDesc)}
+                        className="opacity-0 group-hover/actdesc:opacity-100 text-stone-300 hover:text-amber-500 dark:text-stone-600 dark:hover:text-amber-400 transition-opacity"
+                        title="Edit act note"
+                      >
+                        <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M8 2l2 2-6 6H2V8l6-6z"/>
+                        </svg>
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => startEditDesc(actDescKey, "")}
+                      className="opacity-0 group-hover/actdesc:opacity-100 text-xs text-stone-300 hover:text-amber-500 dark:text-stone-500 dark:hover:text-amber-400 italic transition-opacity"
+                    >
+                      + add note
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          <div>
             <div
               className={`relative py-3 border-b border-stone-100 dark:border-stone-800 transition-colors group ${
                 canReorder ? "cursor-grab" : ""
@@ -208,6 +298,52 @@ export default function SceneList({
                   style={{ width: `${Math.min(100, pctKept)}%` }}
                 />
               </div>
+
+              {/* Scene description */}
+              {(() => {
+                const descKey = `scene:${sceneId}`;
+                const desc = sceneDescriptions?.[sceneId];
+                const isEditing = editingDescId === descKey;
+                const canEdit = !!onSetSceneDescription;
+                if (!canEdit) return desc ? <p className="text-xs italic text-stone-400 dark:text-stone-500 mb-1.5">{desc}</p> : null;
+                return (
+                  <div className="mb-1.5 group/desc">
+                    {isEditing ? (
+                      <input
+                        ref={descInputRef}
+                        autoFocus
+                        type="text"
+                        value={descInput}
+                        onChange={(e) => setDescInput(e.target.value)}
+                        onBlur={() => commitDesc(descKey)}
+                        onKeyDown={(e) => handleDescKey(e, descKey)}
+                        placeholder="Add a production note…"
+                        className="w-full text-xs italic px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 placeholder-stone-300 dark:placeholder-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      />
+                    ) : desc ? (
+                      <div className="flex items-start gap-1">
+                        <p className="text-xs italic text-stone-400 dark:text-stone-500 flex-1">{desc}</p>
+                        <button
+                          onClick={() => startEditDesc(descKey, desc)}
+                          className="opacity-0 group-hover/desc:opacity-100 shrink-0 text-stone-300 hover:text-amber-500 dark:text-stone-600 dark:hover:text-amber-400 transition-opacity mt-0.5"
+                          title="Edit note"
+                        >
+                          <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M8 2l2 2-6 6H2V8l6-6z"/>
+                          </svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => startEditDesc(descKey, "")}
+                        className="opacity-0 group-hover/desc:opacity-100 text-xs text-stone-300 hover:text-amber-500 dark:text-stone-500 dark:hover:text-amber-400 italic transition-opacity"
+                      >
+                        + add note
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Song / dance sub-rows (speech songs + song/dance SDs) */}
               {sceneSongDanceSDs?.get(sceneId)?.map((item) => {
@@ -331,8 +467,10 @@ export default function SceneList({
               <div className="h-1" />
             )}
           </div>
+          </React.Fragment>
         );
-      })}
+      });
+      })()}
     </div>
   );
 }

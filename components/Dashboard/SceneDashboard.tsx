@@ -249,6 +249,14 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
     dispatch({ type: "CLEAR_STAGE_DURATION", stageId });
   }
 
+  function handleSetActDescription(actId: string, description: string | null) {
+    dispatch({ type: "SET_ACT_DESCRIPTION", actId, description });
+  }
+
+  function handleSetSceneDescription(sceneId: string, description: string | null) {
+    dispatch({ type: "SET_SCENE_DESCRIPTION", sceneId, description });
+  }
+
   const hasPauses = activeCut.pauses && Object.keys(activeCut.pauses).length > 0;
   const pauseTotal = stageTime.pauseMinutes;
   const hasCuts = stageTime.totalMinutes < stageTime.originalTotalMinutes - 0.01;
@@ -352,6 +360,10 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
             stageDurations={activeCut.stageDurations}
             onSetStageDuration={handleSetStageDuration}
             onClearStageDuration={handleClearStageDuration}
+            actDescriptions={project.actDescriptions}
+            sceneDescriptions={project.sceneDescriptions}
+            onSetActDescription={handleSetActDescription}
+            onSetSceneDescription={handleSetSceneDescription}
           />
         </div>
       )}
@@ -373,6 +385,8 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           characterAliases={activeCut.characterAliases}
           viewType="table"
           sceneTimings={sceneTimings}
+          actDescriptions={project.actDescriptions}
+          sceneDescriptions={project.sceneDescriptions}
         />
       )}
 
@@ -393,6 +407,8 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           characterAliases={activeCut.characterAliases}
           viewType="chart"
           sceneTimings={sceneTimings}
+          actDescriptions={project.actDescriptions}
+          sceneDescriptions={project.sceneDescriptions}
         />
       )}
 
@@ -414,6 +430,8 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           minBlockMinutes={project.settings?.rehearsalMinBlockMinutes ?? 5}
           maxBlockMinutes={project.settings?.rehearsalMaxBlockMinutes ?? 60}
           activeCut={activeCut}
+          actDescriptions={project.actDescriptions}
+          sceneDescriptions={project.sceneDescriptions}
         />
       )}
 

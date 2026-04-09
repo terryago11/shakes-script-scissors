@@ -35,6 +35,8 @@ interface Props {
   viewType: "table" | "chart";
   /** Actual scene durations (wordsAfterCut / wpm) for correct row totals in time metric */
   sceneTimings?: Map<string, number>;
+  actDescriptions?: Record<string, string>;
+  sceneDescriptions?: Record<string, string>;
 }
 
 function fmtMins(m: number): string {
@@ -60,6 +62,8 @@ export default function DashboardMatrix({
   characterAliases,
   viewType,
   sceneTimings,
+  actDescriptions,
+  sceneDescriptions,
 }: Props) {
   // Row filter: scenes that contain at least one of these characters
   const [filterCharIds, setFilterCharIds] = useState<Set<string>>(new Set());
@@ -455,6 +459,12 @@ export default function DashboardMatrix({
                           {scene.title}
                         </span>
                       </div>
+                      {(() => {
+                        const note = sceneDescriptions?.[sceneId] || actDescriptions?.[act.id];
+                        return note ? (
+                          <div className="text-[10px] text-stone-400 dark:text-stone-500 truncate max-w-40 italic mt-0.5">{note}</div>
+                        ) : null;
+                      })()}
                     </td>
                     {visibleCharIds.map((charId) => {
                       const actorId = charToActor.get(charId);

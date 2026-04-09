@@ -24,6 +24,10 @@ export interface Project {
   assignments: ActorAssignment[];
   cuts: Cut[];
   activeCutId: string | null;
+  /** Short production notes per act, keyed by act ID */
+  actDescriptions?: Record<string, string>;
+  /** Short production notes per scene, keyed by scene ID */
+  sceneDescriptions?: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }
