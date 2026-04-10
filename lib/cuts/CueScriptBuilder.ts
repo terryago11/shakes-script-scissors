@@ -93,10 +93,19 @@ export function buildCueScript(
           entries.push({ type: "cue", text: extractCue(lastOtherSpeechText), cueSpeakerName: lastOtherSpeakerName ?? undefined });
         }
 
-        // Emit the actor's kept lines only
-        const linesText = keptLines.map((l) => l.text).join("\n");
+        // Emit the actor's kept lines only.
+        // Prepend stageNote (inline delivery direction, e.g. "To Helen.") to each line
+        // so the actor sees it in context, matching the script view's "[stageNote] text".
+        const linesText = keptLines
+          .map((l) => (l.stageNote ? `[${l.stageNote}] ${l.text}` : l.text))
+          .join("\n");
+        // Append deliveryNote (pre-speech qualifier, e.g. "[as Ganymede]") to the speaker
+        // label so the actor knows under what persona or address mode they're speaking.
+        const label = speech.deliveryNote
+          ? `${speakerLabel} ${speech.deliveryNote}`
+          : speakerLabel;
         if (linesText) {
-          entries.push({ type: "lines", text: linesText, characterName: speakerLabel });
+          entries.push({ type: "lines", text: linesText, characterName: label });
         }
         inActorBlock = true;
         lastOtherSpeechText = null;
