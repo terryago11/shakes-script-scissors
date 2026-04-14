@@ -311,21 +311,9 @@ A right-aligned scene-relative line number appears every 5 lines, displayed in `
 
 ### Done ✓
 
-See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature groups (Groups 1–19).
+See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature groups (Groups 1–21).
 
 ---
-
-### Group 20 — Self-contained improvements
-
-- **#15 Compare two cuts** — Diff view dropdown to pick "original" side (any cut version, not just uncut TEI)
-- **#25 Act/scene descriptions** — short editable description field per act or scene
-- **#33 Fix "X" character listings** — investigate TEI `#X_Play` IDs surfacing as bare "X"
-
-- **Group 21 — Export enhancements** ✓
-  - **#26 ZIP cue scripts as PDFs** — `pdfkit` + `jszip`; one PDF per actor (Times-Roman, running headers/footers, page-break logic); "Download All as ZIP" button on Cue Scripts page; `serverExternalPackages: ["pdfkit"]` required to fix AFM font path under Turbopack
-  - **#27 Export to Word (.docx)** — full script DOCX (not cue scripts) via `docx` package; Clean mode (cuts hidden) or Standard mode (cuts/insertions/word-edits marked with strikethrough/underline/colour); moved to Settings modal "Save & Export" section alongside HTML export, with one-way-conversion warning and mode selector; `lib/export/renderScriptDocx.ts` + `/api/export/script-docx`
-  - **Fix: prose space bug** — `TeiParser.ts` `splitProseByLb()`: after extracting an inline `<stage>` as `pendingStageNote`, a trailing space is now appended to `currentText` so adjacent text nodes don't concatenate without a separator
-  - **Fix: inline stageNotes → proper SDs** — `expandStageNotes()` in `expandUtils.ts` splits any speech with `line.stageNote` into `Speech → StageDirection → Speech(:sn{n})` synthetic units at CutEngine expansion time; `:sn*` continuations inherit cut status from base speech; `SpeechBlock` and `CueScriptBuilder` no longer render `[stageNote]` inline; `DiffView` shows blank right-column for `:sd`/`:sn*` expansion units
 
 ### Group 22 — Heavy structural features
 
