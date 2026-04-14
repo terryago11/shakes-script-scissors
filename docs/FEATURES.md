@@ -33,7 +33,8 @@ A complete list of capabilities for power users. For a full walkthrough, see the
 | **Inline stage notes** | `<stage>` elements inside a verse line or prose line (e.g. `[To Helen.]`, `[To Orlando.]`) are expanded at render time into a proper **StageDirection block** between speech parts; the speech continues below as a continuation; no longer rendered as inline italic text prefix |
 | **Insert song/dance SD** | Edit SDs tool: hover strip between any two units → insert a new song/dance stage direction with custom text and characters |
 | **Song/dance flag toggle** | Edit SDs tool: toggle the ♪ or ⊛ flag on any existing SD per production needs |
-| **Restore** | Restore individual speeches, stage directions, or all cuts in a scene |
+| **SD text rewrite** | Edit SDs tool: click ✎ on any stage direction to rewrite its prose text; edited SDs show a green left border and "edited" badge in Standard/Diff views, plain in Clean; restore original wording via the Restore tool; propagated to cue scripts and HTML/Word exports |
+| **Restore** | Restore individual speeches, stage directions, stage direction text edits, or all cuts in a scene |
 | **Undo/Redo** | 20-step undo/redo history within an edit session |
 
 ---

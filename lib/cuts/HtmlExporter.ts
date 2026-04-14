@@ -19,6 +19,8 @@ interface UnitData {
   keptLines: string[];
   /** Verbatim original lines from the play, no edits applied */
   originalLines: string[];
+  /** True when this SD's text has been overridden via sdTextEdits */
+  isEdited?: boolean;
 }
 
 interface SceneData {
@@ -169,7 +171,8 @@ function buildScriptData(
         });
       } else {
         const stage = rawUnit as StageDirection;
-        const text = stage.text;
+        const text = cut.sdTextEdits?.[stage.id] ?? stage.text;
+        const isEdited = !!(cut.sdTextEdits?.[stage.id]);
         units.push({
           id: rawUnit.id,
           type: "stage",
@@ -177,7 +180,8 @@ function buildScriptData(
           characterName: "",
           status,
           keptLines: status === "cut" ? [] : [text],
-          originalLines: [text],
+          originalLines: [stage.text],
+          isEdited,
         });
       }
     }
@@ -301,6 +305,8 @@ body{font-family:Georgia,'Times New Roman',serif;font-size:14px;line-height:1.65
 .char-name{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.1em;color:#57534e;margin-bottom:2px}
 .line-cut{text-decoration:line-through;color:#b91c1c;opacity:.65}
 .stage-dir{text-align:center;font-style:italic;color:#78716c;font-size:13px;margin:8px 0}
+.stage-dir-edited{text-align:left;border-left:3px solid #4ade80;background:rgba(240,253,244,.5);padding-left:8px}
+.stage-dir-edited::before{content:"edited";display:inline-block;font-size:9px;color:#16a34a;background:#dcfce7;border-radius:2px;padding:0 3px;margin-right:6px;font-style:normal;vertical-align:middle}
 .pause{text-align:center;border-top:1px dashed #d6d3d1;border-bottom:1px dashed #d6d3d1;padding:12px 0;margin:24px 0;font-size:13px;color:#78716c;font-style:italic}
 .diff-row{display:flex;gap:0;border-left:3px solid #e7e5e4;margin-bottom:14px}
 .diff-col{flex:1;min-width:0;padding:0 12px}
@@ -378,8 +384,18 @@ function render(){
 
 function renderUnit(u){
   if(u.type==='stage'){
-    if(mode==='clean'&&u.status==='cut')return null;
-    return '<div class="stage-dir">['+esc(u.keptLines[0]||'')+']</div>';
+    if(u.status==='cut'){
+      if(mode==='clean')return null;
+      return '<div class="stage-dir" style="text-decoration:line-through;opacity:.5">['+esc(u.originalLines[0]||'')+']</div>';
+    }
+    if(mode==='clean')return '<div class="stage-dir">['+esc(u.keptLines[0]||'')+']</div>';
+    if(u.isEdited&&mode==='diff'){
+      var left='<div class="diff-label">Modified</div><div class="stage-dir stage-dir-edited">['+esc(u.keptLines[0]||'')+']</div>';
+      var right='<div class="diff-label">Original</div><div class="stage-dir">['+esc(u.originalLines[0]||'')+']</div>';
+      return'<div class="diff-row"><div class="diff-col diff-left">'+left+'</div><div class="diff-col diff-right">'+right+'</div></div>';
+    }
+    var sdCls=u.isEdited&&mode==='standard'?'stage-dir stage-dir-edited':'stage-dir';
+    return '<div class="'+sdCls+'">['+esc(u.keptLines[0]||'')+']</div>';
   }
   if(filterChar&&u.characterId!==filterChar)return null;
   if(mode==='clean'&&u.status==='cut')return null;

@@ -144,11 +144,11 @@ export function buildCueScript(
             inActorBlock = false;
           }
         }
-        entries.push({ type: "stage", text: stage.text });
+        entries.push({ type: "stage", text: cut.sdTextEdits?.[stage.id] ?? stage.text });
       } else if (inActorBlock && stage.stageType !== "entrance" && stage.stageType !== "exit") {
         // Non-relevant SD that falls between the actor's own speeches (e.g. "Knock." between
         // two Lady Macbeth lines) — include it so the actor knows what's happening on stage.
-        entries.push({ type: "stage", text: stage.text });
+        entries.push({ type: "stage", text: cut.sdTextEdits?.[stage.id] ?? stage.text });
       }
     }
   }

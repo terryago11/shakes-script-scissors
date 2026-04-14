@@ -210,18 +210,20 @@ export async function renderScriptDocx(
         } else if (unit.type === "stage") {
           const stage = unit as StageDirection;
           const isInsertedSD = !!(cut.insertedSDs?.[stage.id]);
+          const isTextEditedSD = !!(cut.sdTextEdits?.[stage.id]);
           const isSyntheticSD = stage.id.endsWith(":sd"); // from expandStageNotes
+          const sdText = cut.sdTextEdits?.[stage.id] ?? stage.text;
           paragraphs.push(
             new Paragraph({
               children: [
                 new TextRun({
-                  text: `[${stage.text}]`,
+                  text: `[${sdText}]`,
                   italics: true,
                   size: 18,
                   ...(effectivelyCut
                     ? { strike: true, color: "aaaaaa" }
-                    : (isInsertedSD && viewMode === "standard")
-                    ? { color: "1d6b38" }  // inserted SDs in green in standard mode
+                    : ((isInsertedSD || isTextEditedSD) && viewMode === "standard")
+                    ? { color: "1d6b38" }  // inserted/edited SDs in green in standard mode
                     : isSyntheticSD
                     ? { color: "666666" }  // stageNote-expanded SDs in muted grey
                     : { color: "666666" }),

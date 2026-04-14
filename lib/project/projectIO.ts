@@ -47,6 +47,7 @@ const CutSchema = z.object({
     lines: z.array(z.object({ id: z.string(), text: z.string() })),
   })).optional(),
   stageDurations: z.record(z.string(), z.number()).optional(),
+  sdTextEdits: z.record(z.string(), z.string()).optional(),
 });
 
 const ProjectSchema = z.object({

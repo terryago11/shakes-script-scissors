@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import type { Character, StageDirection } from "@/types/play";
 import { useProject } from "@/lib/project/ProjectStore";
 import { useEditMode } from "@/lib/ui/EditModeContext";
+import { useViewMode } from "@/lib/ui/ViewModeContext";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
 
 interface Props {
@@ -14,14 +16,45 @@ interface Props {
   onStageAtSd?: Set<string>;
   /** Characters who speak after this entrance SD but aren't yet on stage — enables Sync entrances button */
   entranceSuggestionsAtSd?: Set<string>;
+  /** When true, render stage.text as-is without applying sdTextEdits (used by DiffView's original column) */
+  ignoreTextEdits?: boolean;
 }
 
-export default function StageDirectionBlock({ stage, status, onToggle, castList, onStageAtSd, entranceSuggestionsAtSd }: Props) {
+export default function StageDirectionBlock({ stage, status, onToggle, castList, onStageAtSd, entranceSuggestionsAtSd, ignoreTextEdits }: Props) {
   const { activeCut, dispatch } = useProject();
   const { activeTool } = useEditMode();
+  const { viewMode } = useViewMode();
 
   const isCut = status === "cut";
   const readonly = onToggle === null;
+
+  // Effective text: use sdTextEdits override unless caller requests the raw original
+  const effectiveText = ignoreTextEdits
+    ? stage.text
+    : (activeCut?.sdTextEdits?.[stage.id] ?? stage.text);
+  const hasTextEdit = !ignoreTextEdits && !!activeCut?.sdTextEdits?.[stage.id];
+
+  // Inline text-edit state (only active in edit-sds mode)
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [draftText, setDraftText] = useState("");
+
+  function startTextEdit() {
+    setDraftText(effectiveText);
+    setIsEditingText(true);
+  }
+
+  function commitTextEdit() {
+    dispatch({ type: "SET_SD_TEXT", stageId: stage.id, text: draftText });
+    setIsEditingText(false);
+  }
+
+  function cancelTextEdit() {
+    setIsEditingText(false);
+  }
+
+  function restoreText() {
+    dispatch({ type: "SET_SD_TEXT", stageId: stage.id, text: null });
+  }
 
   // Show character chips (read-only display) on kept entrance/exit SDs — always visible
   const showChips =
@@ -141,15 +174,58 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
     <><span className="text-violet-600 dark:text-violet-400 not-italic">♪</span><span className="text-cyan-600 dark:text-cyan-400 not-italic">⊛</span>{" "}</>
   ) : isSong ? "♪ " : isDance ? "⊛ " : "";
 
+  // Text editing is available in edit-sds mode on non-cut, non-readonly SDs
+  const canEditText = !readonly && !isCut && activeTool === "edit-sds";
+
+  // Show green insertion style when the text has been edited (standard + diff only, not clean)
+  const showEditedStyle = hasTextEdit && !isCut && viewMode !== "clean";
+
   return (
     <>
-      <div className={`group flex items-start gap-3 py-1.5 px-2 rounded ${isCut ? "opacity-50" : ""}`}>
+      <div className={`group flex items-start gap-3 py-1.5 px-2 rounded ${isCut ? "opacity-50" : ""} ${showEditedStyle ? "border-l-2 border-green-400 dark:border-green-600 bg-green-50/50 dark:bg-green-950/20" : ""}`}>
         <div className="w-1 shrink-0" />
         <div className="flex-1 min-w-0">
+          {showEditedStyle && (
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="text-[10px] text-green-600 dark:text-green-500 italic font-normal bg-green-100 dark:bg-green-900/50 px-1 rounded">
+                edited
+              </span>
+            </div>
+          )}
           <div className={`text-sm italic ${sdTextColor} ${isCut ? "line-through text-stone-400 dark:text-stone-400" : ""}`}>
-            {sdPrefixNode}{stage.text}
+            {sdPrefixNode}
+            {isEditingText ? (
+              <textarea
+                autoFocus
+                value={draftText}
+                rows={Math.max(1, draftText.split("\n").length)}
+                onChange={(e) => setDraftText(e.target.value)}
+                onBlur={commitTextEdit}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    commitTextEdit();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancelTextEdit();
+                  }
+                }}
+                className="not-italic w-full bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1.5 py-0.5 text-stone-700 dark:text-stone-200 text-sm resize-none focus:outline-none focus:border-amber-400 dark:focus:border-amber-500"
+              />
+            ) : canEditText ? (
+              <span className="inline">
+                <span>{effectiveText}</span>
+                <button
+                  onClick={startTextEdit}
+                  className="not-italic ml-1 text-xs text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300 transition-colors"
+                  title="Edit stage direction text"
+                >✎</button>
+              </span>
+            ) : (
+              <span>{effectiveText}</span>
+            )}
             {/* Read-only duration badge — editing happens in the Scenes & Pauses dashboard */}
-            {currentDuration && !isCut && (
+            {!isEditingText && currentDuration && !isCut && (
               <span className="not-italic ml-1.5 text-xs text-amber-600 dark:text-amber-400">
                 (+{currentDuration % 1 === 0 ? currentDuration : currentDuration.toFixed(1)}m)
               </span>
@@ -265,14 +341,27 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
             </div>
           )}
         </div>
-        {!readonly && isCut && activeTool === "restore" && (
-          <button
-            onClick={onToggle ?? undefined}
-            className="self-center text-xs px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 dark:border-green-800 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-700 transition-all shrink-0"
-            title="Restore stage direction"
-          >
-            ↩ restore
-          </button>
+        {!readonly && activeTool === "restore" && (
+          <div className="flex flex-col gap-1 shrink-0 self-center">
+            {isCut && (
+              <button
+                onClick={onToggle ?? undefined}
+                className="text-xs px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 dark:border-green-800 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-700 transition-all"
+                title="Restore stage direction"
+              >
+                ↩ restore
+              </button>
+            )}
+            {!isCut && hasTextEdit && (
+              <button
+                onClick={restoreText}
+                className="text-xs px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 dark:border-green-800 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-700 transition-all"
+                title="Restore original stage direction text"
+              >
+                ↩ restore text
+              </button>
+            )}
+          </div>
         )}
       </div>
 
