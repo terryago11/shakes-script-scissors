@@ -381,6 +381,7 @@ export default function DiffView({
                                       status={rightSdStatus}
                                       onToggle={null}
                                       castList={castList}
+                                      ignoreTextEdits
                                     />
                                   </div>
                                 );

@@ -119,4 +119,10 @@ export interface Cut {
    * Absent key = use the TEI parser's isSong value.
    */
   lineSongOverrides?: Record<string, boolean>;
+  /**
+   * Cosmetic text rewrites for stage directions: sdId → rewritten prose.
+   * Absent key = display the original TEI text.
+   * Display-only: has no effect on on-stage tracking, stage time, or character calculations.
+   */
+  sdTextEdits?: Record<string, string>;
 }

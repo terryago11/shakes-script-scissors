@@ -169,7 +169,7 @@ function buildScriptData(
         });
       } else {
         const stage = rawUnit as StageDirection;
-        const text = stage.text;
+        const text = cut.sdTextEdits?.[stage.id] ?? stage.text;
         units.push({
           id: rawUnit.id,
           type: "stage",
@@ -177,7 +177,7 @@ function buildScriptData(
           characterName: "",
           status,
           keptLines: status === "cut" ? [] : [text],
-          originalLines: [text],
+          originalLines: [stage.text],
         });
       }
     }
