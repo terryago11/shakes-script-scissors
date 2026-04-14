@@ -92,6 +92,7 @@ Both updates should be done together whenever play texts are refreshed.
   - `pauses?: Record<"after:{sceneId}", { name: string; minutes: number }>` — named intermissions inserted between scenes; duration adds to total running time
   - `insertedSDs?: Record<insertedSDId, InsertedSD>` — director-created song/dance SDs inserted after any speech or inserted SD; each has `text`, `characters[]`, `isSong?`, `isDance?`, `afterUnitId`; rendered with green left border
   - `sdFlagOverrides?: Record<sdId, { isSong?: boolean; isDance?: boolean }>` — per-SD song/dance flag overrides; toggles TEI `isSong`/`isDance` per production needs
+  - `sdTextEdits?: Record<sdId, string>` — cosmetic prose rewrites for stage directions; display-only (no effect on on-stage tracking or stage time); edited SDs show green left border + "edited" badge in standard/diff modes, plain in clean mode; ↩ restore text available in Restore tool; propagated to cue scripts and HTML/Word exports
 - `actors[]`: name + color hex
 - `assignments[]`: `characterId` → `actorId` (double-casting: one actor → many characters)
 - `settings?: { wordsPerMinute: number; quickChangeThresholdMinutes?: number }` — used for stage time and quick-change calculations
@@ -311,14 +312,13 @@ A right-aligned scene-relative line number appears every 5 lines, displayed in `
 
 ### Done ✓
 
-See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature groups (Groups 1–21).
+See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature groups (Groups 1–22A).
 
 ---
 
-### Group 22 — Heavy structural features
+### Group 22B — Scene subdivide
 
-- **#7 SD rewrite** — two-layer model (cosmetic text + character list); new `sdTextEdits?: Record<sdId, string>` in Cut
-- **#24 Scene subdivide** — split a scene into A/B/C sub-parts; new data model for scene parts
+- **#24 Scene subdivide** — split a scene into A/B/C sub-parts via Scenes & Pauses dashboard; A/B/C suffix labelling; independently orderable sub-scenes; new data model for scene parts
 
 ### Group 23 — Word import
 

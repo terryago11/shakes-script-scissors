@@ -86,6 +86,8 @@ Stage directions can be cut or restored the same way as speeches. Entrance and e
 
 **Edit SDs tool**: in Edit mode, select **Edit SDs** from the toolbar. A thin hover strip appears between every pair of units in the scene — click it to open the **Insert SD** modal where you can create a new song or dance stage direction (type custom text, select characters, set ♪/⊛ flags). Inserted SDs appear with a green left border and can be edited or removed via buttons that appear in Edit SDs mode. You can also toggle the ♪ or ⊛ flag on any *existing* SD in the play — useful when the TEI doesn't mark a moment as a song or dance but your production treats it as one.
 
+**Rewriting SD text**: with **Edit SDs** active, a ✎ button appears next to every stage direction's text. Click it to open an inline editor pre-filled with the current wording — type your revised text, then press **Enter** or click away to save. Rewritten SDs display with a green left border and small "edited" badge in Standard and Diff views; in Clean view they appear without any indicator. The original TEI text is preserved and can be restored at any time by switching to the **Restore** tool and clicking **↩ restore text** on the SD. Rewrites carry through to cue scripts and HTML/Word exports.
+
 ### Speech reassignment
 
 In **Reassign** mode, hover a character name to reveal a **⇄** icon. Click it to open a dropdown of characters in the cast — select a new character to re-attribute the speech. The original name appears with red strikethrough; the new name appears in green. Hover **↩ restore** to undo the reassignment.
