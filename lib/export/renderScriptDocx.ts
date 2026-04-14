@@ -15,7 +15,7 @@ import {
 import type { Play, Speech, StageDirection } from "@/types/play";
 import type { Cut } from "@/types/project";
 import { expandSplits, expandInsertions, expandStageNotes } from "@/lib/cuts/expandUtils";
-import { applyEditsToLine, segmentsToText } from "@/lib/cuts/applyEdits";
+import { applyEditsToLine } from "@/lib/cuts/applyEdits";
 
 export type ScriptDocxViewMode = "clean" | "standard";
 
@@ -112,21 +112,37 @@ export async function renderScriptDocx(
 
         if (unit.type === "speech") {
           const speech = unit as Speech;
-          const label = resolveSpeakerLabel(speech, cut);
+          const reassignment = cut.speechReassignments?.[speech.id];
+          const isInsertion = !!(cut.insertions?.[speech.id]);
           const delivery = speech.deliveryNote ? ` ${speech.deliveryNote}` : "";
-          const fullLabel = (label + delivery).toUpperCase();
 
-          // Speaker label paragraph
+          // Speaker label: in standard mode show original struck-out + new name for reassignments
+          const labelRuns: TextRun[] = [];
+          if (reassignment && viewMode === "standard") {
+            // Original name struck through
+            labelRuns.push(new TextRun({
+              text: (speech.characterName ?? speech.characterId).toUpperCase() + " ",
+              bold: true, size: 18, strike: true, color: "999999",
+            }));
+            // New name in green
+            const newName = resolveSpeakerLabel(speech, cut);
+            labelRuns.push(new TextRun({
+              text: (newName + delivery).toUpperCase(),
+              bold: true, size: 18, color: "1d6b38",
+            }));
+          } else {
+            const label = resolveSpeakerLabel(speech, cut);
+            labelRuns.push(new TextRun({
+              text: (label + delivery).toUpperCase(),
+              bold: true, size: 18,
+              ...(effectivelyCut ? { strike: true, color: "999999" } : {}),
+              ...(isInsertion ? { color: "1d6b38" } : {}),
+            }));
+          }
+
           paragraphs.push(
             new Paragraph({
-              children: [
-                new TextRun({
-                  text: fullLabel,
-                  bold: true,
-                  size: 18,
-                  ...(effectivelyCut ? { strike: true, color: "999999" } : {}),
-                }),
-              ],
+              children: labelRuns,
               spacing: { before: 160, after: 0 },
             })
           );
@@ -140,36 +156,75 @@ export async function renderScriptDocx(
             if (lineCut && viewMode === "clean") continue;
 
             const lineOps = ops.filter((op) => op.lineId === line.id);
-            const text = lineOps.length > 0
-              ? segmentsToText(applyEditsToLine(line.id, line.text, lineOps))
-              : line.text;
+            const baseStrike = effectivelyCut || lineCut;
 
-            if (!text.trim()) continue;
+            let runs: TextRun[];
+
+            if (lineOps.length > 0 && viewMode === "standard") {
+              // Render each edit segment with its own formatting
+              const segments = applyEditsToLine(line.id, line.text, lineOps);
+              runs = segments
+                .filter((s) => s.type !== "cut" || viewMode === "standard")
+                .map((s) => {
+                  if (s.type === "cut") {
+                    return new TextRun({ text: s.text, size: 22, strike: true, color: "999999" });
+                  } else if (s.type === "insert") {
+                    // Inserted words: underlined to distinguish from original text
+                    return new TextRun({ text: s.text, size: 22, underline: {}, color: "1d6b38" });
+                  } else {
+                    return new TextRun({
+                      text: s.text, size: 22,
+                      ...(baseStrike ? { strike: true, color: "999999" } : {}),
+                    });
+                  }
+                });
+            } else if (lineOps.length > 0 && viewMode === "clean") {
+              // Clean mode: collapse segments, skipping cuts
+              const segments = applyEditsToLine(line.id, line.text, lineOps);
+              const text = segments
+                .filter((s) => s.type !== "cut")
+                .map((s) => s.text)
+                .join("");
+              if (!text.trim()) continue;
+              runs = [new TextRun({ text, size: 22 })];
+            } else {
+              if (!line.text.trim()) continue;
+              runs = [new TextRun({
+                text: line.text,
+                size: 22,
+                ...(baseStrike ? { strike: true, color: "999999" } : {}),
+                // Highlight inserted speeches (from cut.insertions) in green
+                ...(isInsertion ? { color: "1d6b38" } : {}),
+              })];
+            }
+
+            if (runs.length === 0) continue;
 
             paragraphs.push(
               new Paragraph({
-                children: [
-                  new TextRun({
-                    text,
-                    size: 22,
-                    ...((effectivelyCut || lineCut) ? { strike: true, color: "999999" } : {}),
-                  }),
-                ],
+                children: runs,
                 spacing: { before: 0, after: 0 },
               })
             );
           }
         } else if (unit.type === "stage") {
           const stage = unit as StageDirection;
+          const isInsertedSD = !!(cut.insertedSDs?.[stage.id]);
+          const isSyntheticSD = stage.id.endsWith(":sd"); // from expandStageNotes
           paragraphs.push(
             new Paragraph({
               children: [
                 new TextRun({
                   text: `[${stage.text}]`,
                   italics: true,
-                  color: effectivelyCut ? "aaaaaa" : "666666",
                   size: 18,
-                  ...(effectivelyCut ? { strike: true } : {}),
+                  ...(effectivelyCut
+                    ? { strike: true, color: "aaaaaa" }
+                    : (isInsertedSD && viewMode === "standard")
+                    ? { color: "1d6b38" }  // inserted SDs in green in standard mode
+                    : isSyntheticSD
+                    ? { color: "666666" }  // stageNote-expanded SDs in muted grey
+                    : { color: "666666" }),
                 }),
               ],
               alignment: AlignmentType.CENTER,
