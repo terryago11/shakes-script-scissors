@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Character, StageDirection } from "@/types/play";
 import { useProject } from "@/lib/project/ProjectStore";
 import { useEditMode } from "@/lib/ui/EditModeContext";
+import { useViewMode } from "@/lib/ui/ViewModeContext";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
 
 interface Props {
@@ -22,6 +23,7 @@ interface Props {
 export default function StageDirectionBlock({ stage, status, onToggle, castList, onStageAtSd, entranceSuggestionsAtSd, ignoreTextEdits }: Props) {
   const { activeCut, dispatch } = useProject();
   const { activeTool } = useEditMode();
+  const { viewMode } = useViewMode();
 
   const isCut = status === "cut";
   const readonly = onToggle === null;
@@ -175,11 +177,21 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
   // Text editing is available in edit-sds mode on non-cut, non-readonly SDs
   const canEditText = !readonly && !isCut && activeTool === "edit-sds";
 
+  // Show green insertion style when the text has been edited (standard + diff only, not clean)
+  const showEditedStyle = hasTextEdit && !isCut && viewMode !== "clean";
+
   return (
     <>
-      <div className={`group flex items-start gap-3 py-1.5 px-2 rounded ${isCut ? "opacity-50" : ""}`}>
+      <div className={`group flex items-start gap-3 py-1.5 px-2 rounded ${isCut ? "opacity-50" : ""} ${showEditedStyle ? "border-l-2 border-green-400 dark:border-green-600 bg-green-50/50 dark:bg-green-950/20" : ""}`}>
         <div className="w-1 shrink-0" />
         <div className="flex-1 min-w-0">
+          {showEditedStyle && (
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="text-[10px] text-green-600 dark:text-green-500 italic font-normal bg-green-100 dark:bg-green-900/50 px-1 rounded">
+                edited
+              </span>
+            </div>
+          )}
           <div className={`text-sm italic ${sdTextColor} ${isCut ? "line-through text-stone-400 dark:text-stone-400" : ""}`}>
             {sdPrefixNode}
             {isEditingText ? (
