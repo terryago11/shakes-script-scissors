@@ -39,7 +39,7 @@ The script editor is the main working view. It shows the full play divided by ac
 - ♪ violet/italic — a sung line or song stage direction
 - ⊛ cyan — a dance or dumbshow stage direction
 - `[within]` after a character name — a delivery qualifier (e.g. speaking offstage)
-- `[To Helen.]` before a line in italic muted text — an inline delivery stage note embedded in the TEI (e.g. a direction to address a specific character mid-speech); not part of the editable spoken text
+- `[To Orlando.]` as a stage direction block between speech parts — inline delivery stage notes (e.g. `<stage>To Orlando.</stage>` embedded inside a line in the TEI) are expanded into a proper stage direction, splitting the speech into a first part, the stage direction, and a continuation below
 
 ---
 
@@ -290,13 +290,25 @@ The file embeds the full play data and a vanilla-JS mini-app with:
 - Character filter sidebar (grouped by actor)
 - Scene jump, sticky top bar, print button
 
+### Word export (.docx)
+
+From the **⚙ gear** menu → **Export as Word**: exports the full current cut as a `.docx` file.
+
+1. Click **Export as Word** — an amber warning panel expands.
+2. Choose the view mode:
+   - **Clean** — cuts hidden; only the surviving script is included.
+   - **Standard** — cuts shown with grey strikethrough; inserted text underlined in green; word-level cuts/insertions marked individually.
+3. Click **Download Anyway** to download the file.
+
+Note: the `.docx` is a one-way export — it cannot be re-imported into Shakespeare Script Scissors.
+
 ### Cue scripts
 
-From the nav bar → **Export** page:
+From the nav bar → **Cue Scripts** page:
 
-1. Select the actors you want to generate scripts for (or select all).
-2. Click **Generate Cue Scripts**.
-3. Print or save as PDF from your browser's print dialog.
+1. Select an actor from the dropdown to preview their cue script.
+2. Click **Print / Save PDF** to print or save that actor's script from your browser.
+3. Click **Download All as ZIP** to generate server-side PDFs for every actor at once and download them as a single ZIP file.
 
 Each actor's cue script shows:
 - Their character(s) at the top
@@ -318,6 +330,9 @@ Click the **⚙ gear** icon in the nav bar.
 | Words per minute | Base rate for running-time calculations |
 | Quick-change threshold | Minimum costume-change time in minutes (default: 2.0) |
 | Theme | **Light** / **Dark** / **Auto** (follows OS) / **1602** — a Renaissance printing-press theme with parchment background and period typography; toggle also available on the home and login pages via the ☼ ☽ □ ✒ buttons |
+| Save as JSON | Download the project file (`.sss.json`) |
+| Export as HTML | Download a self-contained HTML file of the full cut script |
+| Export as Word | Download the full cut as `.docx` (Clean or Standard mode); see [Exporting](#9-exporting) |
 
 ---
 

@@ -30,7 +30,7 @@ A complete list of capabilities for power users. For a full walkthrough, see the
 | **SD character editing** | Add or remove individual characters from any stage direction |
 | **SD sync exits** | ⟳ sync exits pre-fills exit SDs from on-stage tracking |
 | **SD sync entrances** | ⟳ sync entrances pre-fills an entrance SD's character list from on-stage tracking (mirrors sync exits logic) |
-| **Inline stage notes** | `<stage>` elements inside a verse line or prose line render as italic muted `[To Helen.]` before the spoken text; extracted separately from editable line text |
+| **Inline stage notes** | `<stage>` elements inside a verse line or prose line (e.g. `[To Helen.]`, `[To Orlando.]`) are expanded at render time into a proper **StageDirection block** between speech parts; the speech continues below as a continuation; no longer rendered as inline italic text prefix |
 | **Insert song/dance SD** | Edit SDs tool: hover strip between any two units → insert a new song/dance stage direction with custom text and characters |
 | **Song/dance flag toggle** | Edit SDs tool: toggle the ♪ or ⊛ flag on any existing SD per production needs |
 | **Restore** | Restore individual speeches, stage directions, or all cuts in a scene |
@@ -117,8 +117,9 @@ All three modes are available in the script editor and in the exported HTML file
 | Feature | Details |
 |---------|---------|
 | **Export HTML** | Self-contained single HTML file; embeds play data + vanilla-JS mini-app; three view modes; character filter; scene jump; print button |
-| **Cue scripts** | Per-actor pages with lines, cues (last 2–3 words of preceding speech), and all relevant stage directions |
-| **Print / PDF** | Browser print dialog; `@page` headers (play title, cut name, actor) and footer (page number, timestamp) |
+| **Cue scripts — print/PDF** | Per-actor pages with lines, cues (last 2–3 words of preceding speech), and all relevant stage directions; browser print dialog; `@page` headers (play title, cut name, actor) and footer (page number, timestamp) |
+| **Cue scripts — Download All as ZIP** | Server-side PDF generation via `pdfkit`; one PDF per actor; all bundled as a single `.zip` download; same header/footer layout as browser print |
+| **Export full script as Word (.docx)** | From ⚙ Settings → Save & Export; exports the full current-cut script as `.docx` via the `docx` package; **Clean** mode (cuts hidden) or **Standard** mode (cuts struck through in grey, inserted words underlined in green, speech reassignments shown original→new, inserted speeches/SDs in green); one-way conversion — cannot be re-imported |
 
 ---
 
