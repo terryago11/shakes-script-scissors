@@ -201,20 +201,13 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
                 className="not-italic w-full bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1.5 py-0.5 text-stone-700 dark:text-stone-200 text-sm resize-none focus:outline-none focus:border-amber-400 dark:focus:border-amber-500"
               />
             ) : canEditText ? (
-              <span className="group/text-edit inline">
+              <span className="inline">
                 <span>{effectiveText}</span>
                 <button
                   onClick={startTextEdit}
-                  className="not-italic ml-1 opacity-0 group-hover/text-edit:opacity-100 text-xs text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300 transition-opacity"
+                  className="not-italic ml-1 text-xs text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300 transition-colors"
                   title="Edit stage direction text"
                 >✎</button>
-                {hasTextEdit && (
-                  <button
-                    onClick={restoreText}
-                    className="not-italic ml-1 text-xs text-stone-400 hover:text-amber-600 dark:text-stone-500 dark:hover:text-amber-400 transition-colors"
-                    title="Restore original stage direction text"
-                  >↩</button>
-                )}
               </span>
             ) : (
               <span>
@@ -341,14 +334,27 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
             </div>
           )}
         </div>
-        {!readonly && isCut && activeTool === "restore" && (
-          <button
-            onClick={onToggle ?? undefined}
-            className="self-center text-xs px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 dark:border-green-800 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-700 transition-all shrink-0"
-            title="Restore stage direction"
-          >
-            ↩ restore
-          </button>
+        {!readonly && activeTool === "restore" && (
+          <div className="flex flex-col gap-1 shrink-0 self-center">
+            {isCut && (
+              <button
+                onClick={onToggle ?? undefined}
+                className="text-xs px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 dark:border-green-800 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-700 transition-all"
+                title="Restore stage direction"
+              >
+                ↩ restore
+              </button>
+            )}
+            {!isCut && hasTextEdit && (
+              <button
+                onClick={restoreText}
+                className="text-xs px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 dark:border-green-800 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-700 transition-all"
+                title="Restore original stage direction text"
+              >
+                ↩ restore text
+              </button>
+            )}
+          </div>
         )}
       </div>
 
