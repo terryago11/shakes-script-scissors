@@ -210,12 +210,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
                 >✎</button>
               </span>
             ) : (
-              <span>
-                {effectiveText}
-                {hasTextEdit && (
-                  <span className="not-italic ml-1 text-xs text-stone-400 dark:text-stone-500" title="Stage direction text has been edited">✎</span>
-                )}
-              </span>
+              <span>{effectiveText}</span>
             )}
             {/* Read-only duration badge — editing happens in the Scenes & Pauses dashboard */}
             {!isEditingText && currentDuration && !isCut && (
