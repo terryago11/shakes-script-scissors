@@ -155,6 +155,7 @@ function ProjectNav({
   const isDashboard = pathname.startsWith(`/projects/${projectId}/dashboard`);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exportingHtml, setExportingHtml] = useState(false);
+  const [exportingDocx, setExportingDocx] = useState(false);
   const [easterEggVisible, setEasterEggVisible] = useState(false);
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
   const hamburgerRef = useRef<HTMLDivElement>(null);
@@ -218,6 +219,33 @@ function ProjectNav({
       exportScriptHtml(play, activeCut, project.name, project.actors, project.assignments);
     } finally {
       setExportingHtml(false);
+    }
+  }
+
+  async function handleExportDocx(viewMode: "clean" | "standard") {
+    if (!activeCut) return;
+    setExportingDocx(true);
+    try {
+      const r = await fetch(`/api/play/${project.playId}`);
+      const play: Play = await r.json();
+      const res = await fetch("/api/export/script-docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ play, cut: activeCut, viewMode }),
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const cdHeader = res.headers.get("Content-Disposition") ?? "";
+      const match = cdHeader.match(/filename\*=UTF-8''(.+)/);
+      const filename = match ? decodeURIComponent(match[1]) : `script_${viewMode}.docx`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportingDocx(false);
     }
   }
 
@@ -399,6 +427,8 @@ function ProjectNav({
             onExportJson={handleExportJson}
             onExportHtml={handleExportHtml}
             exportingHtml={exportingHtml}
+            onExportDocx={handleExportDocx}
+            exportingDocx={exportingDocx}
           />
         )}
       </div>

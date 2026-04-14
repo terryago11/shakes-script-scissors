@@ -15,6 +15,8 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_COMMIT_DATE: getGitCommitDate(),
   },
+  // Keep pdfkit external so its __dirname-based AFM font resolution works at runtime.
+  serverExternalPackages: ["pdfkit"],
 };
 
 export default nextConfig;

@@ -71,6 +71,8 @@ interface Props {
   onExportJson: () => void;
   onExportHtml: () => void;
   exportingHtml: boolean;
+  onExportDocx: (viewMode: "clean" | "standard") => void;
+  exportingDocx: boolean;
 }
 
 export default function SettingsModal({
@@ -80,10 +82,14 @@ export default function SettingsModal({
   onExportJson,
   onExportHtml,
   exportingHtml,
+  onExportDocx,
+  exportingDocx,
 }: Props) {
   const { activeCutId, dispatch } = useProject();
   const { theme, setTheme } = useTheme();
   const [showNewCut, setShowNewCut] = useState(false);
+  const [docxPanelOpen, setDocxPanelOpen] = useState(false);
+  const [docxViewMode, setDocxViewMode] = useState<"clean" | "standard">("clean");
 
   const [name, setName] = useState(project.name ?? "");
   const [wpm, setWpm] = useState(String(project.settings?.wordsPerMinute ?? 135));
@@ -225,7 +231,69 @@ export default function SettingsModal({
                 <span className="text-stone-400">⊞</span>
                 {exportingHtml ? "Exporting…" : "Export as HTML"}
               </button>
+              <button
+                onClick={() => setDocxPanelOpen((v) => !v)}
+                disabled={!activeCutId || exportingDocx}
+                className="flex-1 text-sm px-3 py-2 rounded border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-left flex items-center gap-2 disabled:opacity-40"
+              >
+                <span className="text-stone-400">⊟</span>
+                {exportingDocx ? "Exporting…" : "Export as Word"}
+              </button>
             </div>
+
+            {/* DOCX warning + mode selector */}
+            {docxPanelOpen && (
+              <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-xs space-y-2">
+                <p className="text-amber-800 dark:text-amber-300 font-medium">⚠ One-way export</p>
+                <p className="text-amber-700 dark:text-amber-400">
+                  This .docx cannot be re-imported into Shakespeare Script Scissors. Formatting may differ from the script view.
+                </p>
+                <div className="flex items-center gap-3">
+                  <span className="text-stone-500 dark:text-stone-400 font-medium">View mode:</span>
+                  <label className="flex items-center gap-1 cursor-pointer text-stone-600 dark:text-stone-300">
+                    <input
+                      type="radio"
+                      name="docxViewMode"
+                      value="clean"
+                      checked={docxViewMode === "clean"}
+                      onChange={() => setDocxViewMode("clean")}
+                      className="accent-amber-500"
+                    />
+                    Clean
+                  </label>
+                  <label className="flex items-center gap-1 cursor-pointer text-stone-600 dark:text-stone-300">
+                    <input
+                      type="radio"
+                      name="docxViewMode"
+                      value="standard"
+                      checked={docxViewMode === "standard"}
+                      onChange={() => setDocxViewMode("standard")}
+                      className="accent-amber-500"
+                    />
+                    Standard
+                  </label>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      onExportDocx(docxViewMode);
+                      setDocxPanelOpen(false);
+                      onClose();
+                    }}
+                    disabled={exportingDocx}
+                    className="flex-1 text-xs px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-700 text-white font-medium transition-colors disabled:opacity-50"
+                  >
+                    Download Anyway
+                  </button>
+                  <button
+                    onClick={() => setDocxPanelOpen(false)}
+                    className="flex-1 text-xs px-3 py-1.5 rounded border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="border-t border-stone-100 dark:border-stone-800" />

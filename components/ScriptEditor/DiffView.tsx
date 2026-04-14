@@ -292,8 +292,8 @@ export default function DiffView({
                                 <div className="flex-1 min-w-0 bg-stone-50/50 dark:bg-stone-900/50 flex items-center justify-center py-2 px-3">
                                   <span className="text-[10px] text-stone-300 dark:text-stone-600 italic select-none">inserted</span>
                                 </div>
-                              ) : isExpansionOnly && unit.id.endsWith(":s2") ? (
-                                // :s2 split part — blank cell (the original speech is shown in Part 1's row above)
+                              ) : isExpansionOnly && (unit.id.endsWith(":s2") || /:sn\d+$/.test(unit.id)) ? (
+                                // :s2 split part or :sn* stageNote continuation — blank cell (original speech shown in Part 1's row above)
                                 <div className="flex-1 min-w-0 bg-stone-50/50 dark:bg-stone-900/50" />
                               ) : (
                                 (() => {
@@ -332,6 +332,8 @@ export default function DiffView({
                         if (isFiltering) return null;
 
                         const isCut = status === "cut";
+                        // Synthetic stageNote SDs (":sd" suffix) have no original equivalent
+                        const isSyntheticSD = unit.id.endsWith(":sd");
 
                         return (
                           <div
@@ -359,7 +361,10 @@ export default function DiffView({
 
                             {/* Right: original (readonly, no edits applied) */}
                             <ViewModeProvider forceValue="standard">
-                              {(() => {
+                              {isSyntheticSD ? (
+                                // Synthetic stageNote SD — no original equivalent, show blank cell
+                                <div className="flex-1 min-w-0 bg-stone-50/50 dark:bg-stone-900/50" />
+                              ) : (() => {
                                 const rightSdEntry = rightUnitsById?.get(unit.id);
                                 const rightSdStatus = rightUnitsById !== undefined
                                   ? (rightSdEntry?.status ?? "kept")
