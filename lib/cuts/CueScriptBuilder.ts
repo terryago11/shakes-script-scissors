@@ -97,7 +97,7 @@ export function buildCueScript(
         // Prepend stageNote (inline delivery direction, e.g. "To Helen.") to each line
         // so the actor sees it in context, matching the script view's "[stageNote] text".
         const linesText = keptLines
-          .map((l) => (l.stageNote ? `[${l.stageNote}] ${l.text}` : l.text))
+          .map((l) => l.text)
           .join("\n");
         // Append deliveryNote (pre-speech qualifier, e.g. "[as Ganymede]") to the speaker
         // label so the actor knows under what persona or address mode they're speaking.

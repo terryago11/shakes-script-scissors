@@ -1,5 +1,5 @@
 import type { Play, Scene, ScriptUnit } from "@/types/play";
-import { expandSplits, expandInsertions } from "./expandUtils";
+import { expandSplits, expandInsertions, expandStageNotes } from "./expandUtils";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import type { LineCounts, LineWithStatus, ScriptUnitWithStatus, CountPair, SceneCounts } from "@/types/cut";
 import { applyEditsToLine, segmentsToText } from "./applyEdits";
@@ -79,15 +79,21 @@ export function computeCuts(
       byScene[scene.id] = { lines: { original: 0, afterCut: 0 }, words: { original: 0, afterCut: 0 } };
       const unitsWithStatus: ScriptUnitWithStatus[] = [];
 
-      // Expand splits and insertions before iterating so each part is processed independently
-      const expandedUnits = expandInsertions(
+      // Expand splits, insertions, and inline stageNotes before iterating so each part is processed independently
+      const expandedUnits = expandStageNotes(expandInsertions(
         expandSplits(scene.units, cut.speechSplits),
         cut.insertions,
         play.castList
-      );
+      ));
 
       for (const unit of expandedUnits) {
-        const status: "kept" | "cut" = cut.cutMap[unit.id] === "cut" ? "cut" : "kept";
+        // For stageNote continuation parts ("<id>:sn<n>"), inherit cut status from the base speech.
+        const snBaseMatch = unit.id.match(/^(.+):sn\d+$/);
+        const snBaseId = snBaseMatch ? snBaseMatch[1] : null;
+        const status: "kept" | "cut" =
+          cut.cutMap[unit.id] === "cut" ? "cut"
+          : (snBaseId && cut.cutMap[snBaseId] === "cut") ? "cut"
+          : "kept";
 
         if (unit.type === "speech") {
           // afterCut lines/words go to ALL effective speakers (multi-speaker supported).
@@ -288,11 +294,11 @@ export function getEffectiveUnitsInOrder(play: Play, cut: Cut): ScriptUnit[] {
   const units: ScriptUnit[] = [];
   for (const act of play.acts) {
     for (const scene of act.scenes) {
-      const expanded = expandInsertions(
+      const expanded = expandStageNotes(expandInsertions(
         expandSplits(scene.units, cut.speechSplits),
         cut.insertions,
         play.castList
-      );
+      ));
       units.push(...expanded);
     }
   }

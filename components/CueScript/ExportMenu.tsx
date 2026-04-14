@@ -27,8 +27,6 @@ function triggerDownload(blob: Blob, filename: string) {
 export default function ExportMenu({ play, cut, actors, assignments }: Props) {
   const [selectedActorId, setSelectedActorId] = useState<string>(actors[0]?.id || "");
   const [zipLoading, setZipLoading] = useState(false);
-  const [docxWarningOpen, setDocxWarningOpen] = useState(false);
-  const [docxLoading, setDocxLoading] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
   const selectedActor = actors.find((a) => a.id === selectedActorId) || null;
@@ -64,29 +62,6 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
       setExportError(e instanceof Error ? e.message : "Download failed");
     } finally {
       setZipLoading(false);
-    }
-  }
-
-  async function handleDocxDownload() {
-    setExportError(null);
-    setDocxLoading(true);
-    setDocxWarningOpen(false);
-    try {
-      const res = await fetch("/api/export/cue-scripts-docx", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ play, cut, actors, assignments }),
-      });
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
-      const blob = await res.blob();
-      const disposition = res.headers.get("Content-Disposition") ?? "";
-      const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^;"'\n]+)/i);
-      const filename = match ? decodeURIComponent(match[1]) : "cue_scripts.docx";
-      triggerDownload(blob, filename);
-    } catch (e) {
-      setExportError(e instanceof Error ? e.message : "Download failed");
-    } finally {
-      setDocxLoading(false);
     }
   }
 
@@ -129,7 +104,7 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
           </button>
         </div>
 
-        {/* Row 2: batch download buttons */}
+        {/* Row 2: batch download button */}
         <div className="flex items-center gap-3 mt-3 pt-3 border-t border-stone-100 dark:border-stone-800">
           <span className="text-xs text-stone-400 dark:text-stone-500 shrink-0">All actors:</span>
           <button
@@ -139,41 +114,10 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
           >
             {zipLoading ? "Generating…" : "Download All as ZIP"}
           </button>
-          <button
-            onClick={() => { setDocxWarningOpen(true); setExportError(null); }}
-            disabled={docxLoading || docxWarningOpen}
-            className="px-3 py-1.5 text-xs rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {docxLoading ? "Generating…" : "Export to Word (.docx)"}
-          </button>
+          <span className="text-xs text-stone-400 dark:text-stone-500 ml-auto">
+            Export full script as Word: open ⚙ Settings
+          </span>
         </div>
-
-        {/* DOCX one-way-conversion warning */}
-        {docxWarningOpen && (
-          <div className="mt-3 p-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 text-sm">
-            <p className="text-amber-800 dark:text-amber-300 font-medium mb-1">
-              One-way export
-            </p>
-            <p className="text-amber-700 dark:text-amber-400 text-xs mb-3">
-              This .docx is a flat export — it cannot be re-imported into Shakespeare Script
-              Scissors. Formatting (such as cue right-borders) may differ from the print view.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={handleDocxDownload}
-                className="px-3 py-1.5 text-xs rounded bg-amber-700 text-white hover:bg-amber-800"
-              >
-                Download Anyway
-              </button>
-              <button
-                onClick={() => setDocxWarningOpen(false)}
-                className="px-3 py-1.5 text-xs rounded border border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Error display */}
         {exportError && (

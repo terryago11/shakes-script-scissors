@@ -1077,6 +1077,11 @@ function splitProseByLb(pChildren: unknown[], speechId: string, startIndex: numb
       if (stageText) {
         pendingStageNote = (pendingStageNote ? pendingStageNote + " " : "") + stageText;
       }
+      // Ensure any following text is separated from preceding text by a space.
+      // Without this, "Have with you.<stage>...</stage>Fare you well." concatenates without a space.
+      if (currentText && !currentText.endsWith(" ")) {
+        currentText += " ";
+      }
     } else if ("#text" in (child as Record<string, unknown>)) {
       currentText += String((child as Record<string, unknown>)["#text"] || "");
     } else if (tag) {

@@ -1,4 +1,4 @@
-import type { ScriptUnit, Speech, Line, Character } from "@/types/play";
+import type { ScriptUnit, Speech, Line, StageDirection, Character } from "@/types/play";
 import type { Cut } from "@/types/project";
 import type { Insertion } from "@/types/insertion";
 
@@ -144,6 +144,70 @@ export function expandInsertions(
         lineCount: ins.lines.length,
       };
       result.push(synthetic);
+    }
+  }
+  return result;
+}
+
+/**
+ * Expand speeches whose lines contain `stageNote` values into:
+ *   Speech (lines before the stageNote line)
+ *   StageDirection (synthetic, text = stageNote, id = "{lineId}:sd")
+ *   Speech (stageNote line stripped + remaining lines, id = "{speechId}:sn{lineIdx}")
+ *
+ * Recursively expands additional stageNotes in the continuation speech.
+ * Non-speech units and speeches with no stageNotes pass through unchanged.
+ */
+export function expandStageNotes(units: ScriptUnit[]): ScriptUnit[] {
+  // Fast path: nothing to expand
+  if (!units.some((u) => u.type === "speech" && (u as Speech).lines.some((l) => l.stageNote))) {
+    return units;
+  }
+
+  const result: ScriptUnit[] = [];
+  for (const unit of units) {
+    if (unit.type !== "speech") {
+      result.push(unit);
+      continue;
+    }
+    const speech = unit as Speech;
+    const snIdx = speech.lines.findIndex((l) => l.stageNote);
+    if (snIdx === -1) {
+      result.push(unit);
+      continue;
+    }
+
+    const linesBefore = speech.lines.slice(0, snIdx);
+    const stageLine = speech.lines[snIdx];
+    const linesAfter = speech.lines.slice(snIdx + 1);
+
+    // Part 1: lines before the stageNote line (emit only if non-empty)
+    if (linesBefore.length > 0) {
+      result.push({ ...speech, lines: linesBefore, lineCount: linesBefore.length });
+    }
+
+    // Synthetic StageDirection
+    const syntheticSD: StageDirection = {
+      type: "stage",
+      id: `${stageLine.id}:sd`,
+      text: stageLine.stageNote!,
+      characters: [],
+      stageType: "delivery",
+    };
+    result.push(syntheticSD);
+
+    // Part 2: the stageLine with stageNote stripped + remaining lines
+    const continuedLine: Line = { ...stageLine, stageNote: undefined };
+    const part2Lines = [continuedLine, ...linesAfter].filter((l) => l.text.trim().length > 0);
+    if (part2Lines.length > 0) {
+      const part2: Speech = {
+        ...speech,
+        id: `${speech.id}:sn${snIdx}`,
+        lines: part2Lines,
+        lineCount: part2Lines.length,
+      };
+      // Recurse to handle additional stageNotes in part2
+      result.push(...expandStageNotes([part2]));
     }
   }
   return result;

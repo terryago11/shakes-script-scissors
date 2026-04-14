@@ -607,11 +607,6 @@ export default function SpeechBlock({
                     ? activeTool === "insert" ? "Click to insert a word here" : "Click to split at this word"
                     : undefined}
                 >
-                  {line.stageNote && (
-                    <span className="text-xs font-normal italic normal-case tracking-normal text-stone-400 dark:text-stone-500 mr-1 shrink-0">
-                      [{line.stageNote}]
-                    </span>
-                  )}
                   {standardContent}
                 </span>
 
