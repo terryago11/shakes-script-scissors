@@ -105,9 +105,10 @@ All three modes are available in the script editor and in the exported HTML file
 | Feature | Details |
 |---------|---------|
 | **Scenes & Pauses tab** | Scene list with cut-only counts; actor presence chips; drag-reorder; pause insertion |
-| **Matrix tab** | Character × scene grid (lines/words/time); actor-grouped headers; sticky header rows; click column to filter rows (OR multi-select); click actor header to filter by all their chars; click row label to filter columns; `?` explains filter interactions; row and column totals; Time row total shows per-scene duration (not summed character times) |
+| **Scene subdivide** | ✂ Split button on each scene row; line-number dialog with 2-line context preview; up to 3 parts (A/B/C) per scene; sub-rows show per-part counts with × remove; inter-part pause slots; amber dividers in all script view modes |
+| **Matrix tab** | Character × scene grid (lines/words/time); actor-grouped headers; subdivided scenes expand to A/B/C sub-columns with amber labels; sticky header rows; click column to filter rows (OR multi-select); click actor header to filter by all their chars; click row label to filter columns; `?` explains filter interactions; row and column totals; Time row total shows per-scene duration (not summed character times) |
 | **Chart tab** | Sorted horizontal bar chart of character lines/words/time; actor name column always fixed-width |
-| **Rehearsal tab** | By-Actor scene breakdown + Suggested Rehearsal Blocks; scenes split into sub-scenes at major entrances then clustered by shared cast (complete-linkage Jaccard); by-character or by-actor toggle; actor chips show characters per block; full-company scenes isolated; `?` explains the algorithm; filter By Actor list by actor or character name; collapse any actor row to hide scene detail |
+| **Rehearsal tab** | By-Actor scene breakdown + Suggested Rehearsal Blocks; scenes split into sub-scenes at major entrances then clustered by shared cast (complete-linkage Jaccard); Scenes/Sub-scenes toggle when director splits exist; by-character or by-actor toggle; actor chips show characters per block; full-company scenes isolated; `?` explains the algorithm; filter By Actor list by actor or character name; collapse any actor row to hide scene detail |
 | **Integrity tab** | Missing entrance/exit SD warnings with scene/line locations; Name Diagnostics table; Props section listing prop mentions (swords, letters, etc.) extracted from SD text |
 | **Metric toggle** | Switch between Lines / Words / Time for all dashboard counts |
 
@@ -172,6 +173,7 @@ Project
     pauses?         — Record<"after:{sceneId}", { name, minutes }>
     insertedSDs?    — Record<insertedSDId, InsertedSD>  (song/dance SDs added by director)
     sdFlagOverrides? — Record<sdId, { isSong?, isDance? }>  (per-production flag overrides)
+    sceneSubdivisions? — Record<sceneId, SubdivisionSplit[]>  (A/B/C sub-part splits)
   actors[]
     name, color
   assignments[]

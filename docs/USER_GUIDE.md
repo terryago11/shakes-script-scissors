@@ -249,11 +249,18 @@ Lists all scenes with their cut-only line/word/time counts. Actor presence chips
 
 **Insert a pause**: click the **⏸** button between two scenes to add a named intermission. Enter a name (e.g. "Interval") and duration in minutes. Pauses are included in total running time.
 
+**Split a scene into sub-parts (A/B/C)**: click the **✂ Split** button on a scene row (visible on hover). Enter a scene-relative line number, review the 2-line context preview, and click **Split here**. The scene expands into A/B/C sub-rows showing per-part counts. You can add up to 3 parts (A/B/C) per scene.
+
+- To remove a sub-part: click the **×** button on a B or C sub-row. Removing a split merges that part back into the one above it; any pause after that sub-part is also removed.
+- Pauses can be inserted after any sub-part using the **⏸** button between sub-rows.
+- Sub-scene dividers (amber horizontal rules labelled "Part B", "Part C") appear automatically in the script editor in all three view modes.
+
 ### Tab 2 — Matrix
 
 A character × scene grid showing cut-only values (lines, words, or time — set by the metric toggle in the dashboard header).
 
 - **Actor-grouped headers**: cast characters are grouped under their actor's name.
+- **Sub-scene columns**: when a scene is subdivided, it expands to A/B/C sub-columns with amber label badges in the column headers.
 - **Column click**: filter visible rows to scenes where that character appears. Click again to clear.
 - **Row total**: right-edge column shows each character's total across all scenes.
 - **Column total**: footer row shows each scene's total across all characters.
@@ -264,7 +271,9 @@ A character × scene grid showing cut-only values (lines, words, or time — set
 Two sections side by side:
 
 - **By Actor**: each actor's scenes with cut-only counts and totals.
-- **Suggested Rehearsal Blocks**: consecutive scenes sharing at least one actor are grouped into a block. Shows scene range, total duration, actor chips, and per-scene breakdown.
+- **Suggested Rehearsal Blocks**: scenes grouped by shared cast using hierarchical clustering. Shows scene range, total duration, actor chips, and per-scene breakdown.
+
+When director-defined sub-parts exist, a **Scenes / Sub-scenes** pill toggle appears in the Suggested Rehearsal Blocks header. In **Sub-scenes** mode the algorithm treats each A/B/C part as an independent unit — useful for scheduling rehearsals at sub-scene granularity once you've divided longer scenes.
 
 ### Tab 4 — Integrity
 
