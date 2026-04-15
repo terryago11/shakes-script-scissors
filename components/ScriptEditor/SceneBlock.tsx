@@ -12,6 +12,7 @@ import { useViewMode } from "@/lib/ui/ViewModeContext";
 import { useEditMode } from "@/lib/ui/EditModeContext";
 import { useProject } from "@/lib/project/ProjectStore";
 import { getOnStageAtUnit, getExpectedEntrantsAtUnit } from "@/lib/cuts/StageTimeEngine";
+import { PART_LABELS } from "@/lib/cuts/SceneSubdivisionUtils";
 import SpeechBlock from "./SpeechBlock";
 import StageDirectionBlock from "./StageDirectionBlock";
 import InsertionBlock from "./InsertionBlock";
@@ -57,6 +58,8 @@ interface Props {
   insertedSDs?: Record<string, InsertedSD>;
   /** Called when at least one unit is restored via "restore all" */
   onRestoreScene?: () => void;
+  /** afterUnitId values for sub-scene split boundaries — a divider is rendered after each listed unit */
+  splitUnitIds?: string[];
 }
 
 export default function SceneBlock({
@@ -69,6 +72,7 @@ export default function SceneBlock({
   insertions, onAddInsertion, onRemoveInsertion,
   insertedSDs,
   onRestoreScene,
+  splitUnitIds,
 }: Props) {
   // Unified insertion modal state: null = closed, create = new insertion, edit = editing existing
   type InsertionModalState =
@@ -513,6 +517,31 @@ export default function SceneBlock({
               : unit.id;
             const sdZone = renderInsertSDZone(lastAnchorId);
             if (sdZone) elements.push(sdZone);
+
+            // Sub-scene divider — rendered after the boundary unit in standard/diff modes;
+            // in clean mode, only shown if there is kept content before (i.e. unit is "kept")
+            if (splitUnitIds && !showOriginal) {
+              const splitIdx = splitUnitIds.indexOf(unit.id);
+              if (splitIdx >= 0) {
+                const nextLabel = PART_LABELS[splitIdx + 1] ?? String(splitIdx + 2);
+                const isCleanMode = viewMode === "clean";
+                // In clean mode, skip divider if the boundary unit itself is cut
+                if (!isCleanMode || status === "kept") {
+                  elements.push(
+                    <div
+                      key={`subdiv-${unit.id}`}
+                      className="flex items-center gap-2 my-3 px-2 select-none pointer-events-none"
+                    >
+                      <div className="flex-1 h-px bg-amber-300 dark:bg-amber-700" />
+                      <span className="text-xs font-bold text-amber-600 dark:text-amber-400 px-1">
+                        Part {nextLabel}
+                      </span>
+                      <div className="flex-1 h-px bg-amber-300 dark:bg-amber-700" />
+                    </div>
+                  );
+                }
+              }
+            }
 
             return elements;
           })}

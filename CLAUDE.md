@@ -316,9 +316,10 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature gro
 
 ---
 
-### Group 22B — Scene subdivide
+### Group 22B — Scene subdivide ✓
 
-- **#24 Scene subdivide** — split a scene into A/B/C sub-parts via Scenes & Pauses dashboard; A/B/C suffix labelling; independently orderable sub-scenes; new data model for scene parts
+- **#24 Scene subdivide** — split a scene into A/B/C sub-parts via Scenes & Pauses dashboard; A/B/C suffix labelling; line-number dialog with 2-line context preview; sub-scene rows in SceneList with × remove; per-sub-scene line/word/time counts in matrix (A/B/C sub-columns); amber dividers in script view (standard/clean/diff); Scenes/Sub-scenes grouping toggle in Rehearsal; sub-scene dividers in HTML export; undo/redo support
+- **Deferred — Sub-scene independent reordering**: sub-scenes are always displayed A before B before C and cannot be independently drag-reordered. Would require virtual IDs in `effectiveSceneOrder` and script editor view changes. Evaluate if directors find the fixed A/B/C order limiting in practice.
 
 ### Group 23 — Word import
 

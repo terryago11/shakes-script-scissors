@@ -3,6 +3,7 @@ import type { Cut, Actor, ActorAssignment } from "@/types/project";
 import { applyEditsToLine, segmentsToText } from "./applyEdits";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
 import { expandSplits, expandInsertions } from "./expandUtils";
+import { PART_LABELS } from "./SceneSubdivisionUtils";
 
 // ---------------------------------------------------------------------------
 // Pre-rendered data types (serialised into window.__SCRIPT__ in the HTML file)
@@ -10,7 +11,7 @@ import { expandSplits, expandInsertions } from "./expandUtils";
 
 interface UnitData {
   id: string;
-  type: "speech" | "stage";
+  type: "speech" | "stage" | "subdivider";
   characterId: string;
   characterName: string;
   /** "kept" = no changes; "cut" = removed entirely; "modified" = line/word edits */
@@ -21,6 +22,8 @@ interface UnitData {
   originalLines: string[];
   /** True when this SD's text has been overridden via sdTextEdits */
   isEdited?: boolean;
+  /** Part label for subdivider units (e.g. "B", "C") */
+  subdividerLabel?: string;
 }
 
 interface SceneData {
@@ -118,6 +121,11 @@ function buildScriptData(
       play.castList
     );
 
+    // Build the set of split boundary unit IDs for this scene (empty if not subdivided)
+    const sceneSplits = cut.sceneSubdivisions?.[sceneId] ?? [];
+    const splitBoundaryIds = new Set(sceneSplits.map((s) => s.afterUnitId));
+    let splitIdx = 0;
+
     for (const rawUnit of expandedUnits) {
       const status = getUnitStatus(rawUnit as Speech | StageDirection, cut);
 
@@ -183,6 +191,22 @@ function buildScriptData(
           originalLines: [stage.text],
           isEdited,
         });
+      }
+
+      // Inject subdivider unit after a split boundary
+      if (splitBoundaryIds.has(rawUnit.id)) {
+        const nextLabel = PART_LABELS[splitIdx + 1] ?? String(splitIdx + 2);
+        units.push({
+          id: `${rawUnit.id}:subdiv`,
+          type: "subdivider",
+          characterId: "",
+          characterName: "",
+          status: "kept",
+          keptLines: [],
+          originalLines: [],
+          subdividerLabel: nextLabel,
+        });
+        splitIdx++;
       }
     }
 
@@ -308,6 +332,9 @@ body{font-family:Georgia,'Times New Roman',serif;font-size:14px;line-height:1.65
 .stage-dir-edited{text-align:left;border-left:3px solid #4ade80;background:rgba(240,253,244,.5);padding-left:8px}
 .stage-dir-edited::before{content:"edited";display:inline-block;font-size:9px;color:#16a34a;background:#dcfce7;border-radius:2px;padding:0 3px;margin-right:6px;font-style:normal;vertical-align:middle}
 .pause{text-align:center;border-top:1px dashed #d6d3d1;border-bottom:1px dashed #d6d3d1;padding:12px 0;margin:24px 0;font-size:13px;color:#78716c;font-style:italic}
+.sub-divider{display:flex;align-items:center;gap:8px;margin:20px 0;user-select:none}
+.sub-divider-line{flex:1;height:1px;background:#fcd34d}
+.sub-divider-label{font-size:11px;font-weight:bold;color:#b45309;padding:0 4px}
 .diff-row{display:flex;gap:0;border-left:3px solid #e7e5e4;margin-bottom:14px}
 .diff-col{flex:1;min-width:0;padding:0 12px}
 .diff-left{border-right:1px solid #e7e5e4}
@@ -383,6 +410,9 @@ function render(){
 }
 
 function renderUnit(u){
+  if(u.type==='subdivider'){
+    return '<div class="sub-divider"><div class="sub-divider-line"></div><span class="sub-divider-label">Part '+esc(u.subdividerLabel||'')+'</span><div class="sub-divider-line"></div></div>';
+  }
   if(u.type==='stage'){
     if(u.status==='cut'){
       if(mode==='clean')return null;

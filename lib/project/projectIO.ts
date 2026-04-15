@@ -48,6 +48,11 @@ const CutSchema = z.object({
   })).optional(),
   stageDurations: z.record(z.string(), z.number()).optional(),
   sdTextEdits: z.record(z.string(), z.string()).optional(),
+  // Group 22B: scene subdivisions
+  sceneSubdivisions: z.record(z.string(), z.array(z.object({
+    id: z.string(),
+    afterUnitId: z.string(),
+  }))).optional(),
 });
 
 const ProjectSchema = z.object({

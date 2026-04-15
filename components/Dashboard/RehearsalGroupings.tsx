@@ -7,6 +7,8 @@ import { resolveCharacterName } from "@/lib/project/projectUtils";
 import type { CharacterStageTime } from "@/lib/cuts/StageTimeEngine";
 import type { LineCounts } from "@/types/cut";
 import type { CharSceneData } from "./DashboardMatrix";
+import type { EffectiveSceneEntry } from "@/lib/cuts/SceneSubdivisionUtils";
+import { PART_LABELS } from "@/lib/cuts/SceneSubdivisionUtils";
 
 interface Props {
   play: Play;
@@ -26,6 +28,8 @@ interface Props {
   activeCut: Cut;
   actDescriptions?: Record<string, string>;
   sceneDescriptions?: Record<string, string>;
+  /** When provided and has subdivisions, enables the Scenes/Sub-scenes rehearsal toggle */
+  columnEntries?: EffectiveSceneEntry[];
 }
 
 function fmtMins(m: number): string {
@@ -146,9 +150,14 @@ export default function RehearsalGroupings({
   activeCut,
   actDescriptions,
   sceneDescriptions,
+  columnEntries,
 }: Props) {
   const [clusterMode, setClusterMode] = useState<"character" | "actor">("character");
   const [showHelp, setShowHelp] = useState(false);
+  const [rehearsalSubMode, setRehearsalSubMode] = useState<"scenes" | "subscenes">("scenes");
+
+  // Show sub-scene toggle only when the active cut has director-defined subdivisions
+  const hasSubdivisions = columnEntries?.some((e) => e.partCount > 1) ?? false;
   const [actorSearch, setActorSearch] = useState("");
   const [collapsedActors, setCollapsedActors] = useState(new Set<string>());
 
@@ -227,13 +236,56 @@ export default function RehearsalGroupings({
   }
 
   // ── Sub-scene building ────────────────────────────────────────────────────────
+  /** Build a single SubScene from an EffectiveSceneEntry (director-defined A/B/C part) */
+  function buildSubSceneFromEntry(entry: EffectiveSceneEntry): SubScene | null {
+    const charSet = new Set<string>();
+    let wordCount = 0;
+    const onstage = new Set<string>();
+    for (const unit of entry.units) {
+      if (unit.type === "stage") {
+        const chars = activeCut.stageDirectionEdits?.[unit.id] ?? unit.characters;
+        if (unit.stageType === "entrance") for (const cid of chars) onstage.add(cid);
+        else if (unit.stageType === "exit") for (const cid of chars) onstage.delete(cid);
+      } else if (unit.type === "speech") {
+        const isKept = (activeCut.cutMap[unit.id] ?? "kept") === "kept";
+        if (!isKept) continue;
+        for (const cid of onstage) charSet.add(cid);
+        const speakers = activeCut.speechReassignments?.[unit.id]
+          ?? unit.characterIds ?? [unit.characterId];
+        for (const cid of speakers) { charSet.add(cid); onstage.add(cid); }
+        for (const line of unit.lines) {
+          if (activeCut.lineCutMap?.[line.id] === "cut") continue;
+          wordCount += countWords(line.text);
+        }
+      }
+    }
+    if (wordCount === 0) return null;
+    return {
+      id: entry.id,
+      sceneId: entry.realSceneId,
+      partIdx: entry.partIndex,
+      totalParts: entry.partCount,
+      charSet,
+      wordCount,
+      minutes: wordCount / wpm,
+    };
+  }
+
   const allSubScenes: SubScene[] = [];
-  for (const sceneId of effectiveSceneOrder) {
-    if (bigSceneIds.has(sceneId)) continue;
-    const scene = sceneById.get(sceneId);
-    if (!scene) continue;
-    const subs = buildSubScenes(scene, activeCut, wpm);
-    allSubScenes.push(...subs);
+  if (rehearsalSubMode === "subscenes" && columnEntries) {
+    for (const entry of columnEntries) {
+      if (bigSceneIds.has(entry.realSceneId)) continue;
+      const ss = buildSubSceneFromEntry(entry);
+      if (ss) allSubScenes.push(ss);
+    }
+  } else {
+    for (const sceneId of effectiveSceneOrder) {
+      if (bigSceneIds.has(sceneId)) continue;
+      const scene = sceneById.get(sceneId);
+      if (!scene) continue;
+      const subs = buildSubScenes(scene, activeCut, wpm);
+      allSubScenes.push(...subs);
+    }
   }
 
   // ── Jaccard clustering (character-based or actor-based) ───────────────────────
@@ -282,9 +334,14 @@ export default function RehearsalGroupings({
     clusters.splice(bj, 1);
   }
 
-  // Sort sub-scenes within each cluster by scene order, then part index
-  const sceneOrderIndex = new Map(effectiveSceneOrder.map((id, i) => [id, i]));
+  // Sort sub-scenes within each cluster by canonical play order
+  const sceneOrderIndex = rehearsalSubMode === "subscenes" && columnEntries
+    ? new Map(columnEntries.map((e, i) => [e.id, i]))
+    : new Map(effectiveSceneOrder.map((id, i) => [id, i]));
   function subSceneOrder(ss: SubScene): number {
+    if (rehearsalSubMode === "subscenes" && columnEntries) {
+      return sceneOrderIndex.get(ss.id) ?? 999;
+    }
     return (sceneOrderIndex.get(ss.sceneId) ?? 999) * 100 + ss.partIdx;
   }
   for (const c of clusters) c.items.sort((a, b) => subSceneOrder(a) - subSceneOrder(b));
@@ -465,6 +522,31 @@ export default function RehearsalGroupings({
           >
             ?
           </button>
+          {/* Scenes / Sub-scenes granularity toggle — only shown when director splits exist */}
+          {hasSubdivisions && (
+            <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800 rounded-md p-0.5 text-xs">
+              <button
+                onClick={() => setRehearsalSubMode("scenes")}
+                className={`px-2 py-0.5 rounded transition-colors ${
+                  rehearsalSubMode === "scenes"
+                    ? "bg-white dark:bg-stone-600 text-stone-700 dark:text-stone-200 shadow-sm font-medium"
+                    : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
+                }`}
+              >
+                Scenes
+              </button>
+              <button
+                onClick={() => setRehearsalSubMode("subscenes")}
+                className={`px-2 py-0.5 rounded transition-colors ${
+                  rehearsalSubMode === "subscenes"
+                    ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 shadow-sm font-medium"
+                    : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
+                }`}
+              >
+                Sub-scenes
+              </button>
+            </div>
+          )}
           {/* Character / Actor toggle */}
           <div className="ml-auto flex items-center gap-1 bg-stone-100 dark:bg-stone-800 rounded-md p-0.5 text-xs">
             <button
@@ -622,7 +704,7 @@ export default function RehearsalGroupings({
                       const hasGap = sIdx > 0 && subSceneOrder(ss) - prevOrder > 1;
 
                       const label = ss.totalParts > 1
-                        ? `${scene.title} (pt. ${ss.partIdx + 1})`
+                        ? `${scene.title} (Part ${PART_LABELS[ss.partIdx] ?? ss.partIdx + 1})`
                         : scene.title;
 
                       return (

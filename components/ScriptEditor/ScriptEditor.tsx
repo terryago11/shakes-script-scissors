@@ -512,6 +512,7 @@ export default function ScriptEditor({ playId }: Props) {
     onRemoveInsertion: handleRemoveInsertion,
     insertedSDs: activeCut.insertedSDs,
     onRestoreScene: handleRestoreScene,
+    activeCut,
   };
 
   return (
@@ -573,6 +574,7 @@ export default function ScriptEditor({ playId }: Props) {
             onSetDiffRight={setDiffRightId}
             rightUnitsByScene={diffRightUnits}
             rightSpeechEdits={diffRightSpeechEdits}
+            activeCut={leftDiffCut}
           />
         ) : (
           <div className={`px-4 pb-6 ${

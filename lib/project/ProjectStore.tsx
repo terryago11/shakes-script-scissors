@@ -73,7 +73,9 @@ type ProjectAction =
   | { type: "SET_SD_TEXT"; stageId: string; text: string | null }
   | { type: "TOGGLE_LINE_SONG"; lineId: string; currentValue: boolean }
   | { type: "SET_ACT_DESCRIPTION"; actId: string; description: string | null }
-  | { type: "SET_SCENE_DESCRIPTION"; sceneId: string; description: string | null };
+  | { type: "SET_SCENE_DESCRIPTION"; sceneId: string; description: string | null }
+  | { type: "ADD_SCENE_SPLIT"; realSceneId: string; afterUnitId: string }
+  | { type: "REMOVE_SCENE_SPLIT"; realSceneId: string; splitId: string };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
   if (!state.project && action.type !== "LOAD" && action.type !== "REPLACE_PROJECT") {
@@ -249,6 +251,9 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
           : undefined,
         lineSongOverrides: source?.lineSongOverrides ? { ...source.lineSongOverrides } : undefined,
         sdTextEdits: source?.sdTextEdits ? { ...source.sdTextEdits } : undefined,
+        sceneSubdivisions: source?.sceneSubdivisions
+          ? Object.fromEntries(Object.entries(source.sceneSubdivisions).map(([k, v]) => [k, v.map((s) => ({ ...s }))]))
+          : undefined,
       };
       const newProject = {
         ...p,
@@ -685,6 +690,55 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
           updatedAt: now(),
         },
       };
+    }
+
+    case "ADD_SCENE_SPLIT": {
+      return withUndo(state, (c) => {
+        const existing = c.sceneSubdivisions?.[action.realSceneId] ?? [];
+        const newSplit = { id: generateId(), afterUnitId: action.afterUnitId };
+        return {
+          ...c,
+          sceneSubdivisions: {
+            ...(c.sceneSubdivisions ?? {}),
+            [action.realSceneId]: [...existing, newSplit],
+          },
+        };
+      });
+    }
+
+    case "REMOVE_SCENE_SPLIT": {
+      return withUndo(state, (c) => {
+        const existing = c.sceneSubdivisions?.[action.realSceneId] ?? [];
+        const newSplits = existing.filter((s) => s.id !== action.splitId);
+
+        // Clean up pauses keyed to virtual sub-scene IDs for this real scene
+        let newPauses = c.pauses;
+        if (newPauses) {
+          const updatedPauses = { ...newPauses };
+          let changed = false;
+          for (const key of Object.keys(updatedPauses)) {
+            const afterId = key.replace(/^after:/, "");
+            if (afterId.startsWith(`${action.realSceneId}:p`)) {
+              delete updatedPauses[key];
+              changed = true;
+            }
+          }
+          if (changed) newPauses = Object.keys(updatedPauses).length > 0 ? updatedPauses : undefined;
+        }
+
+        const newSubdivisions = { ...(c.sceneSubdivisions ?? {}) };
+        if (newSplits.length === 0) {
+          delete newSubdivisions[action.realSceneId];
+        } else {
+          newSubdivisions[action.realSceneId] = newSplits;
+        }
+
+        return {
+          ...c,
+          sceneSubdivisions: Object.keys(newSubdivisions).length > 0 ? newSubdivisions : undefined,
+          pauses: newPauses,
+        };
+      });
     }
 
     default:

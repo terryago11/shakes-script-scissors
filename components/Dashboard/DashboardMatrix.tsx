@@ -5,6 +5,7 @@ import type { Act, Character, Scene } from "@/types/play";
 import type { Actor, ActorAssignment } from "@/types/project";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
 import type { CharacterStageTime } from "@/lib/cuts/StageTimeEngine";
+import type { EffectiveSceneEntry } from "@/lib/cuts/SceneSubdivisionUtils";
 
 export interface CharSceneData {
   linesOrig: number;
@@ -37,6 +38,8 @@ interface Props {
   sceneTimings?: Map<string, number>;
   actDescriptions?: Record<string, string>;
   sceneDescriptions?: Record<string, string>;
+  /** When provided, replaces effectiveSceneOrder for columns — expands subdivided scenes to A/B/C sub-columns */
+  columnEntries?: EffectiveSceneEntry[];
 }
 
 function fmtMins(m: number): string {
@@ -64,12 +67,17 @@ export default function DashboardMatrix({
   sceneTimings,
   actDescriptions,
   sceneDescriptions,
+  columnEntries,
 }: Props) {
   // Row filter: scenes that contain at least one of these characters
   const [filterCharIds, setFilterCharIds] = useState<Set<string>>(new Set());
   // Column filter: only show characters present in this scene
   const [filterSceneId, setFilterSceneId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+
+  // When columnEntries is provided (subdivisions exist), use virtual IDs as column/row keys
+  const columnIds: string[] = columnEntries ? columnEntries.map((e) => e.id) : effectiveSceneOrder;
+  const columnEntryMap = new Map(columnEntries?.map((e) => [e.id, e]) ?? []);
 
   // Build lookup maps
   const actorToChars = new Map<string, string[]>();
@@ -148,10 +156,10 @@ export default function DashboardMatrix({
 
   // Derived visible rows: scenes where any filterChar has presence
   const visibleSceneIds = filterCharIds.size > 0
-    ? effectiveSceneOrder.filter((sceneId) =>
+    ? columnIds.filter((sceneId) =>
         [...filterCharIds].some((cid) => charHasPresence(cid, sceneId))
       )
-    : effectiveSceneOrder;
+    : columnIds;
 
   // Derived visible columns: characters present in filterSceneId (or all if no scene filter)
   const visibleCharIds = filterSceneId
@@ -183,11 +191,11 @@ export default function DashboardMatrix({
     ? visibleSceneIds.reduce((sum, sid) => sum + (sceneTimings.get(sid) ?? 0), 0)
     : visibleCharIds.reduce((sum, charId) => sum + getColTotal(charId), 0);
 
-  // Chart data: per-character totals across all (unfiltered) scenes, sorted descending
+  // Chart data: per-character totals across all (unfiltered) columns, sorted descending
   const charTotals = orderedCharIds
     .map((charId) => ({
       charId,
-      total: effectiveSceneOrder.reduce((sum, sid) => sum + getCellValue(charId, sid), 0),
+      total: columnIds.reduce((sum, sid) => sum + getCellValue(charId, sid), 0),
       actor: charToActor.get(charId)
         ? actors.find((a) => a.id === charToActor.get(charId)) ?? null
         : null,
@@ -297,7 +305,9 @@ export default function DashboardMatrix({
                 <span className="text-stone-500 dark:text-stone-400">
                   {filterCharIds.size > 0 ? " · " : ""}Characters in{" "}
                   <span className="font-medium">
-                    {sceneById.get(filterSceneId)?.title ?? filterSceneId}
+                    {columnEntryMap.get(filterSceneId)?.title
+                      ?? sceneById.get(filterSceneId)?.title
+                      ?? filterSceneId}
                   </span>
                 </span>
               )}
@@ -419,10 +429,13 @@ export default function DashboardMatrix({
 
           <tbody>
             {visibleSceneIds.map((sceneId) => {
-              const scene = sceneById.get(sceneId);
-              const act = sceneActMap.get(sceneId);
+              const entry = columnEntryMap.get(sceneId);
+              const realSceneId = entry?.realSceneId ?? sceneId;
+              const scene = sceneById.get(realSceneId);
+              const act = sceneActMap.get(realSceneId);
               if (!scene || !act) return null;
 
+              const subLabel = entry?.label ?? "";
               const isCut = cutSceneIds.has(sceneId);
               const pauseKey = `after:${sceneId}`;
               const pause = pauses?.[pauseKey];
@@ -446,9 +459,9 @@ export default function DashboardMatrix({
                       onClick={() => handleRowLabelClick(sceneId)}
                       title="Click to filter columns to characters in this scene"
                     >
-                      <div className="text-xs truncate max-w-40">
-                        <span className="text-stone-400 dark:text-stone-400">{act.title}</span>
-                        <span className="text-stone-300 dark:text-stone-600 mx-1">·</span>
+                      <div className="flex items-center gap-1.5 text-xs truncate max-w-40">
+                        <span className="text-stone-400 dark:text-stone-400 shrink-0">{act.title}</span>
+                        <span className="text-stone-300 dark:text-stone-600 shrink-0">·</span>
                         <span
                           className={`font-medium ${
                             isSceneFiltered
@@ -458,9 +471,14 @@ export default function DashboardMatrix({
                         >
                           {scene.title}
                         </span>
+                        {subLabel && (
+                          <span className="shrink-0 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded leading-none">
+                            {subLabel}
+                          </span>
+                        )}
                       </div>
                       {(() => {
-                        const note = sceneDescriptions?.[sceneId] || actDescriptions?.[act.id];
+                        const note = sceneDescriptions?.[realSceneId] || actDescriptions?.[act.id];
                         return note ? (
                           <div className="text-[10px] text-stone-400 dark:text-stone-500 truncate max-w-40 italic mt-0.5">{note}</div>
                         ) : null;
