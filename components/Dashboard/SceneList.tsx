@@ -1,12 +1,21 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import type { Act, Scene } from "@/types/play";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import type { Act, Play, Scene, ScriptUnit } from "@/types/play";
 import type { LineCounts } from "@/types/cut";
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
-import type { Actor } from "@/types/project";
+import type { Actor, Cut } from "@/types/project";
 import type { SongDanceItem } from "./SceneDashboard";
+import type { EffectiveSceneEntry } from "@/lib/cuts/SceneSubdivisionUtils";
+import { buildSceneEntries, findUnitAtLine, PART_LABELS } from "@/lib/cuts/SceneSubdivisionUtils";
 import PauseRow from "./PauseRow";
+
+interface SplitPreview {
+  afterUnitId: string;
+  linesBefore: Array<{ speaker: string; text: string }>;
+  linesAfter: Array<{ speaker: string; text: string }>;
+  totalLines: number;
+}
 
 interface Props {
   effectiveSceneOrder: string[];
@@ -34,6 +43,13 @@ interface Props {
   sceneDescriptions?: Record<string, string>;
   onSetActDescription?: (actId: string, description: string | null) => void;
   onSetSceneDescription?: (sceneId: string, description: string | null) => void;
+  /** Scene subdivision support */
+  activeCut?: Cut;
+  play?: Play;
+  onAddSceneSplit?: (realSceneId: string, afterUnitId: string) => void;
+  onRemoveSceneSplit?: (realSceneId: string, splitId: string) => void;
+  /** Expanded column entries — includes virtual sub-scene IDs when scenes are subdivided */
+  columnEntries?: EffectiveSceneEntry[];
 }
 
 function formatMinutes(m: number): string {
@@ -64,6 +80,11 @@ export default function SceneList({
   sceneDescriptions,
   onSetActDescription,
   onSetSceneDescription,
+  activeCut,
+  play,
+  onAddSceneSplit,
+  onRemoveSceneSplit,
+  columnEntries,
 }: Props) {
   const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null);
   const [editingDuration, setEditingDuration] = useState<string | null>(null); // SD id being edited
@@ -72,6 +93,97 @@ export default function SceneList({
   const [editingDescId, setEditingDescId] = useState<string | null>(null); // "scene:{id}" or "act:{id}"
   const [descInput, setDescInput] = useState("");
   const descInputRef = useRef<HTMLInputElement>(null);
+
+  // Scene subdivision state
+  const [splitDialogSceneId, setSplitDialogSceneId] = useState<string | null>(null);
+  const [splitLineInput, setSplitLineInput] = useState("");
+  const [splitPreview, setSplitPreview] = useState<SplitPreview | null>(null);
+  const [splitPreviewError, setSplitPreviewError] = useState<string | null>(null);
+
+  // Build a map of realSceneId → sub-scene entries (only for subdivided scenes)
+  const subScenesByRealId = new Map<string, EffectiveSceneEntry[]>();
+  if (columnEntries && activeCut) {
+    for (const entry of columnEntries) {
+      if (entry.partCount > 1) {
+        const arr = subScenesByRealId.get(entry.realSceneId) ?? [];
+        arr.push(entry);
+        subScenesByRealId.set(entry.realSceneId, arr);
+      }
+    }
+  }
+
+  // Compute split preview when splitLineInput changes (debounced)
+  const computePreview = useCallback((lineNumStr: string, sceneId: string) => {
+    if (!play || !activeCut) return;
+    const scene = sceneById.get(sceneId);
+    if (!scene) return;
+
+    const lineNum = parseInt(lineNumStr, 10);
+    if (isNaN(lineNum) || lineNum < 1) {
+      setSplitPreview(null);
+      setSplitPreviewError(lineNumStr ? "Enter a valid line number" : null);
+      return;
+    }
+
+    // Get expanded units for the entire scene (all parts)
+    const entries = buildSceneEntries(scene, activeCut, play);
+    const allUnits: ScriptUnit[] = entries.flatMap((e) => e.units);
+    const totalLines = allUnits.reduce((s, u) => s + (u.type === "speech" ? u.lineCount : 0), 0);
+
+    if (lineNum > totalLines) {
+      setSplitPreview(null);
+      setSplitPreviewError(`Line must be between 1 and ${totalLines}`);
+      return;
+    }
+
+    const result = findUnitAtLine(allUnits, lineNum);
+    if (!result) {
+      setSplitPreview(null);
+      setSplitPreviewError(`Line must be between 1 and ${totalLines}`);
+      return;
+    }
+
+    // Collect speeches for context: up to 2 before and 2 after the boundary unit
+    const speeches = allUnits.filter((u) => u.type === "speech");
+    const boundaryIdx = speeches.findIndex((u) => u.id === result.unitId);
+    const linesBefore = speeches.slice(Math.max(0, boundaryIdx - 1), boundaryIdx + 1).map((u) => ({
+      speaker: (u as Extract<typeof u, { type: "speech" }>).characterName,
+      text: (u as Extract<typeof u, { type: "speech" }>).lines[0]?.text ?? "",
+    }));
+    const linesAfter = speeches.slice(boundaryIdx + 1, boundaryIdx + 3).map((u) => ({
+      speaker: (u as Extract<typeof u, { type: "speech" }>).characterName,
+      text: (u as Extract<typeof u, { type: "speech" }>).lines[0]?.text ?? "",
+    }));
+
+    setSplitPreviewError(null);
+    setSplitPreview({ afterUnitId: result.unitId, linesBefore, linesAfter, totalLines });
+  }, [play, activeCut, sceneById]);
+
+  useEffect(() => {
+    if (!splitDialogSceneId) return;
+    const timer = setTimeout(() => computePreview(splitLineInput, splitDialogSceneId), 300);
+    return () => clearTimeout(timer);
+  }, [splitLineInput, splitDialogSceneId, computePreview]);
+
+  function openSplitDialog(sceneId: string) {
+    setSplitDialogSceneId(sceneId);
+    setSplitLineInput("");
+    setSplitPreview(null);
+    setSplitPreviewError(null);
+  }
+
+  function closeSplitDialog() {
+    setSplitDialogSceneId(null);
+    setSplitLineInput("");
+    setSplitPreview(null);
+    setSplitPreviewError(null);
+  }
+
+  function handleConfirmSplit() {
+    if (!splitDialogSceneId || !splitPreview) return;
+    onAddSceneSplit?.(splitDialogSceneId, splitPreview.afterUnitId);
+    closeSplitDialog();
+  }
 
   // Find max value for bar scaling across all scenes
   let maxVal = 1;
@@ -166,6 +278,83 @@ export default function SceneList({
 
   return (
     <div className="space-y-0">
+      {/* Split dialog modal */}
+      {splitDialogSceneId && (() => {
+        const scene = sceneById.get(splitDialogSceneId);
+        if (!scene) return null;
+        const existingSplits = activeCut?.sceneSubdivisions?.[splitDialogSceneId]?.length ?? 0;
+        const nextLabel = PART_LABELS[existingSplits + 1] ?? "?";
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={closeSplitDialog}>
+            <div className="bg-white dark:bg-stone-900 rounded-lg shadow-xl border border-stone-200 dark:border-stone-700 max-w-sm w-full p-5" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-sm font-semibold text-stone-800 dark:text-stone-100 mb-1">
+                Split "{scene.title}"
+              </h3>
+              <p className="text-xs text-stone-400 dark:text-stone-500 mb-3">
+                Part {PART_LABELS[existingSplits]} ends / Part {nextLabel} begins
+              </p>
+              <div className="flex items-center gap-2 mb-3">
+                <label className="text-xs text-stone-600 dark:text-stone-400 shrink-0">Split after line:</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={splitLineInput}
+                  onChange={(e) => setSplitLineInput(e.target.value)}
+                  placeholder={splitPreview ? String(splitPreview.totalLines) : "…"}
+                  autoFocus
+                  className="w-20 text-sm px-2 py-1 rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                />
+                {splitPreview && (
+                  <span className="text-xs text-stone-400 dark:text-stone-500">of {splitPreview.totalLines}</span>
+                )}
+              </div>
+
+              {splitPreviewError && (
+                <p className="text-xs text-red-500 mb-2">{splitPreviewError}</p>
+              )}
+
+              {splitPreview && !splitPreviewError && (
+                <div className="text-xs rounded border border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/50 p-2 mb-3 space-y-0.5">
+                  {splitPreview.linesBefore.map((l, i) => (
+                    <p key={i} className="text-stone-500 dark:text-stone-400 truncate">
+                      <span className="font-medium text-stone-600 dark:text-stone-300">{l.speaker}:</span> {l.text}
+                    </p>
+                  ))}
+                  <div className="flex items-center gap-1 my-1">
+                    <div className="flex-1 h-px bg-amber-300 dark:bg-amber-700" />
+                    <span className="text-amber-600 dark:text-amber-400 text-xs font-medium px-1">Part {nextLabel} begins</span>
+                    <div className="flex-1 h-px bg-amber-300 dark:bg-amber-700" />
+                  </div>
+                  {splitPreview.linesAfter.length > 0 ? splitPreview.linesAfter.map((l, i) => (
+                    <p key={i} className="text-stone-500 dark:text-stone-400 truncate">
+                      <span className="font-medium text-stone-600 dark:text-stone-300">{l.speaker}:</span> {l.text}
+                    </p>
+                  )) : (
+                    <p className="text-stone-400 dark:text-stone-500 italic">(end of scene)</p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 mt-2">
+                <button
+                  onClick={closeSplitDialog}
+                  className="text-xs px-3 py-1.5 rounded border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmSplit}
+                  disabled={!splitPreview}
+                  className="text-xs px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-600 disabled:bg-stone-200 dark:disabled:bg-stone-700 disabled:text-stone-400 dark:disabled:text-stone-500 text-white transition-colors font-medium"
+                >
+                  Split here
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {canReorder && (
         <p className="text-xs text-stone-400 dark:text-stone-400 mb-3 flex items-center gap-1">
           <span>⠿</span> Drag scenes to reorder | Add notes to acts or scenes as needed
@@ -279,6 +468,16 @@ export default function SceneList({
                 )}
                 <span className="text-xs text-stone-400 dark:text-stone-400 shrink-0">{act.title}</span>
                 <span className="text-sm font-medium text-stone-700 dark:text-stone-200 truncate">{scene.title}</span>
+                {/* Split button — shown when splitting is available and max 3 parts not reached */}
+                {onAddSceneSplit && activeCut && (activeCut.sceneSubdivisions?.[sceneId]?.length ?? 0) < 2 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openSplitDialog(sceneId); }}
+                    title="Split scene into sub-parts"
+                    className="opacity-0 group-hover:opacity-100 text-xs text-stone-300 hover:text-amber-500 dark:text-stone-600 dark:hover:text-amber-400 transition-opacity shrink-0 ml-1"
+                  >
+                    ✂
+                  </button>
+                )}
                 <span className="ml-auto text-xs tabular-nums text-stone-500 dark:text-stone-400 shrink-0">
                   {metric === "time"
                     ? formatMinutes(afterCut)
@@ -454,6 +653,66 @@ export default function SceneList({
                 </div>
               )}
             </div>
+
+            {/* Sub-scene rows — rendered when this scene has been subdivided */}
+            {subScenesByRealId.has(sceneId) && subScenesByRealId.get(sceneId)!.map((entry) => {
+              const sc = lineCounts.byScene[entry.id];
+              const subOrig = sc
+                ? metric === "time" ? sc.words.original / wpm
+                : metric === "words" ? sc.words.original : sc.lines.original
+                : 0;
+              const subAfterCut = sc
+                ? metric === "time" ? sc.words.afterCut / wpm
+                : metric === "words" ? sc.words.afterCut : sc.lines.afterCut
+                : 0;
+              const subHasCuts = subAfterCut < subOrig - (metric === "time" ? 0.01 : 0.5);
+              const subPauseKey = `after:${entry.id}`;
+              const subPause = pauses?.[subPauseKey];
+              // The split that created this part is at splits[partIndex - 1]; for part A (index 0) there's no remove button
+              const splits = activeCut?.sceneSubdivisions?.[sceneId] ?? [];
+              const splitToRemove = entry.partIndex > 0 ? splits[entry.partIndex - 1] : null;
+              const isLastPart = entry.partIndex === entry.partCount - 1;
+
+              return (
+                <React.Fragment key={entry.id}>
+                  <div className="ml-4 pl-3 border-l-2 border-amber-200 dark:border-amber-800 py-2 border-b border-stone-100 dark:border-stone-800 group/subsc">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/40 px-1.5 py-0.5 rounded shrink-0">
+                        {entry.label}
+                      </span>
+                      <span className="text-xs text-stone-500 dark:text-stone-400 truncate">{entry.title}</span>
+                      {/* Remove split button (visible on hover, only for parts B and C) */}
+                      {splitToRemove && onRemoveSceneSplit && (
+                        <button
+                          onClick={() => onRemoveSceneSplit(sceneId, splitToRemove.id)}
+                          title={`Remove split before Part ${entry.label}`}
+                          className="opacity-0 group-hover/subsc:opacity-100 text-xs text-stone-300 hover:text-red-400 dark:text-stone-600 dark:hover:text-red-400 transition-opacity shrink-0"
+                        >
+                          ×
+                        </button>
+                      )}
+                      <span className="ml-auto text-xs tabular-nums text-stone-500 dark:text-stone-400 shrink-0">
+                        {metric === "time" ? formatMinutes(subAfterCut) : subAfterCut.toLocaleString()}
+                        {subHasCuts && (
+                          <span className="text-stone-300 dark:text-stone-600 ml-1">
+                            / {metric === "time" ? formatMinutes(subOrig) : subOrig.toLocaleString()}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                  {/* Pause slot between sub-scenes (not after the last sub-scene — that uses the parent's pause slot) */}
+                  {!isLastPart && (
+                    <PauseRow
+                      afterSceneId={entry.id}
+                      pause={subPause}
+                      onSet={onSetPause}
+                      onRemove={onRemovePause}
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })}
 
             <PauseRow
               afterSceneId={sceneId}

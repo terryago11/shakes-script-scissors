@@ -1,6 +1,7 @@
 import type { Play, StageDirection, ScriptUnit } from "@/types/play";
 import type { Cut, ProjectSettings } from "@/types/project";
 import { expandSplits, expandInsertions } from "./expandUtils";
+import { getSubSceneId } from "./SceneSubdivisionUtils";
 
 const AVG_WORDS_PER_LINE = 8;
 const DEFAULT_WPM = 135;
@@ -149,6 +150,14 @@ export function computeStageTime(
       play.castList
     );
 
+    // Build sub-scene tracking if this scene has subdivisions.
+    // On-stage state CARRIES ACROSS sub-scene boundaries (sub-scenes are within the same TEI scene).
+    const splits = cut.sceneSubdivisions?.[sceneId] ?? [];
+    const splitUnitIds = new Set(splits.map((s) => s.afterUnitId));
+    let currentPartIndex = 0;
+    // currentSceneKey = virtual sub-scene ID or real scene ID (when not subdivided)
+    let currentSceneKey = splits.length > 0 ? getSubSceneId(sceneId, 0) : sceneId;
+
     // ── On-stage sets — populated ONLY by entrance/exit SDs, reset each scene ─
     // onStageOrig: driven by original SD characters (sd.characters), unaffected by edits
     // onStage:     driven by effective characters (edits override sd.characters for cut version)
@@ -185,20 +194,20 @@ export function computeStageTime(
           const sdIsKept = (cut.cutMap[unit.id] ?? "kept") === "kept";
           if (sdIsKept) {
             totalMinutes += sdDuration;
-            if (!sceneMinByChar[sceneId]) sceneMinByChar[sceneId] = {};
+            if (!sceneMinByChar[currentSceneKey]) sceneMinByChar[currentSceneKey] = {};
             for (const charId of onStage) {
               const entry = ensureChar(byCharacter, charId);
               entry.minutes += sdDuration;
-              sceneMinByChar[sceneId][charId] = (sceneMinByChar[sceneId][charId] ?? 0) + sdDuration;
+              sceneMinByChar[currentSceneKey][charId] = (sceneMinByChar[currentSceneKey][charId] ?? 0) + sdDuration;
             }
           }
           // Always add to original running time (SD exists in the original play)
           originalTotalMinutes += sdDuration;
-          if (!sceneOrigMinByChar[sceneId]) sceneOrigMinByChar[sceneId] = {};
+          if (!sceneOrigMinByChar[currentSceneKey]) sceneOrigMinByChar[currentSceneKey] = {};
           for (const charId of onStageOrig) {
             const entry = ensureChar(byCharacter, charId);
             entry.originalMinutes += sdDuration;
-            sceneOrigMinByChar[sceneId][charId] = (sceneOrigMinByChar[sceneId][charId] ?? 0) + sdDuration;
+            sceneOrigMinByChar[currentSceneKey][charId] = (sceneOrigMinByChar[currentSceneKey][charId] ?? 0) + sdDuration;
           }
         }
       } else if (unit.type === "speech") {
@@ -208,17 +217,24 @@ export function computeStageTime(
         if (!isInsertion) {
           const origMinutes = (unit.lineCount * AVG_WORDS_PER_LINE) / wpm;
           originalTotalMinutes += origMinutes;
-          if (!sceneOrigMinByChar[sceneId]) sceneOrigMinByChar[sceneId] = {};
+          if (!sceneOrigMinByChar[currentSceneKey]) sceneOrigMinByChar[currentSceneKey] = {};
           for (const charId of onStageOrig) {
             const entry = ensureChar(byCharacter, charId);
             entry.originalMinutes += origMinutes;
-            sceneOrigMinByChar[sceneId][charId] = (sceneOrigMinByChar[sceneId][charId] ?? 0) + origMinutes;
+            sceneOrigMinByChar[currentSceneKey][charId] = (sceneOrigMinByChar[currentSceneKey][charId] ?? 0) + origMinutes;
           }
         }
 
         // ── Cut: only for kept speeches ────────────────────────────────────
         const isKept = (cut.cutMap[unit.id] ?? "kept") === "kept";
-        if (!isKept) continue;
+        if (!isKept) {
+          // Advance sub-scene key even for cut units (boundary tracking must stay in sync)
+          if (splitUnitIds.has(unit.id)) {
+            currentPartIndex++;
+            currentSceneKey = splits.length > 0 ? getSubSceneId(sceneId, currentPartIndex) : sceneId;
+          }
+          continue;
+        }
 
         let keptLines = unit.lineCount;
         if (cut.lineCutMap) {
@@ -229,12 +245,12 @@ export function computeStageTime(
         const cutMinutes = (keptLines * AVG_WORDS_PER_LINE) / wpm;
         totalMinutes += cutMinutes;
 
-        if (!sceneMinByChar[sceneId]) sceneMinByChar[sceneId] = {};
+        if (!sceneMinByChar[currentSceneKey]) sceneMinByChar[currentSceneKey] = {};
         // Accumulate for ALL characters currently on stage (cut version)
         for (const charId of onStage) {
           const entry = ensureChar(byCharacter, charId);
           entry.minutes += cutMinutes;
-          sceneMinByChar[sceneId][charId] = (sceneMinByChar[sceneId][charId] ?? 0) + cutMinutes;
+          sceneMinByChar[currentSceneKey][charId] = (sceneMinByChar[currentSceneKey][charId] ?? 0) + cutMinutes;
         }
 
         // Extra duration for song/dance speeches (set from the Scenes & Pauses dashboard).
@@ -260,9 +276,24 @@ export function computeStageTime(
           }
         }
       }
+
+      // Advance to the next sub-scene part after processing a boundary unit
+      // (on-stage state is NOT reset — sub-scenes are within the same TEI scene)
+      if (splitUnitIds.has(unit.id)) {
+        currentPartIndex++;
+        currentSceneKey = splits.length > 0 ? getSubSceneId(sceneId, currentPartIndex) : sceneId;
+      }
     }
     // Characters remaining in onStage at scene end are assumed to exit at scene end
   }
+
+  // Build the full ordered list of scene keys (real IDs or virtual sub-scene IDs)
+  // This expands any subdivided scenes into their virtual sub-scene keys.
+  const allSceneKeys = effectiveSceneOrder.flatMap((realId) => {
+    const subdivSplits = cut.sceneSubdivisions?.[realId];
+    if (!subdivSplits?.length) return [realId];
+    return Array.from({ length: subdivSplits.length + 1 }, (_, i) => getSubSceneId(realId, i));
+  });
 
   // Build per-scene SceneStageTime[] for each character
   const allCharIds = new Set([
@@ -271,7 +302,7 @@ export function computeStageTime(
   ]);
   for (const charId of allCharIds) {
     const entry = ensureChar(byCharacter, charId);
-    entry.scenes = effectiveSceneOrder
+    entry.scenes = allSceneKeys
       .filter((sid) => (sceneMinByChar[sid]?.[charId] ?? 0) > 0 || (sceneOrigMinByChar[sid]?.[charId] ?? 0) > 0)
       .map((sid) => ({
         sceneId: sid,
@@ -280,12 +311,14 @@ export function computeStageTime(
       }));
   }
 
-  // Add pause minutes to cut running time only (original is unaffected)
+  // Add pause minutes to cut running time only (original is unaffected).
+  // Pauses may be keyed after real scene IDs OR virtual sub-scene IDs.
   let pauseMinutes = 0;
   if (cut.pauses) {
+    const allSceneKeysSet = new Set(allSceneKeys);
     for (const [key, pause] of Object.entries(cut.pauses)) {
-      const sceneId = key.replace(/^after:/, "");
-      if (effectiveSceneOrder.includes(sceneId)) {
+      const afterId = key.replace(/^after:/, "");
+      if (allSceneKeysSet.has(afterId)) {
         pauseMinutes += pause.minutes;
       }
     }

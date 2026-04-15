@@ -312,13 +312,9 @@ A right-aligned scene-relative line number appears every 5 lines, displayed in `
 
 ### Done ✓
 
-See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature groups (Groups 1–22A).
+See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature groups (Groups 1–22B).
 
 ---
-
-### Group 22B — Scene subdivide
-
-- **#24 Scene subdivide** — split a scene into A/B/C sub-parts via Scenes & Pauses dashboard; A/B/C suffix labelling; independently orderable sub-scenes; new data model for scene parts
 
 ### Group 23 — Word import
 

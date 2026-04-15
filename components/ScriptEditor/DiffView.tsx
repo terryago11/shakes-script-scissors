@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import type { Act, Character, Scene, ScriptUnit } from "@/types/play";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import type { ScriptUnitWithStatus } from "@/types/cut";
@@ -9,6 +10,7 @@ import { ViewModeProvider } from "@/lib/ui/ViewModeContext";
 import SpeechBlock from "./SpeechBlock";
 import StageDirectionBlock from "./StageDirectionBlock";
 import InsertionBlock from "./InsertionBlock";
+import { getSplitUnitIds, PART_LABELS } from "@/lib/cuts/SceneSubdivisionUtils";
 
 interface Props {
   orderedGroups: Array<{ act: Act; scenes: Scene[] }>;
@@ -41,6 +43,8 @@ interface Props {
   rightUnitsByScene?: Map<string, ScriptUnitWithStatus[]>;
   /** Speech edits from the right-side cut, applied to the right column */
   rightSpeechEdits?: Record<string, SpeechEdit>;
+  /** Active cut — used to render sub-scene dividers at split boundaries */
+  activeCut?: Cut;
 }
 
 export default function DiffView({
@@ -65,6 +69,7 @@ export default function DiffView({
   onSetDiffRight,
   rightUnitsByScene,
   rightSpeechEdits,
+  activeCut,
 }: Props) {
   // Build character→actor color map
   const charColor: Record<string, string> = {};
@@ -207,6 +212,8 @@ export default function DiffView({
                 }
               }
 
+              const splitUnitIds = activeCut ? getSplitUnitIds(scene, activeCut) : [];
+
               return (
                 <div key={scene.id} className="mb-6">
                   {/* Scene title — full width */}
@@ -216,13 +223,14 @@ export default function DiffView({
 
                   {/* Paired rows — each unit is one flex row; height syncs naturally */}
                   <div className="border border-stone-100 dark:border-stone-800 rounded-lg overflow-hidden divide-y divide-stone-50 dark:divide-stone-900">
-                    {units.map(({ unit, status, lineStatuses }) => {
+                    {units.flatMap(({ unit, status, lineStatuses }) => {
+                      const rows: React.ReactNode[] = [];
                       const isFiltering = filteredCharacterIds && filteredCharacterIds.size > 0;
                       // Whether this unit exists in the original play (false for insertions and :s2 split parts)
                       const isExpansionOnly = !origUnitIds.has(unit.id);
 
                       if (unit.type === "speech") {
-                        if (isFiltering && !filteredCharacterIds!.has(unit.characterId)) return null;
+                        if (isFiltering && !filteredCharacterIds!.has(unit.characterId)) return [];
 
                         const isCut = status === "cut";
                         const isInsertionUnit = !!insertions?.[unit.id];
@@ -239,7 +247,7 @@ export default function DiffView({
                         // (includes insertions and :s2 parts). insAfterMap is not available here
                         // so we rely on the pre-computed continuationIds which mirrors SceneBlock logic.
 
-                        return (
+                        rows.push(
                           <div
                             key={unit.id}
                             className={`flex items-stretch ${isCut ? "bg-red-50/30 dark:bg-red-950/20" : ""}`}
@@ -329,13 +337,13 @@ export default function DiffView({
                         );
                       } else {
                         // Stage direction
-                        if (isFiltering) return null;
+                        if (isFiltering) return [];
 
                         const isCut = status === "cut";
                         // Synthetic stageNote SDs (":sd" suffix) have no original equivalent
                         const isSyntheticSD = unit.id.endsWith(":sd");
 
-                        return (
+                        rows.push(
                           <div
                             key={unit.id}
                             className={`flex items-stretch ${isCut ? "bg-red-50/30 dark:bg-red-950/20" : ""}`}
@@ -390,6 +398,26 @@ export default function DiffView({
                           </div>
                         );
                       }
+
+                      // Sub-scene divider — rendered after the boundary unit in both columns
+                      const splitIdx = splitUnitIds.indexOf(unit.id);
+                      if (splitIdx >= 0) {
+                        const nextLabel = PART_LABELS[splitIdx + 1] ?? String(splitIdx + 2);
+                        rows.push(
+                          <div
+                            key={`subdiv-${unit.id}`}
+                            className="flex items-center gap-2 py-3 px-4 bg-amber-50/40 dark:bg-amber-950/10 select-none pointer-events-none"
+                          >
+                            <div className="flex-1 h-px bg-amber-300 dark:bg-amber-700" />
+                            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 px-1">
+                              Part {nextLabel}
+                            </span>
+                            <div className="flex-1 h-px bg-amber-300 dark:bg-amber-700" />
+                          </div>
+                        );
+                      }
+
+                      return rows;
                     })}
                   </div>
                 </div>

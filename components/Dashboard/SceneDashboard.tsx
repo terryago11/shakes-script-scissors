@@ -14,6 +14,7 @@ export interface SongDanceItem {
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import { computeCuts } from "@/lib/cuts/CutEngine";
 import { computeStageTime } from "@/lib/cuts/StageTimeEngine";
+import { buildSceneEntries, type EffectiveSceneEntry } from "@/lib/cuts/SceneSubdivisionUtils";
 import { useProject } from "@/lib/project/ProjectStore";
 import { useMetric } from "@/lib/ui/MetricContext";
 import DashboardMatrix from "./DashboardMatrix";
@@ -37,32 +38,27 @@ function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
-/** Build character × scene matrix with line and word counts */
+/** Build character × scene matrix with line and word counts.
+ *  Accepts columnEntries — which may include virtual sub-scene IDs when scenes are subdivided.
+ *  Each entry provides the relevant unit slice (entry.units) and its key (entry.id). */
 function buildCharSceneMatrix(
-  play: Play,
   cut: Cut,
-  effectiveSceneOrder: string[],
+  columnEntries: EffectiveSceneEntry[],
 ): Map<string, Map<string, CharSceneData>> {
   const matrix = new Map<string, Map<string, CharSceneData>>();
   const reassignments = cut.speechReassignments ?? {};
 
-  const sceneById = new Map<string, Scene>();
-  for (const act of play.acts) {
-    for (const scene of act.scenes) sceneById.set(scene.id, scene);
-  }
-
-  function ensureEntry(charId: string, sceneId: string): CharSceneData {
+  function ensureEntry(charId: string, sceneKey: string): CharSceneData {
     if (!matrix.has(charId)) matrix.set(charId, new Map());
     const charMap = matrix.get(charId)!;
-    if (!charMap.has(sceneId)) charMap.set(sceneId, { linesOrig: 0, linesAfterCut: 0, wordsOrig: 0, wordsAfterCut: 0 });
-    return charMap.get(sceneId)!;
+    if (!charMap.has(sceneKey)) charMap.set(sceneKey, { linesOrig: 0, linesAfterCut: 0, wordsOrig: 0, wordsAfterCut: 0 });
+    return charMap.get(sceneKey)!;
   }
 
-  for (const sceneId of effectiveSceneOrder) {
-    const scene = sceneById.get(sceneId);
-    if (!scene) continue;
+  for (const entry of columnEntries) {
+    const sceneKey = entry.id; // virtual sub-scene ID or real scene ID
 
-    for (const unit of scene.units) {
+    for (const unit of entry.units) {
       if (unit.type !== "speech") continue;
 
       const origCharId = unit.characterId;
@@ -88,14 +84,14 @@ function buildCharSceneMatrix(
       // Original counts go to ALL TEI-listed speakers
       const originalCharIds: string[] = unit.characterIds ?? [origCharId];
       for (const origId of originalCharIds) {
-        const origEntry = ensureEntry(origId, sceneId);
+        const origEntry = ensureEntry(origId, sceneKey);
         origEntry.linesOrig += origLines;
         origEntry.wordsOrig += origWords;
       }
 
       // Cut counts go to ALL effective speakers (each actor learns all lines)
       for (const effId of effectiveCharIds) {
-        const effEntry = ensureEntry(effId, sceneId);
+        const effEntry = ensureEntry(effId, sceneKey);
         effEntry.linesAfterCut += keptLines;
         effEntry.wordsAfterCut += keptWords;
       }
@@ -162,23 +158,33 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
     }
   }
 
+  // Build column entries — expand subdivided scenes into virtual A/B/C sub-columns
+  const columnEntries: EffectiveSceneEntry[] = effectiveSceneOrder.flatMap((sceneId) => {
+    const scene = sceneById.get(sceneId);
+    if (!scene) return [];
+    return buildSceneEntries(scene, activeCut, play);
+  });
+
   const { lineCounts } = computeCuts(play, activeCut, project.assignments, project.actors);
   const stageTime = computeStageTime(play, activeCut, project.settings);
-  const charSceneMatrix = buildCharSceneMatrix(play, activeCut, effectiveSceneOrder);
+  const charSceneMatrix = buildCharSceneMatrix(activeCut, columnEntries);
   const actorSceneMatrix = buildActorSceneMatrix(stageTime, project.actors, project.assignments);
 
-  // Actual scene durations (words / wpm) — used for correct matrix row totals in time metric
+  // Actual scene durations (words / wpm) — includes virtual sub-scene IDs when subdivided
   const sceneTimings = new Map<string, number>();
-  for (const [sceneId, sc] of Object.entries(lineCounts.byScene)) {
-    sceneTimings.set(sceneId, sc.words.afterCut / wpm);
+  for (const [sceneKey, sc] of Object.entries(lineCounts.byScene)) {
+    sceneTimings.set(sceneKey, sc.words.afterCut / wpm);
   }
 
   // Fully-cut scenes: had lines originally but afterCut = 0
+  // Uses columnEntries so virtual sub-scene IDs are correctly checked
   const cutSceneIds = new Set<string>(
-    effectiveSceneOrder.filter((id) => {
-      const sc = lineCounts.byScene[id];
-      return sc && sc.lines.original > 0 && sc.lines.afterCut === 0;
-    })
+    columnEntries
+      .map((e) => e.id)
+      .filter((id) => {
+        const sc = lineCounts.byScene[id];
+        return sc && sc.lines.original > 0 && sc.lines.afterCut === 0;
+      })
   );
 
   // Build a map of sceneId → song/dance items (speeches with <lg> stanzas + song/dance SDs + line overrides)
@@ -227,6 +233,14 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
     const preview = info.text.length > 35 ? info.text.slice(0, 33) + "…" : info.text;
     existing.push({ id: lineId, label: `${info.charName}: "${preview}"`, isSong: true, isDance: false });
     sceneSongDanceItems.set(info.sceneId, existing);
+  }
+
+  function handleAddSceneSplit(realSceneId: string, afterUnitId: string) {
+    dispatch({ type: "ADD_SCENE_SPLIT", realSceneId, afterUnitId });
+  }
+
+  function handleRemoveSceneSplit(realSceneId: string, splitId: string) {
+    dispatch({ type: "REMOVE_SCENE_SPLIT", realSceneId, splitId });
   }
 
   function handleSetPause(afterSceneId: string, name: string, minutes: number) {
@@ -364,6 +378,11 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
             sceneDescriptions={project.sceneDescriptions}
             onSetActDescription={handleSetActDescription}
             onSetSceneDescription={handleSetSceneDescription}
+            activeCut={activeCut}
+            play={play}
+            onAddSceneSplit={handleAddSceneSplit}
+            onRemoveSceneSplit={handleRemoveSceneSplit}
+            columnEntries={columnEntries}
           />
         </div>
       )}
@@ -372,6 +391,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
       {tab === "matrix" && (
         <DashboardMatrix
           effectiveSceneOrder={effectiveSceneOrder}
+          columnEntries={columnEntries}
           sceneById={sceneById}
           sceneActMap={sceneActMap}
           characters={play.castList}
@@ -394,6 +414,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
       {tab === "chart" && (
         <DashboardMatrix
           effectiveSceneOrder={effectiveSceneOrder}
+          columnEntries={columnEntries}
           sceneById={sceneById}
           sceneActMap={sceneActMap}
           characters={play.castList}
@@ -417,6 +438,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
         <RehearsalGroupings
           play={play}
           effectiveSceneOrder={effectiveSceneOrder}
+          columnEntries={columnEntries}
           sceneById={sceneById}
           sceneActMap={sceneActMap}
           actors={project.actors}

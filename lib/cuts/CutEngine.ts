@@ -1,6 +1,7 @@
 import type { Play, Scene, ScriptUnit } from "@/types/play";
 import { expandSplits, expandInsertions, expandStageNotes } from "./expandUtils";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
+import { buildSceneEntries } from "./SceneSubdivisionUtils";
 import type { LineCounts, LineWithStatus, ScriptUnitWithStatus, CountPair, SceneCounts } from "@/types/cut";
 import { applyEditsToLine, segmentsToText } from "./applyEdits";
 
@@ -190,6 +191,56 @@ export function computeCuts(
       }
 
       unitsByScene.set(scene.id, unitsWithStatus);
+
+      // If the scene has subdivisions, produce per-sub-scene byScene entries in addition
+      // to the whole-scene aggregate already stored in byScene[scene.id].
+      if (cut.sceneSubdivisions?.[scene.id]?.length) {
+        const entries = buildSceneEntries(scene, cut, play);
+        for (const entry of entries) {
+          // Skip the trivial single-entry case (partCount===1 uses the real scene ID)
+          if (entry.partCount === 1) continue;
+          const subCounts = { lines: { original: 0, afterCut: 0 }, words: { original: 0, afterCut: 0 } };
+          for (const unit of entry.units) {
+            if (unit.type !== "speech") continue;
+            const isInsertion = !!(cut.insertions?.[unit.id]);
+            const speechOrigWords = unit.lines.reduce((s, l) => s + countWords(l.text), 0);
+
+            const snBaseMatch = unit.id.match(/^(.+):sn\d+$/);
+            const snBaseId = snBaseMatch ? snBaseMatch[1] : null;
+            const unitStatus: "kept" | "cut" =
+              cut.cutMap[unit.id] === "cut" ? "cut"
+              : (snBaseId && cut.cutMap[snBaseId] === "cut") ? "cut"
+              : "kept";
+
+            if (!isInsertion) {
+              subCounts.lines.original += unit.lineCount;
+              subCounts.words.original += speechOrigWords;
+            }
+
+            if (unitStatus === "kept") {
+              const edit = speechEdits[unit.id];
+              const ops = edit?.ops ?? [];
+              let keptWords = 0;
+              let effectiveKeptLines = 0;
+              for (const line of unit.lines) {
+                if ((cut.lineCutMap ?? {})[line.id] === "cut") continue;
+                if (ops.length > 0) {
+                  const segments = applyEditsToLine(line.id, line.text, ops);
+                  const keptText = segmentsToText(segments);
+                  keptWords += countWords(keptText);
+                  if (keptText.trim().length > 0) effectiveKeptLines++;
+                } else {
+                  keptWords += countWords(line.text);
+                  effectiveKeptLines++;
+                }
+              }
+              subCounts.lines.afterCut += effectiveKeptLines;
+              subCounts.words.afterCut += keptWords;
+            }
+          }
+          byScene[entry.id] = subCounts;
+        }
+      }
     }
   }
 

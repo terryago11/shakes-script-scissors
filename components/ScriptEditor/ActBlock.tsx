@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import type { Act, Character, Scene } from "@/types/play";
-import type { Actor, ActorAssignment } from "@/types/project";
+import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import type { ScriptUnitWithStatus, LineCounts } from "@/types/cut";
 import type { SpeechEdit } from "@/types/edit";
 import type { Insertion } from "@/types/insertion";
@@ -10,6 +10,7 @@ import { useMetric } from "@/lib/ui/MetricContext";
 import { useViewMode } from "@/lib/ui/ViewModeContext";
 import SceneBlock from "./SceneBlock";
 import PauseIndicator from "./PauseIndicator";
+import { getSplitUnitIds } from "@/lib/cuts/SceneSubdivisionUtils";
 
 interface Props {
   act: Act;
@@ -50,6 +51,8 @@ interface Props {
   insertedSDs?: Record<string, import("@/types/insertedsd").InsertedSD>;
   /** Called when at least one unit is restored in a scene */
   onRestoreScene?: () => void;
+  /** Active cut — used to compute splitUnitIds for sub-scene dividers in SceneBlock */
+  activeCut?: Cut;
 }
 
 export default function ActBlock({
@@ -62,6 +65,7 @@ export default function ActBlock({
   insertions, onAddInsertion, onRemoveInsertion,
   insertedSDs,
   onRestoreScene,
+  activeCut,
 }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   // Generation increments each time act collapses → SceneBlocks remount in collapsed state
@@ -164,6 +168,9 @@ export default function ActBlock({
         <div className="space-y-6">
           {displayScenes.map((scene) => {
             const pauseEntry = !showOriginal ? pauses?.[`after:${scene.id}`] : undefined;
+            const splitUnitIds = !showOriginal && activeCut
+              ? getSplitUnitIds(scene, activeCut)
+              : [];
             return (
               <React.Fragment key={`${scene.id}-${generation}`}>
                 <SceneBlock
@@ -192,6 +199,7 @@ export default function ActBlock({
                   onRemoveInsertion={showOriginal ? undefined : onRemoveInsertion}
                   insertedSDs={showOriginal ? undefined : insertedSDs}
                   onRestoreScene={showOriginal ? undefined : onRestoreScene}
+                  splitUnitIds={splitUnitIds.length > 0 ? splitUnitIds : undefined}
                 />
                 {pauseEntry && (
                   <PauseIndicator name={pauseEntry.name} minutes={pauseEntry.minutes} />

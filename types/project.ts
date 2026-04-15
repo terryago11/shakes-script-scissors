@@ -44,6 +44,13 @@ export interface ActorAssignment {
   actorId: string;
 }
 
+export interface SubdivisionSplit {
+  /** Stable unique ID for this split boundary (generated via generateId()) */
+  id: string;
+  /** The ScriptUnit.id of the last unit in this part (part ends after this unit) */
+  afterUnitId: string;
+}
+
 export interface Cut {
   id: string;
   name: string;
@@ -125,4 +132,12 @@ export interface Cut {
    * Display-only: has no effect on on-stage tracking, stage time, or character calculations.
    */
   sdTextEdits?: Record<string, string>;
+  /**
+   * Scene sub-divisions: splits a scene into A/B/C sub-parts for planning purposes.
+   * Key = real scene ID. Value = ordered array of split points (each defines where a new part begins).
+   * N splits → N+1 parts, labelled A, B, C, …
+   * Sub-scenes are always displayed in canonical order (A before B before C).
+   * Virtual sub-scene IDs use the format "${realSceneId}:p${partIndex}".
+   */
+  sceneSubdivisions?: Record<string, SubdivisionSplit[]>;
 }
