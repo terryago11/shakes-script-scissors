@@ -5,6 +5,7 @@ import type { Project } from "@/types/project";
 import { useProject } from "@/lib/project/ProjectStore";
 import { useTheme } from "@/lib/ui/ThemeContext";
 import NewCutDialog from "@/components/CutSelector/NewCutDialog";
+import WordImportPanel from "@/components/WordImportPanel/WordImportPanel";
 
 function SunIcon() {
   return (
@@ -295,6 +296,10 @@ export default function SettingsModal({
               </div>
             )}
           </div>
+
+          {/* Import from Word */}
+          <div className="border-t border-stone-100 dark:border-stone-800" />
+          <WordImportPanel onCloseModal={onClose} />
 
           <div className="border-t border-stone-100 dark:border-stone-800" />
 
