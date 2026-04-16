@@ -104,12 +104,12 @@ You should see something like `v22.9.0`. If you do, Node.js is installed correct
 
 You need to get a copy of the app onto your computer.
 
-**Option A — if your developer gave you a link to GitHub (recommended):**
+**Option A — clone from GitHub (recommended):**
 
-Replace `YOUR_GITHUB_URL` in the command below with the actual URL they gave you, then paste and press Enter:
+Paste this and press Enter:
 
 ```
-git clone YOUR_GITHUB_URL ~/shakes-script-scissors
+git clone https://github.com/terryago11/shakes-script-scissors.git ~/shakes-script-scissors
 ```
 
 **Option B — if your developer gave you a ZIP file:**
@@ -308,12 +308,12 @@ You should see something like `v22.9.0`.
 
 ### Step 5 — Download the app
 
-**Option A — if your developer gave you a GitHub link:**
+**Option A — clone from GitHub (recommended):**
 
-Replace `YOUR_GITHUB_URL` below with the actual URL, then paste and press Enter:
+Paste this and press Enter:
 
 ```
-git clone YOUR_GITHUB_URL C:\shakes-script-scissors
+git clone https://github.com/terryago11/shakes-script-scissors.git C:\shakes-script-scissors
 ```
 
 **Option B — if your developer gave you a ZIP file:**
