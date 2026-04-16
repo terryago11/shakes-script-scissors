@@ -19,6 +19,7 @@ import { useProject } from "@/lib/project/ProjectStore";
 import { useMetric } from "@/lib/ui/MetricContext";
 import DashboardMatrix from "./DashboardMatrix";
 import type { CharSceneData } from "./DashboardMatrix";
+import PresenceChart from "./PresenceChart";
 import SceneList from "./SceneList";
 import RehearsalGroupings from "./RehearsalGroupings";
 import IntegrityChecks from "./IntegrityChecks";
@@ -141,6 +142,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get("tab") as Tab | null) ?? "scenes";
   const [tab, setTab] = useState<Tab>(initialTab);
+  const [chartMode, setChartMode] = useState<"bar" | "presence">("bar");
 
   useEffect(() => {
     setWpm(project.settings?.wordsPerMinute ?? DEFAULT_WPM);
@@ -412,25 +414,59 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
 
       {/* Tab: Chart */}
       {tab === "chart" && (
-        <DashboardMatrix
-          effectiveSceneOrder={effectiveSceneOrder}
-          columnEntries={columnEntries}
-          sceneById={sceneById}
-          sceneActMap={sceneActMap}
-          characters={play.castList}
-          actors={project.actors}
-          assignments={project.assignments}
-          charSceneMatrix={charSceneMatrix}
-          stageTimeByChar={stageTime.byCharacter}
-          pauses={activeCut.pauses}
-          metric={metric}
-          cutSceneIds={cutSceneIds}
-          characterAliases={activeCut.characterAliases}
-          viewType="chart"
-          sceneTimings={sceneTimings}
-          actDescriptions={project.actDescriptions}
-          sceneDescriptions={project.sceneDescriptions}
-        />
+        <div>
+          {/* Bar | Presence toggle */}
+          <div className="flex gap-1 p-0.5 bg-stone-100 dark:bg-stone-800 rounded-md w-fit mb-5">
+            {(["bar", "presence"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setChartMode(mode)}
+                className={`text-xs py-1 px-3 rounded transition-colors font-medium ${
+                  chartMode === mode
+                    ? "bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 shadow-sm"
+                    : "text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
+                }`}
+              >
+                {mode === "bar" ? "Bar" : "Presence"}
+              </button>
+            ))}
+          </div>
+
+          {chartMode === "bar" && (
+            <DashboardMatrix
+              effectiveSceneOrder={effectiveSceneOrder}
+              columnEntries={columnEntries}
+              sceneById={sceneById}
+              sceneActMap={sceneActMap}
+              characters={play.castList}
+              actors={project.actors}
+              assignments={project.assignments}
+              charSceneMatrix={charSceneMatrix}
+              stageTimeByChar={stageTime.byCharacter}
+              pauses={activeCut.pauses}
+              metric={metric}
+              cutSceneIds={cutSceneIds}
+              characterAliases={activeCut.characterAliases}
+              viewType="chart"
+              sceneTimings={sceneTimings}
+              actDescriptions={project.actDescriptions}
+              sceneDescriptions={project.sceneDescriptions}
+            />
+          )}
+
+          {chartMode === "presence" && (
+            <PresenceChart
+              play={play}
+              activeCut={activeCut}
+              effectiveSceneOrder={effectiveSceneOrder}
+              columnEntries={columnEntries}
+              actors={project.actors}
+              assignments={project.assignments}
+              characters={play.castList}
+              characterAliases={activeCut.characterAliases}
+            />
+          )}
+        </div>
       )}
 
       {/* Tab: Rehearsal */}
