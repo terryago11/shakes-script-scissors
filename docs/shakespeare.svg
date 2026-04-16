@@ -1,0 +1,33 @@
+<svg viewBox="0 0 48 56" width="96" height="112" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <ellipse cx="24" cy="28" rx="24" ry="28" fill="#fffbeb"/>
+  <!-- Ruff collar -->
+  <ellipse cx="24" cy="50" rx="16" ry="6" fill="#f5f0e8" stroke="#d4c9a8" stroke-width="0.8"/>
+  <path d="M8 50 Q12 44 16 47 Q20 44 24 47 Q28 44 32 47 Q36 44 40 47 Q40 50 40 50" fill="#f5f0e8" stroke="#d4c9a8" stroke-width="0.8"/>
+  <!-- Neck -->
+  <rect x="20" y="42" width="8" height="8" rx="1" fill="#e8c99a"/>
+  <!-- Head -->
+  <ellipse cx="24" cy="26" rx="13" ry="15" fill="#e8c99a"/>
+  <!-- Hair on sides (wispy) -->
+  <path d="M11 22 Q8 18 9 14 Q10 20 12 22Z" fill="#8b6914"/>
+  <path d="M37 22 Q40 18 39 14 Q38 20 36 22Z" fill="#8b6914"/>
+  <path d="M11 26 Q7 24 8 20 Q10 24 12 26Z" fill="#8b6914"/>
+  <path d="M37 26 Q41 24 40 20 Q38 24 36 26Z" fill="#8b6914"/>
+  <!-- Ears -->
+  <ellipse cx="11" cy="26" rx="2.5" ry="3" fill="#ddb880"/>
+  <ellipse cx="37" cy="26" rx="2.5" ry="3" fill="#ddb880"/>
+  <!-- Eyes -->
+  <ellipse cx="20" cy="25" rx="2" ry="1.5" fill="#4a3520"/>
+  <ellipse cx="28" cy="25" rx="2" ry="1.5" fill="#4a3520"/>
+  <circle cx="20.6" cy="24.5" r="0.5" fill="#fff"/>
+  <circle cx="28.6" cy="24.5" r="0.5" fill="#fff"/>
+  <!-- Nose -->
+  <path d="M23 27 Q24 31 25 27" stroke="#c0956a" stroke-width="0.8" fill="none"/>
+  <!-- Mouth -->
+  <path d="M21 33 Q24 35.5 27 33" stroke="#a0704a" stroke-width="1" fill="none" stroke-linecap="round"/>
+  <!-- Moustache -->
+  <path d="M20 31.5 Q22 33 24 31.5 Q26 33 28 31.5" stroke="#7a5010" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  <!-- Chin beard -->
+  <path d="M21 35 Q24 39 27 35" stroke="#7a5010" stroke-width="1" fill="none" stroke-linecap="round"/>
+  <path d="M22 35.5 Q24 40 26 35.5" fill="#8b6914" opacity="0.5"/>
+</svg>
