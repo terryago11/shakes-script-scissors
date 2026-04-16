@@ -176,7 +176,11 @@ It prints a long string starting with `$2a$10$`. Copy the entire output.
 
 **Create the `.env` file:**
 
-Open the built-in text editor by typing:
+A template is provided — copy it first, then open it to fill in your values:
+
+```
+cp .env.example .env
+```
 
 ```
 nano .env
@@ -369,7 +373,13 @@ node -e "const b=require('bcryptjs'); console.log(b.hashSync('yourpassword',10))
 
 Copy the output (starts with `$2a$10$`).
 
-**Create the `.env` file** — open Notepad:
+**Create the `.env` file:**
+
+A template is provided — copy it first, then open it to fill in your values:
+
+```
+copy .env.example .env
+```
 
 ```
 notepad .env

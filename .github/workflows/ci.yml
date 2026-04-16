@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    name: Lint & type-check & build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        # No submodules needed — lint/tsc/build don't read TEI files
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+        env:
+          # Dummy values — iron-session reads these at request time, not build time,
+          # but Next.js may warn if they're absent during static analysis.
+          SESSION_SECRET: ci-placeholder-not-a-real-secret-at-least-32chars
+          AUTH_PASSWORD_HASH: $2b$10$placeholder.placeholder.placeholder.plac
+          NODE_ENV: production
