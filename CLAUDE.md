@@ -306,3 +306,7 @@ A right-aligned scene-relative line number appears every 5 lines, displayed in `
 
 `SceneBlock` pre-computes `speechStartLines: Map<unitId, offset>` before rendering; `SpeechBlock` receives the offset as `speechLineOffset` and builds `lineNumMap` per-line.
 
+---
+
+See [ROADMAP.md](./ROADMAP.md) for planned and deferred features.
+
