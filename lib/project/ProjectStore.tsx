@@ -75,7 +75,16 @@ type ProjectAction =
   | { type: "SET_ACT_DESCRIPTION"; actId: string; description: string | null }
   | { type: "SET_SCENE_DESCRIPTION"; sceneId: string; description: string | null }
   | { type: "ADD_SCENE_SPLIT"; realSceneId: string; afterUnitId: string }
-  | { type: "REMOVE_SCENE_SPLIT"; realSceneId: string; splitId: string };
+  | { type: "REMOVE_SCENE_SPLIT"; realSceneId: string; splitId: string }
+  | {
+      type: "ADD_IMPORTED_CUT";
+      name: string;
+      cutData: {
+        cutMap: Record<string, "cut" | "kept">;
+        lineCutMap?: Record<string, "cut" | "kept">;
+        speechEdits?: Record<string, SpeechEdit>;
+      };
+    };
 
 function reducer(state: ProjectState, action: ProjectAction): ProjectState {
   if (!state.project && action.type !== "LOAD" && action.type !== "REPLACE_PROJECT") {
@@ -262,6 +271,25 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         updatedAt: now(),
       };
       return { project: newProject, activeCutId: newCut.id, undoStack: [], redoStack: [] };
+    }
+
+    case "ADD_IMPORTED_CUT": {
+      const p = state.project!;
+      const importedCut: Cut = {
+        id: generateId(),
+        name: action.name,
+        createdAt: now(),
+        cutMap: action.cutData.cutMap,
+        lineCutMap: action.cutData.lineCutMap ?? {},
+        speechEdits: action.cutData.speechEdits ?? {},
+      };
+      const newProject = {
+        ...p,
+        cuts: [...p.cuts, importedCut],
+        activeCutId: importedCut.id,
+        updatedAt: now(),
+      };
+      return { project: newProject, activeCutId: importedCut.id, undoStack: [], redoStack: [] };
     }
 
     case "RENAME_CUT": {

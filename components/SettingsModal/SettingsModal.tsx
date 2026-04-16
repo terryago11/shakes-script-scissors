@@ -5,6 +5,7 @@ import type { Project } from "@/types/project";
 import { useProject } from "@/lib/project/ProjectStore";
 import { useTheme } from "@/lib/ui/ThemeContext";
 import NewCutDialog from "@/components/CutSelector/NewCutDialog";
+import WordImportPanel from "@/components/WordImportPanel/WordImportPanel";
 
 function SunIcon() {
   return (
@@ -88,6 +89,7 @@ export default function SettingsModal({
   const { activeCutId, dispatch } = useProject();
   const { theme, setTheme } = useTheme();
   const [showNewCut, setShowNewCut] = useState(false);
+  const [wordImportOpen, setWordImportOpen] = useState(false);
   const [docxPanelOpen, setDocxPanelOpen] = useState(false);
   const [docxViewMode, setDocxViewMode] = useState<"clean" | "standard">("clean");
 
@@ -166,6 +168,19 @@ export default function SettingsModal({
         </div>
 
         <div className="px-6 py-4 space-y-5 max-h-[80vh] overflow-y-auto">
+
+          {/* Project name — top of panel */}
+          <div>
+            <label className={sectionLabel}>Project name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={project.playTitle}
+              className="w-full px-3 py-2 border border-stone-300 dark:border-stone-600 rounded-lg text-sm bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+            <p className="mt-1 text-xs text-stone-400">Play: {project.playTitle}</p>
+          </div>
 
           {/* Draft */}
           <div>
@@ -296,22 +311,25 @@ export default function SettingsModal({
             )}
           </div>
 
+          {/* Import from Word */}
+          <div className="border-t border-stone-100 dark:border-stone-800" />
+          <div>
+            {!wordImportOpen ? (
+              <button
+                onClick={() => setWordImportOpen(true)}
+                className="w-full text-xs px-3 py-2 rounded border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-left"
+              >
+                Import cut from pre-existing Word doc <span className="text-stone-400">(experimental)</span>
+              </button>
+            ) : (
+              <WordImportPanel onCloseModal={onClose} />
+            )}
+          </div>
+
           <div className="border-t border-stone-100 dark:border-stone-800" />
 
           {/* Project settings */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className={sectionLabel}>Project name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={project.playTitle}
-                className="w-full px-3 py-2 border border-stone-300 dark:border-stone-600 rounded-lg text-sm bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
-              />
-              <p className="mt-1 text-xs text-stone-400">Play: {project.playTitle}</p>
-            </div>
-
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className={sectionLabel}>Words per minute</label>

@@ -312,13 +312,7 @@ A right-aligned scene-relative line number appears every 5 lines, displayed in `
 
 ### Done ✓
 
-See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature groups (Groups 1–22B).
-
----
-
-### Group 23 — Word import
-
-- **#34 Word import** — parse a marked-up Word doc back into cuts (highly complex)
+See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature groups (Groups 1–23).
 
 ---
 
