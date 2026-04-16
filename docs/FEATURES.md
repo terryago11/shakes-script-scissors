@@ -115,7 +115,7 @@ All three modes are available in the script editor and in the exported HTML file
 
 ---
 
-## Exporting
+## Exporting and Importing
 
 | Feature | Details |
 |---------|---------|
@@ -151,75 +151,8 @@ All three modes are available in the script editor and in the exported HTML file
 
 ---
 
-## Data Model
-
-### Project (stored as `.sss.json`)
-
-```
-Project
-  name?           — optional display name
-  playId          — links to the DraCor play slug
-  cuts[]
-    name
-    cutMap          — Record<unitId, "cut"|"kept">
-    lineCutMap      — Record<lineId, "cut"|"kept">
-    stageDirectionEdits — Record<sdId, characterId[]>
-    sceneOrder?     — custom scene ordering
-    speechEdits?    — word-level track-changes per speech
-    speechReassignments? — Record<unitId, characterId>
-    speechSplits?   — Record<unitId, { splitAtLineIndex, newCharacterId? }>
-    insertions?     — Record<insertionId, Insertion>
-    characterAliases? — Record<characterId, string>
-    characterLinks? — Array<[charIdA, charIdB]>
-    stageDurations? — Record<stageId|speechId, minutes>
-    pauses?         — Record<"after:{sceneId}", { name, minutes }>
-    insertedSDs?    — Record<insertedSDId, InsertedSD>  (song/dance SDs added by director)
-    sdFlagOverrides? — Record<sdId, { isSong?, isDance? }>  (per-production flag overrides)
-    sceneSubdivisions? — Record<sceneId, SubdivisionSplit[]>  (A/B/C sub-part splits)
-  actors[]
-    name, color
-  assignments[]
-    characterId → actorId
-  settings?
-    wordsPerMinute
-    quickChangeThresholdMinutes
-```
-
-### Play (parsed from TEI, never stored)
-
-```
-Play
-  acts[]
-    divType?  — "prologue"|"epilogue"|"induction" (undefined = regular act)
-    scenes[]
-      sceneType? — "chorus"|"epilogue"|"prologue" (undefined = regular scene)
-      units[]
-        Speech
-          characterId, characterName, speakerTag
-          deliveryNote?   — inline stage qualifier, e.g. "[within]"
-          lines[]         — each line has id, ftln, text, stageNote?
-          lineCount
-          isSong?
-        StageDirection
-          text, characters[]
-          stageType?  — "entrance"|"exit"|"business"|"delivery"|"mixed"
-          isSong?, isDance?
-  castList[]
-    id, name
-```
-
----
-
 ## File Format
 
 Projects are saved as `.sss.json` — a plain JSON file that can be opened with any text editor and version-controlled with git. The file contains no play text (that is always fetched live from DraCor or read from the local cache) — only the cut marks, actor assignments, and settings.
 
----
-
-## Supported Plays
-
-All 38 Shakespeare plays:
-
-*All's Well That Ends Well · Antony and Cleopatra · As You Like It · The Comedy of Errors · Coriolanus · Cymbeline · Hamlet · Henry IV Part 1 · Henry IV Part 2 · Henry V · Henry VI Part 1 · Henry VI Part 2 · Henry VI Part 3 · Henry VIII · Julius Caesar · King John · King Lear · Love's Labour's Lost · Macbeth · Measure for Measure · The Merchant of Venice · The Merry Wives of Windsor · A Midsummer Night's Dream · Much Ado About Nothing · Othello · Pericles · Richard II · Richard III · Romeo and Juliet · The Taming of the Shrew · The Tempest · Timon of Athens · Titus Andronicus · Troilus and Cressida · Twelfth Night · The Two Gentlemen of Verona · The Two Noble Kinsmen · The Winter's Tale*
-
-Play text is licensed under [Creative Commons Attribution-ShareAlike 4.0](https://creativecommons.org/licenses/by-sa/4.0/) (DraCor / Folger Editions). *The Two Noble Kinsmen* text from the Folger Digital Texts is licensed under [CC BY-NC 3.0](https://creativecommons.org/licenses/by-nc/3.0/).
+For the full data model (Project and Play type structures), see [architecture.md](architecture.md#data-model).

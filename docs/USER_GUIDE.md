@@ -2,6 +2,8 @@
 
 A full feature walkthrough for directors and dramaturgs using the tool in production.
 
+> **Haven't set up the app yet?** See the [Setup Guide](SETUP.md) for step-by-step instructions with no assumed technical knowledge, or the [Quick Setup in the README](../README.md#setup) if you're comfortable with a terminal.
+
 ---
 
 ## Table of Contents
@@ -14,7 +16,7 @@ A full feature walkthrough for directors and dramaturgs using the tool in produc
 6. [View Modes](#6-view-modes)
 7. [Casting and Doubling](#7-casting-and-doubling)
 8. [Scene Dashboard](#8-scene-dashboard)
-9. [Exporting](#9-exporting)
+9. [Exporting and Importing](#9-exporting-and-importing)
 10. [Settings](#10-settings)
 11. [Saving and Opening Projects](#11-saving-and-opening-projects)
 
@@ -301,7 +303,7 @@ Each warning card is expandable and shows the scenes involved and the approximat
 
 ---
 
-## 9. Exporting
+## 9. Exporting and Importing
 
 ### HTML export
 

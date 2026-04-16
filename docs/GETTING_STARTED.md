@@ -1,6 +1,8 @@
 # Getting Started with ShakesScriptScissors
 
-ShakesScriptScissors is a browser-based tool for directors and dramaturgs to cut Shakespeare scripts for production. No account, installation, or server required — your work lives in your browser and in files you save to your computer.
+ShakesScriptScissors is a browser-based tool for directors and dramaturgs to cut Shakespeare scripts for production. Your work lives in your browser and in files you save to your computer.
+
+> **Haven't set up the app yet?** See the [Setup Guide](SETUP.md) for step-by-step instructions with no assumed technical knowledge, or the [Quick Setup in the README](../README.md#setup) if you're comfortable with a terminal.
 
 ---
 
