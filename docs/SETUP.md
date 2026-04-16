@@ -152,9 +152,9 @@ git submodule update --init
 
 ---
 
-### Step 8 — Set up your password
+### Step 8 — Set up your password (required)
 
-The app is password-protected so only your team can access it. You need to create a small configuration file called `.env` with two pieces of information: a secret key and a hashed version of your chosen password.
+This step is required — the app will not start without it. You need to create a small configuration file called `.env` with two pieces of information: a secret key and a password. This protects the app so that anyone else on your network can't open it in their browser.
 
 **First, choose a password** for your team to log in with (e.g. `macbeth2026`). Write it down somewhere safe.
 
@@ -347,7 +347,9 @@ git submodule update --init
 
 ---
 
-### Step 8 — Set up your password
+### Step 8 — Set up your password (required)
+
+This step is required — the app will not start without it.
 
 **Choose a password** for your team (e.g. `macbeth2026`). Write it down.
 
