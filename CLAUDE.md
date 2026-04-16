@@ -117,4 +117,4 @@ Both updates should be done together.
 
 ---
 
-See [ROADMAP.md](./ROADMAP.md) for planned features and [docs/architecture.md](./docs/architecture.md) for component layout, TEI parsing details, and engine internals.
+See [docs/ROADMAP.md](./docs/ROADMAP.md) for planned features and [docs/architecture.md](./docs/architecture.md) for component layout, TEI parsing details, and engine internals.

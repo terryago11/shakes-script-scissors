@@ -77,6 +77,30 @@ From the **⚙ gear** menu:
 
 ---
 
+## Assigning your first actor
+
+Actors are the people in your company. Characters are the roles they play.
+
+1. Click **Casting** in the nav bar (the person icon)
+2. Click **+ Add actor** and type an actor's name (e.g. "Jane Smith")
+3. Find a character card — it shows the character's name and line count
+4. Use the dropdown on that card to assign Jane to the character
+5. The card now shows Jane's name and colour
+
+Repeat for your full company. The tool will flag if two characters you've assigned to the same actor are ever on stage simultaneously.
+
+---
+
+## Generating a cue script
+
+A cue script is a personal copy for one actor showing only their lines plus the last few words of each speech before they speak — the "cue" they listen for.
+
+1. Click **Export** in the nav bar (or navigate to Cue Scripts)
+2. Select an actor from the dropdown — a preview of their script appears
+3. Click **Print / Save PDF** to save it from your browser, or click **Download All as ZIP** to generate PDFs for every actor at once
+
+---
+
 ## Next steps
 
 - Read the [User Guide](USER_GUIDE.md) for a full feature walkthrough

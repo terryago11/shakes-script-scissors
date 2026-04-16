@@ -255,6 +255,8 @@ Lists all scenes with their cut-only line/word/time counts. Actor presence chips
 - Pauses can be inserted after any sub-part using the **⏸** button between sub-rows.
 - Sub-scene dividers (amber horizontal rules labelled "Part B", "Part C") appear automatically in the script editor in all three view modes.
 
+**Production notes**: hover any act or scene row to reveal a pencil icon. Click it to type a short note — for example "Interval after this scene (front-of-house cue)" or "Battle sequence: coordinate with fights director before tech". Notes are saved per project and visible in the Scenes & Pauses tab at all times; they do not appear in exported HTML, Word, or cue script files.
+
 ### Tab 2 — Matrix
 
 A character × scene grid showing cut-only values (lines, words, or time — set by the metric toggle in the dashboard header).
