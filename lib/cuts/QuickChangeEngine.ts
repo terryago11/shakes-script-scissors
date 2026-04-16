@@ -1,6 +1,7 @@
 import type { Play } from "@/types/play";
 import type { Cut, ActorAssignment, ProjectSettings } from "@/types/project";
 import { getEffectiveCharacters } from "./StageTimeEngine";
+import { getEffectiveSceneOrder } from "@/lib/project/projectUtils";
 
 const AVG_WORDS_PER_LINE = 8;
 const DEFAULT_WPM = 135;
@@ -62,9 +63,8 @@ export function computeQuickChanges(
     charToActor.set(a.characterId, a.actorId);
   }
 
-  // Effective scene order
-  const defaultSceneOrder = play.acts.flatMap((act) => act.scenes.map((s) => s.id));
-  const effectiveSceneOrder = cut.sceneOrder ?? defaultSceneOrder;
+  // Effective scene order: custom order with any missing scenes appended
+  const effectiveSceneOrder = getEffectiveSceneOrder(play, cut);
 
   // Build scene lookup
   const sceneById = new Map<string, (typeof play.acts)[0]["scenes"][0]>();

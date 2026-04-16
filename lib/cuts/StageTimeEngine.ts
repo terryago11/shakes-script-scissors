@@ -2,6 +2,7 @@ import type { Play, StageDirection, ScriptUnit } from "@/types/play";
 import type { Cut, ProjectSettings } from "@/types/project";
 import { expandSplits, expandInsertions } from "./expandUtils";
 import { getSubSceneId } from "./SceneSubdivisionUtils";
+import { getEffectiveSceneOrder } from "@/lib/project/projectUtils";
 
 const AVG_WORDS_PER_LINE = 8;
 const DEFAULT_WPM = 135;
@@ -127,9 +128,8 @@ export function computeStageTime(
   const sceneMinByChar: Record<string, Record<string, number>> = {};
   const sceneOrigMinByChar: Record<string, Record<string, number>> = {};
 
-  // Effective scene order (custom or TEI default)
-  const defaultSceneOrder = play.acts.flatMap((act) => act.scenes.map((s) => s.id));
-  const effectiveSceneOrder = cut.sceneOrder ?? defaultSceneOrder;
+  // Effective scene order: custom order with any missing scenes appended
+  const effectiveSceneOrder = getEffectiveSceneOrder(play, cut);
 
   // Build scene lookup
   const sceneById = new Map<string, (typeof play.acts)[0]["scenes"][0]>();

@@ -62,8 +62,8 @@ Both updates should be done together whenever play texts are refreshed.
 | `lib/cuts/CastingUtils.ts` | `suggestMinimumCast` (Welsh–Powell graph colouring) + `buildForbiddenPairs` (quick-change-aware doubling constraints) |
 | `lib/cuts/QuickChangeEngine.ts` | `computeQuickChanges` — walks scenes to find actor quick-changes below the threshold; warnings include act/scene/line locations |
 | `lib/project/ProjectStore.tsx` | React context + localStorage persistence; all project mutations |
-| `lib/project/projectUtils.ts` | `generateId()`, `defaultColors` (reds + greens excluded — reserved for UI indicators), `resolveCharacterName(charId, aliases, castList)` |
-| `lib/project/projectIO.ts` | JSON export (file download) and import (file picker + Zod validation); `exportProject` / `importProject` |
+| `lib/project/projectUtils.ts` | `generateId()`, `defaultColors` (reds + greens excluded — reserved for UI indicators), `resolveCharacterName(charId, aliases, castList)`, `getEffectiveSceneOrder(play, cut)` (returns custom sceneOrder with any missing scenes appended — use this instead of `cut.sceneOrder ?? defaultOrder` in all engines) |
+| `lib/project/projectIO.ts` | JSON export (file download) and import (file picker + Zod validation); `exportProject` / `importProject`. **When adding a new field to `Cut` in `types/project.ts`, also add it to `CutSchema` here — fields not in the schema are silently stripped on import.** |
 | `app/api/play/[playId]/route.ts` | GET: fetch + parse + cache a play; returns `Play` JSON |
 | `app/api/plays/route.ts` | GET: returns `PLAYS` listing |
 
