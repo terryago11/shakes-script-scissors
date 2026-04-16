@@ -1,8 +1,16 @@
+<p align="center">
+  <img src="docs/shakespeare.svg" width="80" alt="Shakespeare mascot" />
+</p>
+
 # ShakesScriptScissors ✂
 
 [![CI](https://github.com/terryago11/shakes-script-scissors/actions/workflows/ci.yml/badge.svg)](https://github.com/terryago11/shakes-script-scissors/actions/workflows/ci.yml)
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC_BY--NC--SA_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![Vibe coded with Claude Code](https://img.shields.io/badge/vibe_coded_with-Claude_Code-blueviolet)](https://claude.ai/code)
 
 A browser-based tool for directors and dramaturgs to cut Shakespeare scripts for production. Load any of the 38 Folger Shakespeare plays, mark cuts at the speech, line, and word level, track before/after line counts and estimated running time, manage multiple cut versions, handle double-casting, and export actor cue scripts — all from a browser with no account required.
+
+> **Entirely vibe-coded with [Claude Code](https://claude.ai/code).** Every line of code in this project was written by Claude — no manual coding, just conversation and iteration.
 
 ---
 
