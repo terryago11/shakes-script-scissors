@@ -313,6 +313,30 @@ From the **⚙ gear** menu → **Export as Word**: exports the full current cut 
 
 Note: the `.docx` is a one-way export — it cannot be re-imported into Shakespeare Script Scissors.
 
+### Importing cuts from Word *(experimental)*
+
+Directors who work by highlighting text in a Word document can import that `.docx` directly as a new cut:
+
+1. Open ⚙ Settings → click **Import cut from pre-existing Word doc (experimental)**.
+2. Read the explanation and check "I understand" to unlock the file picker.
+3. Select your `.docx` file — the app parses it immediately.
+4. Review the **preview panel**:
+   - A green or amber badge shows the match rate (% of speeches matched to this play's text).
+   - Counts of fully cut speeches, line cuts, and word-level cuts are shown.
+   - Any highlighted passages that could not be matched are listed in a collapsible section — review these to spot edition mismatches.
+5. Enter a name for the cut and click **Create cut**.
+6. Click **View in script →** to close the modal and go straight to the new cut.
+
+**What is read**: highlighted text only — converted to cuts at speech, line, or word level depending on how much of the text is highlighted.
+
+**What is ignored**: stage directions (even if highlighted), speaker names and headings, new or inserted text, Word's tracked changes (strikethrough/balloon), and any text that cannot be matched to this play's Folger edition.
+
+**Requirements**:
+- The document must have clear "Act I / Scene 1" style headings — the tool hard-rejects documents with no Act or Scene structure.
+- Match rate < 40% → hard reject (wrong play or wrong edition).
+- Match rate 40–69% → amber warning (some text may use a different edition — review carefully).
+- Match rate ≥ 70% → green (proceed normally).
+
 ### Cue scripts
 
 From the nav bar → **Cue Scripts** page:

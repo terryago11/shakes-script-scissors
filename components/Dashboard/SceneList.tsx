@@ -357,7 +357,7 @@ export default function SceneList({
 
       {canReorder && (
         <p className="text-xs text-stone-400 dark:text-stone-400 mb-3 flex items-center gap-1">
-          <span>⠿</span> Drag scenes to reorder | Add notes to acts or scenes as needed
+          <span>⠿</span> Drag scenes to reorder · click split icon to subdivide scene · add notes as needed · add pauses as needed between any unit
         </p>
       )}
       {(() => {
@@ -472,10 +472,15 @@ export default function SceneList({
                 {onAddSceneSplit && activeCut && (activeCut.sceneSubdivisions?.[sceneId]?.length ?? 0) < 2 && (
                   <button
                     onClick={(e) => { e.stopPropagation(); openSplitDialog(sceneId); }}
-                    title="Split scene into sub-parts"
-                    className="opacity-0 group-hover:opacity-100 text-xs text-stone-300 hover:text-amber-500 dark:text-stone-600 dark:hover:text-amber-400 transition-opacity shrink-0 ml-1"
+                    className="group/split flex items-center gap-1 text-stone-300 hover:text-amber-500 dark:text-stone-600 dark:hover:text-amber-400 transition-colors shrink-0 ml-1"
                   >
-                    ✂
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="1" y="1" width="10" height="4" rx="1"/>
+                      <rect x="1" y="7" width="10" height="4" rx="1"/>
+                    </svg>
+                    <span className="opacity-0 group-hover/split:opacity-100 transition-opacity text-xs">
+                      Subdivide scene by line no
+                    </span>
                   </button>
                 )}
                 <span className="ml-auto text-xs tabular-nums text-stone-500 dark:text-stone-400 shrink-0">
