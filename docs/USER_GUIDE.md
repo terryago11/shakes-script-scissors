@@ -264,7 +264,16 @@ A character × scene grid showing cut-only values (lines, words, or time — set
 - **Column click**: filter visible rows to scenes where that character appears. Click again to clear.
 - **Row total**: right-edge column shows each character's total across all scenes.
 - **Column total**: footer row shows each scene's total across all characters.
-- **Table / Chart toggle**: Chart view shows horizontal bars per character sorted by total descending.
+- **Table / Chart toggle**: Chart view shows horizontal bars per character sorted by total descending. Switch to **Presence** mode for the Tableau-style character presence chart (see Chart tab below).
+
+### Tab 2B — Chart · Presence mode
+
+Switch the Chart tab toggle to **Presence** for a Tableau-style two-panel visualization:
+
+- **By line number** (upper panel): one swimlane row per character, grouped by actor. Each speech appears as a colored bar positioned at its Folger through-line number, so you can see the temporal flow of who speaks when across the whole play. Act headers span the top; act boundary dividers mark the transitions. Click any character name to filter — their bars stay highlighted while all others dim. The same filter applies to the scene strips below.
+- **By scene** (lower panel): one row per scene, each strip proportionally sized to the scene's line count (longest scene = full width). Speech segments are colored by actor. Click any scene label to filter the swimlane above to only the characters who appear in that scene. Click again to clear.
+
+Both filters are mutually exclusive — selecting a scene clears any character selection and vice versa.
 
 ### Tab 3 — Rehearsal
 

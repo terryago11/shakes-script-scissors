@@ -158,6 +158,7 @@ components/
     SceneDashboard.tsx      ← orchestrator; builds charSceneMatrix + stageTime; metric/tab state
     SceneList.tsx           ← drag-reorder scene list; pause insertion between scenes
     DashboardMatrix.tsx     ← character × scene matrix; actor-grouped headers; totals; Table/Chart
+    PresenceChart.tsx       ← Tableau-style presence chart (Chart tab → Presence mode); two panels: play-level FTLN swimlane (Panel 1) + scene-level proportional strips (Panel 2); character and scene click-filters cross-linked between panels
     RehearsalGroupings.tsx  ← By Actor scene breakdown + Suggested Rehearsal Blocks (side-by-side)
     IntegrityChecks.tsx     ← Integrity tab: side-by-side no-exit / no-entrance warning cards; Name Diagnostics collapsible table (Character ID · Folger Cast List · Folger Speaker Name · ID-Normalized · SD References · Resolved)
 ```
