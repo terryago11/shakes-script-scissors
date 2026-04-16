@@ -69,6 +69,7 @@ export default function SpeechBlock({
   const { viewMode } = useViewMode();
   const { activeTool } = useEditMode();
   const { activeCut, dispatch } = useProject();
+  const { metric } = useMetric();
   const isCut = status === "cut";
   const readonly = onToggle === null;
   const [showReassign, setShowReassign] = useState(false);
@@ -94,8 +95,6 @@ export default function SpeechBlock({
     ? lineStatuses.filter((ls) => ls.status === "kept").length
     : speech.lineCount;
   void keptLineCount;
-
-  const { metric } = useMetric();
 
   // Word counts (for words metric display)
   const totalWords = speech.lines.reduce((sum, line) => {

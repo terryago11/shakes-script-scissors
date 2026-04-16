@@ -288,7 +288,7 @@ export default function SceneList({
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={closeSplitDialog}>
             <div className="bg-white dark:bg-stone-900 rounded-lg shadow-xl border border-stone-200 dark:border-stone-700 max-w-sm w-full p-5" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-sm font-semibold text-stone-800 dark:text-stone-100 mb-1">
-                Split "{scene.title}"
+                Split &ldquo;{scene.title}&rdquo;
               </h3>
               <p className="text-xs text-stone-400 dark:text-stone-500 mb-3">
                 Part {PART_LABELS[existingSplits]} ends / Part {nextLabel} begins

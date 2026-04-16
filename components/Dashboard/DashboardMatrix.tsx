@@ -338,7 +338,7 @@ export default function DashboardMatrix({
           {showHelp && (
             <div className="absolute right-0 top-7 z-50 w-72 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg shadow-lg p-3 text-xs text-stone-600 dark:text-stone-300 space-y-1.5">
               <p><span className="font-medium">Character column</span> — filter to scenes where that character appears</p>
-              <p><span className="font-medium">Actor header</span> — filter to scenes for all of that actor's characters</p>
+              <p><span className="font-medium">Actor header</span> — filter to scenes for all of that actor&apos;s characters</p>
               <p><span className="font-medium">Scene row label</span> — filter columns to characters in that scene</p>
               <p className="text-stone-400 dark:text-stone-500 pt-0.5">Filters are additive (OR). Click again to remove.</p>
             </div>
