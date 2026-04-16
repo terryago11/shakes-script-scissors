@@ -1,5 +1,7 @@
 # ShakesScriptScissors ✂
 
+[![CI](https://github.com/terryago11/shakes-script-scissors/actions/workflows/ci.yml/badge.svg)](https://github.com/terryago11/shakes-script-scissors/actions/workflows/ci.yml)
+
 A browser-based tool for directors and dramaturgs to cut Shakespeare scripts for production. Load any of the 38 Folger Shakespeare plays, mark cuts at the speech, line, and word level, track before/after line counts and estimated running time, manage multiple cut versions, handle double-casting, and export actor cue scripts — all from a browser with no account required.
 
 ---
