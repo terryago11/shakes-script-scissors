@@ -155,4 +155,4 @@ All three modes are available in the script editor and in the exported HTML file
 
 Projects are saved as `.sss.json` — a plain JSON file that can be opened with any text editor and version-controlled with git. The file contains no play text (that is always fetched live from DraCor or read from the local cache) — only the cut marks, actor assignments, and settings.
 
-For the full data model (Project and Play type structures), see [architecture.md](architecture.md#data-model).
+For the full data model (Project and Play type structures), see [CLAUDE.md](../CLAUDE.md#data-models).
