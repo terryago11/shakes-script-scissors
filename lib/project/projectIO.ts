@@ -53,6 +53,21 @@ const CutSchema = z.object({
     id: z.string(),
     afterUnitId: z.string(),
   }))).optional(),
+  // Director-created song/dance SDs inserted after a unit
+  insertedSDs: z.record(z.string(), z.object({
+    id: z.string(),
+    afterUnitId: z.string(),
+    text: z.string(),
+    characters: z.array(z.string()),
+    stageType: z.enum(["entrance", "exit", "business", "delivery"]).optional(),
+    isSong: z.boolean().optional(),
+    isDance: z.boolean().optional(),
+  })).optional(),
+  // Per-SD song/dance flag overrides (overrides TEI isSong/isDance per production)
+  sdFlagOverrides: z.record(z.string(), z.object({
+    isSong: z.boolean().optional(),
+    isDance: z.boolean().optional(),
+  })).optional(),
 });
 
 const ProjectSchema = z.object({

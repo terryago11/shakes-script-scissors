@@ -1,5 +1,6 @@
 import type { Play } from "@/types/play";
 import type { Cut, ProjectSettings } from "@/types/project";
+import { getEffectiveSceneOrder } from "@/lib/project/projectUtils";
 
 const AVG_WORDS_PER_LINE = 8;
 const DEFAULT_WPM = 135;
@@ -53,8 +54,7 @@ export function buildForbiddenPairs(
     for (const scene of act.scenes) sceneById.set(scene.id, scene);
   }
 
-  const defaultOrder = play.acts.flatMap((a) => a.scenes.map((s) => s.id));
-  const sceneOrder = cut.sceneOrder ?? defaultOrder;
+  const sceneOrder = getEffectiveSceneOrder(play, cut);
 
   let cumulativeMinutes = 0;
   // charId → cumulative minutes at its most recent exit

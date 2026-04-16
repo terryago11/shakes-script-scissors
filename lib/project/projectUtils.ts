@@ -1,4 +1,6 @@
 import { characterIdToName } from "@/lib/folger/TeiParser";
+import type { Play } from "@/types/play";
+import type { Cut } from "@/types/project";
 
 /** Generate a short random ID */
 export function generateId(): string {
@@ -17,6 +19,20 @@ export function resolveCharacterName(
 ): string {
   if (aliases?.[charId]) return aliases[charId];
   return castList.find((c) => c.id === charId)?.name ?? characterIdToName(charId);
+}
+
+/**
+ * Returns the effective scene order for a cut, guaranteed to include every scene in the play.
+ * If the cut has a custom sceneOrder, scenes missing from it are appended in their original
+ * TEI order. This prevents engines from silently skipping scenes when a cut's sceneOrder is
+ * stale (e.g. after manual project-file edits or future play-text updates).
+ */
+export function getEffectiveSceneOrder(play: Play, cut: Cut): string[] {
+  const defaultOrder = play.acts.flatMap((a) => a.scenes.map((s) => s.id));
+  if (!cut.sceneOrder) return defaultOrder;
+  const inOrder = new Set(cut.sceneOrder);
+  const missing = defaultOrder.filter((id) => !inOrder.has(id));
+  return missing.length === 0 ? cut.sceneOrder : [...cut.sceneOrder, ...missing];
 }
 
 /** Default actor colors — cycles when more than this many actors.

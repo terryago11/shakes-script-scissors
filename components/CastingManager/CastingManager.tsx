@@ -83,6 +83,7 @@ export default function CastingManager({ playId }: Props) {
   const params = useParams<{ projectId: string }>();
   const projectId = params?.projectId ?? "";
   const [play, setPlay] = useState<Play | null>(null);
+  const [playLoadError, setPlayLoadError] = useState<string | null>(null);
   const [newActorName, setNewActorName] = useState("");
   const [editingActorId, setEditingActorId] = useState<string | null>(null);
   const [editingActorName, setEditingActorName] = useState("");
@@ -104,9 +105,20 @@ export default function CastingManager({ playId }: Props) {
 
   useEffect(() => {
     fetch(`/api/play/${playId}`)
-      .then((r) => r.json())
-      .then(setPlay);
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(setPlay)
+      .catch((e) => {
+        console.error("Failed to load play:", e);
+        setPlayLoadError("Failed to load play data. Refresh the page to try again.");
+      });
   }, [playId]);
+
+  if (playLoadError) {
+    return <div className="text-red-500 dark:text-red-400 text-sm p-6">{playLoadError}</div>;
+  }
 
   if (!project || !play) {
     return <div className="text-stone-400 dark:text-stone-400 text-sm p-6">Loading…</div>;
@@ -432,6 +444,7 @@ export default function CastingManager({ playId }: Props) {
           <button
             onClick={handleAddActor}
             disabled={!newActorName.trim()}
+            title={!newActorName.trim() ? "Enter an actor name to add" : undefined}
             className="px-4 py-2 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50"
           >
             Add Actor

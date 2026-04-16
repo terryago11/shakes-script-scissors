@@ -64,6 +64,7 @@ export default function NewCutDialog({ onClose }: Props) {
           <button
             onClick={handleCreate}
             disabled={!name.trim()}
+            title={!name.trim() ? "Enter a cut name to continue" : undefined}
             className="px-4 py-2 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50"
           >
             Create

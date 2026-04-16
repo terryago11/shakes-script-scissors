@@ -331,6 +331,7 @@ export default function DashboardMatrix({
             onClick={() => setShowHelp((h) => !h)}
             className="text-xs text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 w-5 h-5 rounded-full border border-stone-300 dark:border-stone-600 flex items-center justify-center font-medium"
             title="How filtering works"
+            aria-label="How filtering works"
           >
             ?
           </button>
@@ -362,14 +363,19 @@ export default function DashboardMatrix({
                     className="sticky top-0 z-30 bg-white dark:bg-stone-950 py-1 px-2 text-xs font-semibold text-left border-l border-b border-stone-200 dark:border-stone-700 cursor-pointer hover:bg-stone-50 dark:hover:bg-stone-800/50 select-none"
                     style={{ color: group.actor.color }}
                     onClick={() => handleActorHeaderClick(group.charIds)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleActorHeaderClick(group.charIds); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Filter to ${group.actor.name}'s scenes`}
                     title={`Click to filter to ${group.actor.name}'s scenes`}
                   >
                     <div className="flex items-center justify-start gap-1">
                       <span
                         className="w-2 h-2 rounded-full shrink-0"
                         style={{ backgroundColor: group.actor.color }}
+                        aria-hidden="true"
                       />
-                      <span className="truncate max-w-24">{group.actor.name}</span>
+                      <span className="truncate max-w-24" title={group.actor.name}>{group.actor.name}</span>
                     </div>
                   </th>
                 ) : (
@@ -410,10 +416,14 @@ export default function DashboardMatrix({
                     }`}
                     style={{ color: actor ? actor.color : "#a8a29e" }}
                     onClick={() => handleColClick(charId)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleColClick(charId); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Filter to scenes with ${charDisplayName}`}
                     title={`Click to filter to scenes with ${charDisplayName}`}
                   >
                     <div className="flex flex-col items-center gap-0.5">
-                      <span className="truncate block max-w-24">{charDisplayName}</span>
+                      <span className="truncate block max-w-24" title={charDisplayName}>{charDisplayName}</span>
                       {isFiltered && (
                         <span className="text-amber-500 text-xs leading-none">▼</span>
                       )}

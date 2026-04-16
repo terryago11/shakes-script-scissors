@@ -17,6 +17,19 @@ const nextConfig: NextConfig = {
   },
   // Keep pdfkit external so its __dirname-based AFM font resolution works at runtime.
   serverExternalPackages: ["pdfkit"],
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -264,6 +264,7 @@ export default function PresenceChart({
                         className="w-28 shrink-0 text-right text-xs truncate pr-1 hover:underline cursor-pointer bg-transparent border-0 p-0 text-right"
                         style={{ color, fontWeight: selectedCharId === charId ? 700 : 400 }}
                         title={`Filter to ${charName(charId)}`}
+                        aria-label={`Filter to ${charName(charId)}`}
                         onClick={() => toggleChar(charId)}
                       >
                         {charName(charId)}
@@ -348,6 +349,7 @@ export default function PresenceChart({
                       fontWeight: sceneSelected ? 700 : 400,
                     }}
                     title={`Filter to ${sceneLabel}`}
+                    aria-label={`Filter to ${sceneLabel}`}
                     onClick={() => toggleScene(entry.id)}
                   >
                     {sceneLabel}
