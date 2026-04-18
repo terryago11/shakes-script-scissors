@@ -230,21 +230,29 @@ export default function SettingsModal({
           {/* Save & Export */}
           <div>
             <label className={sectionLabel}>Save & Export</label>
+            <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-2.5 py-2 mb-3 leading-snug">
+              ⚠ Projects auto-save to browser storage only — not to disk. Save a <strong>.sss.json</strong> backup regularly; browser data can be cleared at any time.
+            </p>
+
+            {/* Save — primary action, full-width prominent button */}
+            <button
+              onClick={() => { onExportJson(); onClose(); }}
+              className="w-full text-sm px-4 py-2.5 rounded-lg border-2 border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/70 transition-colors flex items-center gap-2 font-medium mb-3"
+            >
+              <span>↓</span>
+              Save Project (.sss.json)
+            </button>
+
+            {/* Export — secondary actions */}
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-500 mb-1.5 block">Export</label>
             <div className="flex gap-2">
-              <button
-                onClick={() => { onExportJson(); onClose(); }}
-                className="flex-1 text-sm px-3 py-2 rounded border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-left flex items-center gap-2"
-              >
-                <span className="text-stone-400">↓</span>
-                Save as JSON
-              </button>
               <button
                 onClick={() => { onExportHtml(); onClose(); }}
                 disabled={!activeCutId || exportingHtml}
                 className="flex-1 text-sm px-3 py-2 rounded border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-left flex items-center gap-2 disabled:opacity-40"
               >
                 <span className="text-stone-400">⊞</span>
-                {exportingHtml ? "Exporting…" : "Export as HTML"}
+                {exportingHtml ? "Exporting…" : "HTML"}
               </button>
               <button
                 onClick={() => setDocxPanelOpen((v) => !v)}
@@ -252,7 +260,7 @@ export default function SettingsModal({
                 className="flex-1 text-sm px-3 py-2 rounded border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors text-left flex items-center gap-2 disabled:opacity-40"
               >
                 <span className="text-stone-400">⊟</span>
-                {exportingDocx ? "Exporting…" : "Export as Word"}
+                {exportingDocx ? "Exporting…" : "Word"}
               </button>
             </div>
 

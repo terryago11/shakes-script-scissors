@@ -157,6 +157,7 @@ function ProjectNav({
   const [exportingHtml, setExportingHtml] = useState(false);
   const [exportingDocx, setExportingDocx] = useState(false);
   const [easterEggVisible, setEasterEggVisible] = useState(false);
+  const [showSaveReminder, setShowSaveReminder] = useState(false);
   const [hamburgerOpen, setHamburgerOpen] = useState(false);
   const hamburgerRef = useRef<HTMLDivElement>(null);
 
@@ -170,12 +171,19 @@ function ProjectNav({
   }, [hamburgerOpen]);
 
   // Trigger easter egg whenever the Cut tool is exited (any exit path)
+  // Also show save reminder whenever any edit tool is exited back to "none"
   const prevActiveTool = useRef<EditTool>("none");
   useEffect(() => {
-    if (prevActiveTool.current === "cut" && activeTool !== "cut") {
+    const prev = prevActiveTool.current;
+    prevActiveTool.current = activeTool;
+    if (prev === "cut" && activeTool !== "cut") {
       setEasterEggVisible(true);
     }
-    prevActiveTool.current = activeTool;
+    if (prev !== "none" && activeTool === "none") {
+      setShowSaveReminder(true);
+      const timer = setTimeout(() => setShowSaveReminder(false), 8000);
+      return () => clearTimeout(timer);
+    }
   }, [activeTool]);
 
   function handleSettingsSave(updates: {
@@ -444,6 +452,18 @@ function ProjectNav({
         visible={easterEggVisible}
         onDismiss={() => setEasterEggVisible(false)}
       />
+
+      {/* Save reminder — shown briefly whenever any edit tool is exited */}
+      {showSaveReminder && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 shadow-lg dark:border-amber-700 dark:bg-amber-950/90 dark:text-amber-200 text-sm">
+          <span>Changes are saved in <strong>this browser only</strong>. Download a backup: <strong>⚙ → Save Project</strong>.</span>
+          <button
+            onClick={() => setShowSaveReminder(false)}
+            className="ml-1 text-amber-500 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-200 transition-colors text-base leading-none"
+            aria-label="Dismiss"
+          >✕</button>
+        </div>
+      )}
     </header>
   );
 }

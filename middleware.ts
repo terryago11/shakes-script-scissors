@@ -18,6 +18,8 @@ function isPublic(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
+  if (process.env.AUTH_DISABLED === "true") return NextResponse.next();
+
   const { pathname } = request.nextUrl;
 
   if (isPublic(pathname)) return NextResponse.next();

@@ -23,6 +23,8 @@ The app uses iron-session for password auth (`middleware.ts` at the project root
 
 If you ever see all routes returning 404 with a redirect loop to `/login`, check that `middleware.ts` exists at the project root with `export async function middleware(...)`. Do **not** rename it to `proxy.ts` — this was tried twice and broke the app both times.
 
+**Disabling auth** (`AUTH_DISABLED=true` in `.env`): the middleware returns `NextResponse.next()` immediately; the `/api/auth/me` and `/api/auth/login` routes return `{ isLoggedIn: true }` / `{ ok: true }` without touching iron-session. `app/login/page.tsx` is a **server component** that calls `redirect("/")` when the flag is set — the client form lives in `app/login/LoginForm.tsx`. Do not add `"use client"` to `page.tsx`; it must stay a server component to read the env var at render time.
+
 ## Updating Play Texts
 
 **DraCor plays (37 of 38)**: Pull the submodule.

@@ -152,9 +152,21 @@ git submodule update --init
 
 ---
 
-### Step 8 — Set up your password (required)
+### Step 8 — Configure authentication
 
-This step is required — the app will not start without it. You need to create a small configuration file called `.env` with two pieces of information: a secret key and a password. This protects the app so that anyone else on your network can't open it in their browser.
+You need to create a small configuration file called `.env`. How much you need to do here depends on whether you're the only person who will use the app or whether it will be shared.
+
+**If you're the only user on your own computer** (nobody else can reach `localhost:3000`), you can skip the password entirely. Open `.env.example`, copy it to `.env`, and add one line:
+
+```
+AUTH_DISABLED=true
+```
+
+Jump straight to Step 9 — no password or secret key needed.
+
+**If you want a team password** (recommended if others on your network might access the app):
+
+This protects the app so that anyone else on your network can't open it in their browser.
 
 **First, choose a password** for your team to log in with (e.g. `macbeth2026`). Write it down somewhere safe.
 

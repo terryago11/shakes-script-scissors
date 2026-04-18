@@ -180,9 +180,16 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
   // Show green insertion style when the text has been edited (standard + diff only, not clean)
   const showEditedStyle = hasTextEdit && !isCut && viewMode !== "clean";
 
+  // Cut text style mirrors SpeechBlock: red in standard mode, red+bg in diff
+  const cutTextClass = isCut
+    ? viewMode === "diff"
+      ? "text-red-500 line-through"
+      : "text-red-400 line-through opacity-60"
+    : "";
+
   return (
     <>
-      <div className={`group flex items-start gap-3 py-1.5 px-2 rounded ${isCut ? "opacity-50" : ""} ${showEditedStyle ? "border-l-2 border-green-400 dark:border-green-600 bg-green-50/50 dark:bg-green-950/20" : ""}`}>
+      <div className={`group flex items-start gap-3 py-1.5 px-2 rounded ${showEditedStyle ? "border-l-2 border-green-400 dark:border-green-600 bg-green-50/50 dark:bg-green-950/20" : ""}`}>
         <div className="w-1 shrink-0" />
         <div className="flex-1 min-w-0">
           {showEditedStyle && (
@@ -192,7 +199,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
               </span>
             </div>
           )}
-          <div className={`text-sm italic ${sdTextColor} ${isCut ? "line-through text-stone-400 dark:text-stone-400" : ""}`}>
+          <div className={`text-sm italic ${isCut ? cutTextClass : sdTextColor}`}>
             {sdPrefixNode}
             {isEditingText ? (
               <textarea
@@ -341,6 +348,17 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
             </div>
           )}
         </div>
+        {!readonly && activeTool === "edit-sds" && !isCut && (
+          <div className="flex flex-col gap-1 shrink-0 self-center">
+            <button
+              onClick={() => dispatch({ type: "TOGGLE_UNIT", unitId: stage.id })}
+              className="text-xs px-2 py-0.5 rounded border border-stone-200 bg-stone-50 text-stone-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-500 dark:hover:bg-red-950/50 dark:hover:text-red-400 dark:hover:border-red-800 transition-all"
+              title="Cut this stage direction entirely (use Restore tool or undo to recover)"
+            >
+              ✂ cut
+            </button>
+          </div>
+        )}
         {!readonly && activeTool === "restore" && (
           <div className="flex flex-col gap-1 shrink-0 self-center">
             {isCut && (

@@ -64,7 +64,7 @@ Not a developer? See the [Setup Guide](docs/SETUP.md) for step-by-step instructi
 
 ## Tech Stack
 
-**Next.js 16** App Router · **TypeScript** · **Tailwind CSS v4** · TEI data from [shakedracor](https://github.com/dracor-org/shakedracor) (Folger Shakespeare Library) · Browser `localStorage` storage (no database)
+**Next.js 16** App Router · **TypeScript** · **Tailwind CSS v4** · TEI data from [shakedracor](https://github.com/dracor-org/shakedracor) (Folger Shakespeare Library) · Browser `localStorage` storage (no database — ephemeral; export `.sss.json` backups regularly)
 
 ---
 
@@ -90,6 +90,20 @@ git add shakedracor && git commit -m "chore: update TNK submodule ref"
 ```
 
 Both updates should be done together whenever play texts are refreshed.
+
+---
+
+## Authentication
+
+By default the app requires a team password at login (set via `SESSION_SECRET` and `AUTH_PASSWORD_HASH` in your `.env` file — see [docs/SETUP.md](docs/SETUP.md) for setup instructions).
+
+**For local-only use**, you can skip authentication entirely by adding one line to your `.env` file:
+
+```
+AUTH_DISABLED=true
+```
+
+This bypasses the login gate and is safe when only running on `localhost`. Do **not** set this if the app is reachable from the network or hosted publicly — anyone could then access your projects.
 
 ---
 
