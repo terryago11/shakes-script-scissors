@@ -5,6 +5,10 @@ import { sessionOptions, type SessionData } from "@/lib/session";
 import { cookies } from "next/headers";
 
 export async function POST(req: NextRequest) {
+  if (process.env.AUTH_DISABLED === "true") {
+    return NextResponse.json({ ok: true });
+  }
+
   const body = await req.json().catch(() => null);
   if (!body || typeof body.password !== "string") {
     return NextResponse.json({ error: "Missing password" }, { status: 400 });

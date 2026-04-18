@@ -223,12 +223,14 @@ export default function CastingManager({ playId }: Props) {
 
     const existingCount = project!.actors.length;
     const usedColors = new Set(project!.actors.map((a) => a.color));
+    const totalAfterAdd = existingCount + groups.length;
+    const pad = (n: number) => String(n).padStart(Math.max(2, String(totalAfterAdd).length), "0");
     const newActors: Actor[] = groups.map((g, i) => {
       const color = defaultColors.find((c) => !usedColors.has(c)) || defaultColors[i % defaultColors.length];
       usedColors.add(color);
       return {
         id: generateId(),
-        name: `Actor ${existingCount + g.actorIndex + 1}`,
+        name: `Actor ${pad(existingCount + g.actorIndex + 1)}`,
         color,
       };
     });
@@ -241,10 +243,11 @@ export default function CastingManager({ playId }: Props) {
     }
 
     if (mode === "replace") {
-      // Name actors 1..N (ignoring existingCount for replace)
+      // Name actors 01..N (ignoring existingCount for replace)
+      const replacePad = (n: number) => String(n).padStart(Math.max(2, String(groups.length).length), "0");
       const replaceActors: Actor[] = groups.map((g, i) => ({
         id: newActors[i].id,
-        name: `Actor ${g.actorIndex + 1}`,
+        name: `Actor ${replacePad(g.actorIndex + 1)}`,
         color: defaultColors[i % defaultColors.length],
       }));
       dispatch({ type: "BULK_SET_CAST", actors: replaceActors, assignments: newAssignments });

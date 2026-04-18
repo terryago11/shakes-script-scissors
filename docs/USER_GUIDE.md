@@ -378,21 +378,47 @@ Click the **⚙ gear** icon in the nav bar.
 | Words per minute | Base rate for running-time calculations |
 | Quick-change threshold | Minimum costume-change time in minutes (default: 2.0) |
 | Theme | **Light** / **Dark** / **Auto** (follows OS) / **1602** — a Renaissance printing-press theme with parchment background and period typography; toggle also available on the home and login pages via the ☼ ☽ □ ✒ buttons |
-| Save as JSON | Download the project file (`.sss.json`) |
-| Export as HTML | Download a self-contained HTML file of the full cut script |
-| Export as Word | Download the full cut as `.docx` (Clean or Standard mode); see [Exporting](#9-exporting) |
+| Save Project (.sss.json) | Download the project file to disk — your durable backup |
+| Export as HTML | Download a self-contained HTML file of the full cut script (one-way, cannot be re-imported) |
+| Export as Word | Download the full cut as `.docx` (Clean or Standard mode); one-way export — see [Exporting](#9-exporting) |
 
 ---
 
 ## 11. Saving and Opening Projects
 
-**Auto-save**: every change is automatically saved to your browser's localStorage. If you close and reopen the browser, your work is still there.
+**Auto-save**: every change is automatically saved to your browser's localStorage. If you close and reopen the browser, your work is still there — *as long as you use the same browser on the same device and haven't cleared your data.*
 
-**Backup file**: click ⚙ → **Save Project** to download a `.sss.json` file. Keep this as your portable backup — localStorage can be cleared by the browser.
+**Backup file**: click ⚙ → **Save Project** to download a `.sss.json` file. Keep this as your portable backup — re-export after every session.
 
 **Open a project**: from the home page, click **Open Project** and select your `.sss.json` file, or drag it onto the home page.
 
+### ⚠️ Storage risks
+
+Browser localStorage is **ephemeral**. Your work will be lost if any of the following happen:
+
+- You clear browser data or cookies ("Clear browsing data" in your browser settings)
+- You open the app in a private / incognito window (storage is wiped when the window closes)
+- You switch to a different browser or device
+- Your browser enforces storage quotas and evicts old data
+- The browser profile is reset or the computer is wiped
+
+**Treat auto-save as a convenience, not a backup.** Download a `.sss.json` file regularly via ⚙ → **Save Project**, and store it somewhere safe (cloud storage, email, USB).
+
 **Multiple projects**: the home page lists all projects currently stored in your browser. Click a project card to open it.
+
+---
+
+## 12. Authentication
+
+By default the app shows a password login page. This protects the tool when running on a shared or networked machine.
+
+**For personal/local-only use**, authentication can be turned off entirely. Add the following line to your `.env` file and restart the server:
+
+```
+AUTH_DISABLED=true
+```
+
+When `AUTH_DISABLED=true` is set, the login page is bypassed and the home page opens directly. Only use this when the app is running on `localhost` and is not reachable from the network. See [Setup Guide](SETUP.md) for full configuration instructions.
 
 ---
 

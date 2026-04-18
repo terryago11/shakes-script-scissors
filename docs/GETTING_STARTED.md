@@ -54,9 +54,15 @@ Amber = baseline / unchanged · Red = cut · Green = added
 
 ## Saving your work
 
-Your project is **auto-saved to your browser** (localStorage) every time you make a change. To create a portable backup file:
+Your project is **auto-saved to your browser** (localStorage) every time you make a change.
+
+> ⚠️ **Browser-only storage — fragile by design.** Your work lives only in this browser's localStorage. It will be **permanently lost** if you clear your browser data, switch to a different browser or device, use a private/incognito window, or if your browser enforces storage quotas. **Do not rely on auto-save alone.**
+
+To create a portable backup file:
 
 - Click the **⚙ gear** icon → **Save Project** → saves a `.sss.json` file to your computer
+
+**Re-export after every session.** If in doubt, download a fresh `.sss.json` before closing the tab.
 
 To open a saved project: from the home page, click **Open Project** and select your `.sss.json` file, or drag it onto the page.
 

@@ -172,18 +172,22 @@ export function computeStageTime(
           for (const charId of unit.characters) {
             onStageOrig.add(charId);
           }
-          // Cut: use effective characters (may have additions/removals via stageDirectionEdits)
-          for (const charId of getEffectiveCharacters(unit, edits)) {
-            onStage.add(charId);
+          // Cut: skip if SD is cut (character never enters in cut version)
+          if ((cut.cutMap[unit.id] ?? "kept") !== "cut") {
+            for (const charId of getEffectiveCharacters(unit, edits)) {
+              onStage.add(charId);
+            }
           }
         } else if (unit.stageType === "exit") {
           // Original: always use the raw SD characters
           for (const charId of unit.characters) {
             onStageOrig.delete(charId);
           }
-          // Cut: use effective characters
-          for (const charId of getEffectiveCharacters(unit, edits)) {
-            onStage.delete(charId);
+          // Cut: skip if SD is cut (character stays on-stage in cut version)
+          if ((cut.cutMap[unit.id] ?? "kept") !== "cut") {
+            for (const charId of getEffectiveCharacters(unit, edits)) {
+              onStage.delete(charId);
+            }
           }
         }
 
@@ -335,13 +339,16 @@ export function computeStageTime(
     for (const scene of act.scenes) {
       for (const unit of scene.units) {
         if (unit.type === "stage") {
-          if (unit.stageType === "exit") {
-            for (const charId of getEffectiveCharacters(unit, edits)) {
-              exitedAnywhereChars.add(charId);
-            }
-          } else if (unit.stageType === "entrance") {
-            for (const charId of getEffectiveCharacters(unit, edits)) {
-              enteredAnywhereChars.add(charId);
+          // Only count SDs that are kept in the cut version
+          if ((cut.cutMap[unit.id] ?? "kept") !== "cut") {
+            if (unit.stageType === "exit") {
+              for (const charId of getEffectiveCharacters(unit, edits)) {
+                exitedAnywhereChars.add(charId);
+              }
+            } else if (unit.stageType === "entrance") {
+              for (const charId of getEffectiveCharacters(unit, edits)) {
+                enteredAnywhereChars.add(charId);
+              }
             }
           }
         } else if (unit.type === "speech") {

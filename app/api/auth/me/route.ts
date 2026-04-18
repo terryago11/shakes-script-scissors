@@ -4,6 +4,9 @@ import { sessionOptions, type SessionData } from "@/lib/session";
 import { cookies } from "next/headers";
 
 export async function GET() {
+  if (process.env.AUTH_DISABLED === "true") {
+    return NextResponse.json({ isLoggedIn: true });
+  }
   const session = await getIronSession<SessionData>(
     await cookies(),
     sessionOptions()

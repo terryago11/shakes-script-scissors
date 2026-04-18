@@ -95,6 +95,14 @@ export default function HomePage() {
     if (project) exportProject(project);
   }
 
+  function handleSaveAll() {
+    const ids = listStoredProjectIds();
+    ids.forEach((id) => {
+      const project = loadProjectFromStorage(id);
+      if (project) exportProject(project);
+    });
+  }
+
   return (
     <main className="max-w-4xl mx-auto px-6 py-12">
       <div className="fixed top-4 right-4"><ThemeToggle /></div>
@@ -123,6 +131,16 @@ export default function HomePage() {
 
       {storedProjects.length > 0 && (
         <section className="mb-10">
+          <div className="mb-4 flex items-start gap-3 px-3 py-2.5 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs leading-snug">
+            <span className="shrink-0 mt-0.5">⚠</span>
+            <span className="flex-1">Projects below are saved in <strong>this browser only</strong> — not on disk. Clear your browser data and they&rsquo;re gone. Save backups regularly.</span>
+            <button
+              onClick={handleSaveAll}
+              className="shrink-0 px-2.5 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 font-medium whitespace-nowrap transition-colors"
+            >
+              ↓ Save all
+            </button>
+          </div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-stone-700 dark:text-stone-200">
               Locally Cached Projects
