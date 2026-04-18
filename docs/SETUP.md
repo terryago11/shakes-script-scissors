@@ -2,7 +2,7 @@
 
 This guide is written for directors and dramaturgs who have never used a terminal or written a line of code. You don't need to understand what any of this means — just follow each step in order, copy and paste the commands exactly, and you'll have the app running in about 20 minutes.
 
-If you get stuck, take a screenshot of your screen and send it to your developer. The most important thing to include is any red text in the terminal window — that's the error message.
+If you get stuck, take a screenshot of your screen and send it to your developer. The most important thing to include is any red text in the terminal window — that's the error message. Or, you can also ask your favorite AI chatbot to help. Give it the link of this page, tell it where you got stuck and ask for easy to follow, step by step instructions.
 
 ---
 
@@ -33,7 +33,7 @@ A window opens with a prompt that looks something like `yourusername@MacBook ~ %
 
 ### Step 2 — Install Homebrew
 
-Homebrew is a tool that lets you install other tools. It's the standard way to set things up on a Mac.
+Homebrew (https://brew.sh/) is a tool that lets you install other tools. It's the standard way to set things up on a Mac.
 
 Paste this entire line into Terminal and press **Enter**:
 
@@ -461,3 +461,5 @@ To stop the app: click in PowerShell and press **Ctrl + C**.
 If you get stuck, take a screenshot of your terminal and send it to your developer. **The red text is the most important part** — that's the error message that tells them what went wrong. Include what step you were on.
 
 You can also take a screenshot of your whole screen so they can see exactly what you're seeing.
+
+You can also copy a link to this setup page and paste into your favorite AI chatbot. Tell it where you got stuck and ask for easy, step by step instructions.
