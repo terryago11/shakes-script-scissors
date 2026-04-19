@@ -1,14 +1,21 @@
 {
   "name": "shakes-script-scissors",
-  "version": "1.0.0",
-  "main": "index.js",
+  "version": "1.0.1",
+  "description": "Interactive script-cutting tool for Shakespeare productions",
+  "author": "Natan S.",
+  "main": "electron/main.js",
   "scripts": {
     "predev": "rm -f .next/dev/lock 2>/dev/null; exit 0",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint app components lib types",
-    "validate": "node ./node_modules/jiti/lib/jiti-cli.mjs scripts/validate-counts.ts"
+    "validate": "node ./node_modules/jiti/lib/jiti-cli.mjs scripts/validate-counts.ts",
+    "electron:typecheck": "tsc -p tsconfig.electron.json",
+    "electron:bundle": "esbuild electron/main.ts --bundle --platform=node --target=node20 --external:electron --outfile=electron/main.js",
+    "electron:dev": "npm run electron:bundle && electron .",
+    "electron:build": "next build && rm -rf .next/standalone-resolved && cp -rL .next/standalone .next/standalone-resolved && npm run electron:bundle && electron-builder",
+    "electron:release": "next build && rm -rf .next/standalone-resolved && cp -rL .next/standalone .next/standalone-resolved && npm run electron:bundle && electron-builder --publish always"
   },
   "private": true,
   "dependencies": {
@@ -20,6 +27,8 @@
     "autoprefixer": "^10.4.24",
     "bcryptjs": "^3.0.3",
     "docx": "^9.6.1",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.8.3",
     "fast-xml-parser": "^5.5.11",
     "iron-session": "^8.0.4",
     "jszip": "^3.10.1",
@@ -35,6 +44,9 @@
   },
   "devDependencies": {
     "@types/pdfkit": "^0.17.5",
+    "electron": "^41.2.1",
+    "electron-builder": "^26.8.1",
+    "esbuild": "^0.28.0",
     "eslint": "^9.39.2",
     "eslint-config-next": "^16.1.6"
   },

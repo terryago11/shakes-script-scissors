@@ -13,6 +13,10 @@ npx tsc --noEmit # TypeScript check (no build output)
 
 Node must be loaded via nvm: `export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:$PATH"`
 
+## Electron Desktop App
+
+See [docs/electron.md](docs/electron.md) for commands, conventions, smoke test, and release steps.
+
 ## Auth Middleware
 
 The app uses iron-session for password auth (`middleware.ts` at the project root). **Critical convention:**

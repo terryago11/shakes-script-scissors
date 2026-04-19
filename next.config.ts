@@ -12,6 +12,8 @@ function getGitCommitDate(): string {
 }
 
 const nextConfig: NextConfig = {
+  // Standalone output bundles a self-contained server for Electron packaging.
+  output: "standalone",
   env: {
     NEXT_PUBLIC_COMMIT_DATE: getGitCommitDate(),
   },

@@ -62,6 +62,19 @@ Not a developer? See the [Setup Guide](docs/SETUP.md) for step-by-step instructi
 
 ---
 
+## Desktop App
+
+ShakesScriptScissors ships as a native desktop app (macOS DMG, Windows NSIS installer, Linux AppImage) via Electron. The desktop app runs the same Next.js server locally — no internet connection required after install.
+
+### Code Signing Warning
+
+**This build is not code-signed.**
+
+- **macOS**: Gatekeeper shows an _"unidentified developer"_ dialog. Bypass: right-click the app in Finder → **Open** → **Open**. One-time only.
+- **Windows**: SmartScreen shows a warning. Click **More info** → **Run anyway**.
+
+---
+
 ## Tech Stack
 
 **Next.js 16** App Router · **TypeScript** · **Tailwind CSS v4** · TEI data from [shakedracor](https://github.com/dracor-org/shakedracor) (Folger Shakespeare Library) · Browser `localStorage` storage (no database — ephemeral; export `.sss.json` backups regularly)

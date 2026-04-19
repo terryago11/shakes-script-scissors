@@ -1,5 +1,7 @@
 node_modules/
 .next/
+dist-electron/
+electron/main.js
 out/
 .env
 .env.local
