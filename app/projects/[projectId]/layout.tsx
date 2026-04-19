@@ -456,7 +456,7 @@ function ProjectNav({
       {/* Save reminder — shown briefly whenever any edit tool is exited */}
       {showSaveReminder && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 shadow-lg dark:border-amber-700 dark:bg-amber-950/90 dark:text-amber-200 text-sm">
-          <span>Changes are saved in <strong>this browser only</strong>. Download a backup: <strong>⚙ → Save Project</strong>.</span>
+          <span>Changes are saved in <strong>this app only</strong>. Download a backup: <strong>⚙ → Save Project</strong>.</span>
           <button
             onClick={() => setShowSaveReminder(false)}
             className="ml-1 text-amber-500 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-200 transition-colors text-base leading-none"

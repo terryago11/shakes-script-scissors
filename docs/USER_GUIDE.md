@@ -355,7 +355,7 @@ Directors who work by highlighting text in a Word document can import that `.doc
 From the nav bar → **Cue Scripts** page:
 
 1. Select an actor from the dropdown to preview their cue script.
-2. Click **Print / Save PDF** to print or save that actor's script from your browser.
+2. Click **Print / Save PDF** to print or save that actor's script from the app.
 3. Click **Download All as ZIP** to generate server-side PDFs for every actor at once and download them as a single ZIP file.
 
 Each actor's cue script shows:
@@ -386,7 +386,7 @@ Click the **⚙ gear** icon in the nav bar.
 
 ## 11. Saving and Opening Projects
 
-**Auto-save**: every change is automatically saved to your browser's localStorage. If you close and reopen the browser, your work is still there — *as long as you use the same browser on the same device and haven't cleared your data.*
+**Auto-save**: every change is automatically saved to the app's localStorage. If you close and reopen the app, your work is still there — *as long as you use the same device and haven't cleared app data.*
 
 **Backup file**: click ⚙ → **Save Project** to download a `.sss.json` file. Keep this as your portable backup — re-export after every session.
 
@@ -394,17 +394,17 @@ Click the **⚙ gear** icon in the nav bar.
 
 ### ⚠️ Storage risks
 
-Browser localStorage is **ephemeral**. Your work will be lost if any of the following happen:
+App localStorage is **ephemeral**. Your work will be lost if any of the following happen:
 
-- You clear browser data or cookies ("Clear browsing data" in your browser settings)
-- You open the app in a private / incognito window (storage is wiped when the window closes)
-- You switch to a different browser or device
-- Your browser enforces storage quotas and evicts old data
-- The browser profile is reset or the computer is wiped
+- You clear app data or cookies (web: "Clear browsing data" in browser settings; desktop: reinstall)
+- You open the app in a private / incognito window (web only — storage is wiped when the window closes)
+- You switch to a different device (or a different browser, on web)
+- Storage quotas are enforced and old data is evicted
+- The app is reinstalled or the computer is wiped
 
 **Treat auto-save as a convenience, not a backup.** Download a `.sss.json` file regularly via ⚙ → **Save Project**, and store it somewhere safe (cloud storage, email, USB).
 
-**Multiple projects**: the home page lists all projects currently stored in your browser. Click a project card to open it.
+**Multiple projects**: the home page lists all projects currently stored in the app. Click a project card to open it.
 
 ---
 

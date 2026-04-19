@@ -133,7 +133,7 @@ export default function HomePage() {
         <section className="mb-10">
           <div className="mb-4 flex items-start gap-3 px-3 py-2.5 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs leading-snug">
             <span className="shrink-0 mt-0.5">⚠</span>
-            <span className="flex-1">Projects below are saved in <strong>this browser only</strong> — not on disk. Clear your browser data and they&rsquo;re gone. Save backups regularly.</span>
+            <span className="flex-1">Projects below are saved in <strong>this app only</strong> — not on disk. Clear app data and they&rsquo;re gone. Save backups regularly.</span>
             <button
               onClick={handleSaveAll}
               className="shrink-0 px-2.5 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 font-medium whitespace-nowrap transition-colors"

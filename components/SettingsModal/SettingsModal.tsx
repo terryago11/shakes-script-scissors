@@ -231,7 +231,7 @@ export default function SettingsModal({
           <div>
             <label className={sectionLabel}>Save & Export</label>
             <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-2.5 py-2 mb-3 leading-snug">
-              ⚠ Projects auto-save to browser storage only — not to disk. Save a <strong>.sss.json</strong> backup regularly; browser data can be cleared at any time.
+              ⚠ Projects auto-save to local storage only — not to disk. Save a <strong>.sss.json</strong> backup regularly; app data can be cleared at any time.
             </p>
 
             {/* Save — primary action, full-width prominent button */}
