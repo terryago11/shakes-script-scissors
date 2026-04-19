@@ -13,6 +13,19 @@ npx tsc --noEmit # TypeScript check (no build output)
 
 Node must be loaded via nvm: `export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:$PATH"`
 
+## Electron Desktop App
+
+```bash
+npm run electron:build  # Full build: next build → cp -rL standalone → tsc → electron-builder
+npm run electron:dev    # Compile main.ts then open Electron window (spawns next dev automatically)
+```
+
+**Key conventions:**
+- `next.config.ts` has `output: "standalone"` — required for Electron packaging; do not remove.
+- `electron:build` creates `.next/standalone-resolved` (a symlink-dereferenced copy via `cp -rL`) before calling electron-builder. This step is necessary because electron-builder's `extraResources` silently strips `node_modules` and `.next` directories; the `afterPack` hook (`electron/afterPack.js`) copies them manually instead.
+- `electron/main.js` (compiled from `main.ts`) and `dist-electron/` are gitignored.
+- Icons go in `electron/assets/icon.icns` (Mac) and `electron/assets/icon.ico` (Windows) — currently unset.
+
 ## Auth Middleware
 
 The app uses iron-session for password auth (`middleware.ts` at the project root). **Critical convention:**
