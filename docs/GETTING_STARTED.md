@@ -1,6 +1,6 @@
 # Getting Started with ShakesScriptScissors
 
-ShakesScriptScissors is a browser-based tool for directors and dramaturgs to cut Shakespeare scripts for production. Your work lives in your browser and in files you save to your computer.
+ShakesScriptScissors is a tool for directors and dramaturgs to cut Shakespeare scripts for production. Your work lives in the app and in files you save to your computer.
 
 > **Haven't installed the app yet?** The easiest option is to [download the desktop app installer](https://github.com/terryago11/shakes-script-scissors/releases/latest) — no terminal required. For browser / self-hosted use, see the [Setup Guide](SETUP.md).
 
@@ -54,9 +54,9 @@ Amber = baseline / unchanged · Red = cut · Green = added
 
 ## Saving your work
 
-Your project is **auto-saved to your browser** (localStorage) every time you make a change.
+Your project is **auto-saved in the app** (localStorage) every time you make a change.
 
-> ⚠️ **Browser-only storage — fragile by design.** Your work lives only in this browser's localStorage. It will be **permanently lost** if you clear your browser data, switch to a different browser or device, use a private/incognito window, or if your browser enforces storage quotas. **Do not rely on auto-save alone.**
+> ⚠️ **App storage — fragile by design.** Your work lives only in the app's localStorage. It will be **permanently lost** if you clear app data, switch to a different device, use a private/incognito window (web), or if storage quotas are enforced. **Do not rely on auto-save alone.**
 
 To create a portable backup file:
 
@@ -105,7 +105,7 @@ A cue script is a personal copy for one actor showing only their lines plus the 
 
 1. Click **Export** in the nav bar (or navigate to Cue Scripts)
 2. Select an actor from the dropdown — a preview of their script appears
-3. Click **Print / Save PDF** to save it from your browser, or click **Download All as ZIP** to generate PDFs for every actor at once
+3. Click **Print / Save PDF** to save it from the app, or click **Download All as ZIP** to generate PDFs for every actor at once
 
 ---
 

@@ -8,7 +8,7 @@
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC_BY--NC--SA_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Vibe coded with Claude Code](https://img.shields.io/badge/vibe_coded_with-Claude_Code-blueviolet)](https://claude.ai/code)
 
-A browser-based tool for directors and dramaturgs to cut Shakespeare scripts for production. Load any of the 38 Folger texts of Shakespeare plays, edit (cut, insert, change speech titles, etc.), track before/after line/word counts and estimated running time, manage multiple cut versions, handle double-casting, generate export actor cue scripts, and see charts and stats on your cut — all from a browser with no account required.
+A tool for directors and dramaturgs to cut Shakespeare scripts for production. Load any of the 38 Folger texts of Shakespeare plays, edit (cut, insert, change speech titles, etc.), track before/after line/word counts and estimated running time, manage multiple cut versions, handle double-casting, generate export actor cue scripts, and see charts and stats on your cut — all from the app with no account required.
 
 > **Entirely vibe-coded with [Claude Code](https://claude.ai/code).** Every line of code in this project was written by Claude — no manual coding, just conversation and iteration.
 
@@ -80,8 +80,9 @@ The easiest way to use ShakesScriptScissors is to install the native desktop app
 2. **First launch only**: macOS will block the app because it is not code-signed. To open it: right-click (or Control-click) the app in Finder → **Open** → **Open**. You only need to do this once.
 
 ### Windows
-1. Run the `.exe` installer and follow the prompts.
+1. Run the `.exe` installer. It runs silently — there is no "installation complete" screen. Look for a **ShakesScriptScissors** shortcut on your desktop as confirmation.
 2. **First launch only**: Windows SmartScreen may show a warning. Click **More info** → **Run anyway**.
+3. To uninstall: **Settings → Apps → Apps & features → ShakesScriptScissors → Uninstall**.
 
 ### Linux
 1. Make the AppImage executable: `chmod +x ShakesScriptScissors-<version>.AppImage`
@@ -89,11 +90,13 @@ The easiest way to use ShakesScriptScissors is to install the native desktop app
 
 The desktop app runs the same Next.js server locally — no internet connection required after install (play texts are bundled). Authentication is disabled in the desktop build; the play selector opens directly.
 
+**Network access prompts**: The app may ask for local and/or remote network access on first launch — click **Allow**. The local prompt is for the built-in Next.js server (`localhost`); the remote prompt is for fetching play texts from dracor.org. Both are required.
+
 ---
 
 ## Tech Stack
 
-**Next.js 16** App Router · **TypeScript** · **Tailwind CSS v4** · TEI data from [shakedracor](https://github.com/dracor-org/shakedracor) (Folger Shakespeare Library) · Browser `localStorage` storage (no database — ephemeral; export `.sss.json` backups regularly)
+**Next.js 16** App Router · **TypeScript** · **Tailwind CSS v4** · TEI data from [shakedracor](https://github.com/dracor-org/shakedracor) (Folger Shakespeare Library) · `localStorage` storage (no database — ephemeral; export `.sss.json` backups regularly)
 
 ---
 

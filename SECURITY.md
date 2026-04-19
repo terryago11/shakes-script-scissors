@@ -30,7 +30,7 @@ You should receive a response within **7 days**.
 
 ShakesScriptScissors is a **client-side-first** application with a minimal Next.js API layer:
 
-- **No database** — all project data is stored in browser `localStorage` as JSON.
+- **No database** — all project data is stored in `localStorage` as JSON.
 - **No user accounts** — no registration, no password hashing of user data, no PII stored server-side.
 - **No server-side persistence** — the server only holds an in-memory LRU cache of parsed play data (lost on restart).
 
@@ -47,7 +47,7 @@ ShakesScriptScissors is a **client-side-first** application with a minimal Next.
 
 ### Data Storage
 
-- Project data (cuts, cast, assignments) lives exclusively in the **user's browser `localStorage`**.
+- Project data (cuts, cast, assignments) lives exclusively in the **user's `localStorage`**.
 - Data can be exported as `.sss.json` and imported by other users; imports are validated with **Zod** before loading.
 - No data is sent to any third-party analytics or tracking service.
 
@@ -61,7 +61,7 @@ Dependencies are audited with `npm audit`. Run `npm audit fix` to apply availabl
 
 ### Known Limitations
 
-- `localStorage` data is browser-scoped; clearing browser data removes all projects. **Always export your projects to `.sss.json` as a backup.**
+- `localStorage` data is app-scoped; clearing app data removes all projects. **Always export your projects to `.sss.json` as a backup.**
 - The app does not use HTTPS by default in development. For any shared deployment, run behind a TLS-terminating reverse proxy (e.g. nginx, Caddy, Vercel).
 
 ---

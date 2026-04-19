@@ -134,8 +134,8 @@ All three modes are available in the script editor and in the exported HTML file
 | Feature | Details |
 |---------|---------|
 | **Export HTML** | Self-contained single HTML file; embeds play data + vanilla-JS mini-app; three view modes; character filter; scene jump; print button |
-| **Cue scripts — print/PDF** | Per-actor pages with lines, cues (last 2–3 words of preceding speech), and all relevant stage directions; browser print dialog; `@page` headers (play title, cut name, actor) and footer (page number, timestamp) |
-| **Cue scripts — Download All as ZIP** | Server-side PDF generation via `pdfkit`; one PDF per actor; all bundled as a single `.zip` download; same header/footer layout as browser print |
+| **Cue scripts — print/PDF** | Per-actor pages with lines, cues (last 2–3 words of preceding speech), and all relevant stage directions; print dialog; `@page` headers (play title, cut name, actor) and footer (page number, timestamp) |
+| **Cue scripts — Download All as ZIP** | Server-side PDF generation via `pdfkit`; one PDF per actor; all bundled as a single `.zip` download; same header/footer layout as print |
 | **Export full script as Word (.docx)** | From ⚙ Settings → Save & Export; exports the full current-cut script as `.docx` via the `docx` package; **Clean** mode (cuts hidden) or **Standard** mode (cuts struck through in grey, inserted words underlined in green, speech reassignments shown original→new, inserted speeches/SDs in green); one-way conversion — cannot be re-imported |
 | **Import cut from Word** *(experimental)* | ⚙ Settings → "Import cut from pre-existing Word doc"; parses `<w:highlight>` annotations from a `.docx` the director marked up themselves; ignores tracked changes, insertions, SDs, and speaker labels; matches highlighted passages to canonical Folger text using speaker-block Jaccard matching + token-span alignment; produces speech-level, line-level, and word-level cuts; requires clear Act/Scene headings; hard-rejects if match rate < 40%; amber warning 40–69%; always creates a new cut |
 
