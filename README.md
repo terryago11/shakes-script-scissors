@@ -62,16 +62,32 @@ Not a developer? See the [Setup Guide](docs/SETUP.md) for step-by-step instructi
 
 ---
 
-## Desktop App
+## Desktop App — Download and Install
 
-ShakesScriptScissors ships as a native desktop app (macOS DMG, Windows NSIS installer, Linux AppImage) via Electron. The desktop app runs the same Next.js server locally — no internet connection required after install.
+The easiest way to use ShakesScriptScissors is to install the native desktop app. No terminal or Node.js required.
 
-### Code Signing Warning
+**→ [Download the latest release](https://github.com/terryago11/shakes-script-scissors/releases/latest)**
 
-**This build is not code-signed.**
+| Platform | File to download |
+|----------|-----------------|
+| macOS (Apple Silicon — M1/M2/M3/M4) | `ShakesScriptScissors-<version>-arm64.dmg` |
+| macOS (Intel) | `ShakesScriptScissors-<version>-x64.dmg` |
+| Windows | `ShakesScriptScissors Setup <version>.exe` |
+| Linux | `ShakesScriptScissors-<version>.AppImage` |
 
-- **macOS**: Gatekeeper shows an _"unidentified developer"_ dialog. Bypass: right-click the app in Finder → **Open** → **Open**. One-time only.
-- **Windows**: SmartScreen shows a warning. Click **More info** → **Run anyway**.
+### macOS
+1. Open the `.dmg` file and drag **ShakesScriptScissors** to your Applications folder.
+2. **First launch only**: macOS will block the app because it is not code-signed. To open it: right-click (or Control-click) the app in Finder → **Open** → **Open**. You only need to do this once.
+
+### Windows
+1. Run the `.exe` installer and follow the prompts.
+2. **First launch only**: Windows SmartScreen may show a warning. Click **More info** → **Run anyway**.
+
+### Linux
+1. Make the AppImage executable: `chmod +x ShakesScriptScissors-<version>.AppImage`
+2. Run it: `./ShakesScriptScissors-<version>.AppImage`
+
+The desktop app runs the same Next.js server locally — no internet connection required after install (play texts are bundled). Authentication is disabled in the desktop build; the play selector opens directly.
 
 ---
 

@@ -4,6 +4,20 @@ A complete list of capabilities for power users. For a full walkthrough, see the
 
 ---
 
+## Desktop App
+
+| Feature | Details |
+|---------|---------|
+| **Native installer** | macOS DMG (arm64 + x64), Windows NSIS installer, Linux AppImage |
+| **No Node.js required** | The app runs a bundled Next.js server locally; no terminal setup needed |
+| **No internet after install** | Play texts are bundled; works fully offline |
+| **Auto-update** | Checks for new releases on startup; prompts Restart / Later when an update downloads |
+| **Auth disabled** | Desktop builds skip the login screen; the play selector opens directly |
+
+→ [Download the latest release](https://github.com/terryago11/shakes-script-scissors/releases/latest)
+
+---
+
 ## Play Library
 
 | Feature | Details |
