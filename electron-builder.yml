@@ -1,0 +1,39 @@
+appId: com.shakesscriptscissors.app
+productName: ShakesScriptScissors
+copyright: Copyright © 2025 Natan S.
+
+# afterPack hook copies the standalone Next.js server + static assets into the
+# app bundle, bypassing electron-builder's default node_modules/.next ignores.
+afterPack: electron/afterPack.js
+
+directories:
+  output: dist-electron
+  buildResources: electron/assets
+
+# Only electron/main.js goes into the asar. All Next.js app files live in
+# resources/standalone (outside the asar), copied by the afterPack hook.
+files:
+  - electron/main.js
+  - "!node_modules/**/*"
+  - "!app/**/*"
+  - "!components/**/*"
+  - "!lib/**/*"
+  - "!types/**/*"
+  - "!scripts/**/*"
+  - "!public/**/*"
+  - "!shakedracor/**/*"
+  - "!docs/**/*"
+  - "!tests/**/*"
+
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+
+win:
+  target:
+    - target: nsis
+
+linux:
+  target:
+    - target: AppImage

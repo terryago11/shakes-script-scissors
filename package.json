@@ -1,14 +1,18 @@
 {
   "name": "shakes-script-scissors",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Interactive script-cutting tool for Shakespeare productions",
+  "author": "Natan S.",
+  "main": "electron/main.js",
   "scripts": {
     "predev": "rm -f .next/dev/lock 2>/dev/null; exit 0",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint app components lib types",
-    "validate": "node ./node_modules/jiti/lib/jiti-cli.mjs scripts/validate-counts.ts"
+    "validate": "node ./node_modules/jiti/lib/jiti-cli.mjs scripts/validate-counts.ts",
+    "electron:dev": "tsc -p tsconfig.electron.json && electron .",
+    "electron:build": "next build && rm -rf .next/standalone-resolved && cp -rL .next/standalone .next/standalone-resolved && tsc -p tsconfig.electron.json && electron-builder"
   },
   "private": true,
   "dependencies": {
@@ -35,6 +39,8 @@
   },
   "devDependencies": {
     "@types/pdfkit": "^0.17.5",
+    "electron": "^41.2.1",
+    "electron-builder": "^26.8.1",
     "eslint": "^9.39.2",
     "eslint-config-next": "^16.1.6"
   },
