@@ -1,6 +1,6 @@
 appId: com.shakesscriptscissors.app
 productName: ShakesScriptScissors
-copyright: Copyright © 2025 Natan S.
+copyright: Copyright © 2026 Natan S.
 
 # afterPack hook copies the standalone Next.js server + static assets into the
 # app bundle, bypassing electron-builder's default node_modules/.next ignores.
