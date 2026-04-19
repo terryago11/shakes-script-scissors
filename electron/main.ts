@@ -1,8 +1,12 @@
 import { app, BrowserWindow, shell, dialog } from "electron";
 import { autoUpdater } from "electron-updater";
+import log from "electron-log";
 import path from "path";
 import http from "http";
 import { spawn, ChildProcess } from "child_process";
+
+autoUpdater.logger = log;
+(log as any).transports.file.level = "info";
 
 process.title = "ShakesScriptScissors";
 
