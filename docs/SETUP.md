@@ -1,12 +1,41 @@
 # Setting Up ShakesScriptScissors
 
+---
+
+## Option A — Install the Desktop App (Recommended for most users)
+
+No terminal required. Download the installer for your operating system from:
+
+**→ [https://github.com/terryago11/shakes-script-scissors/releases/latest](https://github.com/terryago11/shakes-script-scissors/releases/latest)**
+
+| Platform | File to download |
+|----------|-----------------|
+| macOS Apple Silicon (M1/M2/M3/M4) | `ShakesScriptScissors-<version>-arm64.dmg` |
+| macOS Intel | `ShakesScriptScissors-<version>-x64.dmg` |
+| Windows | `ShakesScriptScissors Setup <version>.exe` |
+| Linux | `ShakesScriptScissors-<version>.AppImage` |
+
+**macOS:** Open the `.dmg`, drag the app to your Applications folder, then right-click → **Open** on first launch (one-time Gatekeeper bypass — the app is not code-signed).
+
+**Windows:** Run the `.exe` installer. If SmartScreen appears, click **More info → Run anyway** (one-time only).
+
+**Linux:** `chmod +x ShakesScriptScissors-*.AppImage` then run it.
+
+That's it — the app opens directly to the play selector. No password needed. Your projects auto-save in the app.
+
+---
+
+## Option B — Run from Source (developers / self-hosting)
+
+> Use this option if you want to run the app in a browser, self-host it for a team, or contribute to development.
+
 This guide is written for directors and dramaturgs who have never used a terminal or written a line of code. You don't need to understand what any of this means — just follow each step in order, copy and paste the commands exactly, and you'll have the app running in about 20 minutes.
 
 If you get stuck, take a screenshot of your screen and send it to your developer. The most important thing to include is any red text in the terminal window — that's the error message. Or, you can also ask your favorite AI chatbot to help. Give it the link of this page, tell it where you got stuck and ask for easy to follow, step by step instructions.
 
 ---
 
-## What you'll need
+### What you'll need
 
 - A Mac (macOS) or Windows computer
 - An internet connection
@@ -14,7 +43,7 @@ If you get stuck, take a screenshot of your screen and send it to your developer
 
 ---
 
-## macOS Setup
+### macOS Setup
 
 ### Step 1 — Open the Terminal
 
@@ -256,7 +285,7 @@ To stop the app, click in the Terminal window and press **Ctrl + C**.
 
 ---
 
-## Windows Setup
+### Windows Setup
 
 ### Step 1 — Open PowerShell as Administrator
 
