@@ -17,28 +17,54 @@ let mainWindow: BrowserWindow | null = null;
 let nextProcess: ChildProcess | null = null;
 
 function setupAutoUpdater() {
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  const isMac = process.platform === "darwin";
+
+  // macOS: Squirrel.Mac rejects unsigned apps, so we can't auto-install.
+  // Instead, notify and send the user to the releases page.
+  autoUpdater.autoDownload = !isMac;
+  autoUpdater.autoInstallOnAppQuit = !isMac;
 
   autoUpdater.on("error", (err) => {
     console.error("[updater] error:", err.message);
   });
 
-  autoUpdater.on("update-downloaded", () => {
-    if (!mainWindow) return;
-    dialog
-      .showMessageBox(mainWindow, {
-        type: "info",
-        title: "Update ready",
-        message: "A new update has been downloaded. Restart to install?",
-        buttons: ["Restart", "Later"],
-        defaultId: 0,
-        cancelId: 1,
-      })
-      .then(({ response }) => {
-        if (response === 0) autoUpdater.quitAndInstall();
-      });
-  });
+  if (isMac) {
+    autoUpdater.on("update-available", (info) => {
+      if (!mainWindow) return;
+      dialog
+        .showMessageBox(mainWindow, {
+          type: "info",
+          title: "Update available",
+          message: `Version ${info.version} is available.`,
+          detail: "Download the latest version from GitHub to update.",
+          buttons: ["Download", "Later"],
+          defaultId: 0,
+          cancelId: 1,
+        })
+        .then(({ response }) => {
+          if (response === 0)
+            shell.openExternal(
+              "https://github.com/terryago11/shakes-script-scissors/releases/latest"
+            );
+        });
+    });
+  } else {
+    autoUpdater.on("update-downloaded", () => {
+      if (!mainWindow) return;
+      dialog
+        .showMessageBox(mainWindow, {
+          type: "info",
+          title: "Update ready",
+          message: "A new update has been downloaded. Restart to install?",
+          buttons: ["Restart", "Later"],
+          defaultId: 0,
+          cancelId: 1,
+        })
+        .then(({ response }) => {
+          if (response === 0) autoUpdater.quitAndInstall();
+        });
+    });
+  }
 
   autoUpdater.checkForUpdates().catch((err) => {
     console.error("[updater] checkForUpdates failed:", err.message);
