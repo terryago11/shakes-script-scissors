@@ -114,7 +114,11 @@ export async function renderScriptDocx(
           const speech = unit as Speech;
           const reassignment = cut.speechReassignments?.[speech.id];
           const isInsertion = !!(cut.insertions?.[speech.id]);
-          const delivery = speech.deliveryNote ? ` ${speech.deliveryNote}` : "";
+          const effectiveDeliveryNote =
+            cut.deliveryNoteEdits?.[speech.id] !== undefined
+              ? cut.deliveryNoteEdits[speech.id] || undefined
+              : speech.deliveryNote;
+          const delivery = effectiveDeliveryNote ? ` ${effectiveDeliveryNote}` : "";
 
           // Speaker label: in standard mode show original struck-out + new name for reassignments
           const labelRuns: TextRun[] = [];

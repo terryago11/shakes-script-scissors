@@ -101,9 +101,11 @@ export function buildCueScript(
           .join("\n");
         // Append deliveryNote (pre-speech qualifier, e.g. "[as Ganymede]") to the speaker
         // label so the actor knows under what persona or address mode they're speaking.
-        const label = speech.deliveryNote
-          ? `${speakerLabel} ${speech.deliveryNote}`
-          : speakerLabel;
+        const effectiveDeliveryNote =
+          cut.deliveryNoteEdits?.[speech.id] !== undefined
+            ? cut.deliveryNoteEdits[speech.id] || undefined
+            : speech.deliveryNote;
+        const label = effectiveDeliveryNote ? `${speakerLabel} ${effectiveDeliveryNote}` : speakerLabel;
         if (linesText) {
           entries.push({ type: "lines", text: linesText, characterName: label });
         }

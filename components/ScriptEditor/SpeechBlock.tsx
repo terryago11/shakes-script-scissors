@@ -73,6 +73,8 @@ export default function SpeechBlock({
   const isCut = status === "cut";
   const readonly = onToggle === null;
   const [showReassign, setShowReassign] = useState(false);
+  const [isEditingDeliveryNote, setIsEditingDeliveryNote] = useState(false);
+  const [draftDeliveryNote, setDraftDeliveryNote] = useState("");
 
   // Word-insert popover state (Insert tool) — includes click coordinates for fixed positioning.
   // editOpIndex: if set, editing an existing insert op; if undefined, creating a new one.
@@ -90,6 +92,12 @@ export default function SpeechBlock({
   }
   const hasLineCuts = lineStatuses ? lineStatuses.some((ls) => ls.status === "cut") : false;
   const hasWordEdits = speechEdit ? speechEdit.ops.length > 0 : false;
+  const effectiveDeliveryNote: string | undefined =
+    activeCut?.deliveryNoteEdits != null && speech.id in activeCut.deliveryNoteEdits
+      ? activeCut.deliveryNoteEdits[speech.id] || undefined
+      : speech.deliveryNote;
+  const hasDeliveryNoteEdit =
+    activeCut?.deliveryNoteEdits != null && speech.id in activeCut.deliveryNoteEdits;
 
   const keptLineCount = lineStatuses
     ? lineStatuses.filter((ls) => ls.status === "kept").length
@@ -232,6 +240,15 @@ export default function SpeechBlock({
   const showWordGapsInMode = !readonly && !isCut && viewMode !== "diff" &&
     (activeTool === "insert" || activeTool === "split");
 
+  function startDeliveryNoteEdit() {
+    setDraftDeliveryNote(effectiveDeliveryNote ?? "");
+    setIsEditingDeliveryNote(true);
+  }
+  function commitDeliveryNoteEdit() {
+    dispatch({ type: "SET_DELIVERY_NOTE", speechId: speech.id, text: draftDeliveryNote.trim() });
+    setIsEditingDeliveryNote(false);
+  }
+
   function confirmWordInsert(lineId: string, offset: number) {
     if (!wordInsertText.trim()) return;
     // Add a leading space when the character before the insert offset is not already a space
@@ -358,12 +375,71 @@ export default function SpeechBlock({
             </span>
           )}
 
-          {/* Delivery note — e.g. "[within]" from a pre-speech TEI <stage> */}
-          {speech.deliveryNote && !isCut && (
-            <span className="text-xs font-normal italic normal-case tracking-normal text-stone-400 dark:text-stone-500 shrink-0">
-              {speech.deliveryNote}
-            </span>
-          )}
+          {/* Delivery note — editable when edit-sds tool is active */}
+          {!isCut && (() => {
+            const canEdit = !readonly && activeTool === "edit-sds";
+            const dotColor = hasDeliveryNoteEdit && !isClean
+              ? (!speech.deliveryNote && !!activeCut?.deliveryNoteEdits?.[speech.id]
+                  ? "bg-green-500"   // added where none existed
+                  : "bg-red-500")    // edited or removed an existing TEI note
+              : null;
+            const dot = dotColor ? (
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${dotColor} shrink-0 inline-block`}
+                title={dotColor === "bg-green-500" ? "Delivery note added" : "Delivery note overridden"}
+              />
+            ) : null;
+
+            if (isEditingDeliveryNote) return (
+              <input
+                key="delivery-input"
+                type="text"
+                autoFocus
+                value={draftDeliveryNote}
+                onChange={(e) => setDraftDeliveryNote(e.target.value)}
+                onBlur={commitDeliveryNoteEdit}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === "Enter") { e.preventDefault(); commitDeliveryNoteEdit(); }
+                  if (e.key === "Escape") { e.preventDefault(); setIsEditingDeliveryNote(false); }
+                }}
+                placeholder="[delivery note]"
+                className="text-xs italic w-28 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1.5 py-0 text-stone-600 dark:text-stone-300 focus:outline-none focus:border-amber-400 dark:focus:border-amber-500 shrink-0"
+              />
+            );
+
+            if (canEdit) return (
+              <span key="delivery-edit" className="flex items-center gap-0.5 shrink-0">
+                {dot}
+                {effectiveDeliveryNote && (
+                  <span className="text-xs font-normal italic normal-case tracking-normal text-stone-400 dark:text-stone-500">
+                    {effectiveDeliveryNote}
+                  </span>
+                )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); startDeliveryNoteEdit(); }}
+                  className="text-xs text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300 transition-colors"
+                  title={effectiveDeliveryNote ? "Edit delivery note" : "Add delivery note"}
+                >
+                  {effectiveDeliveryNote ? "✎" : "+ note"}
+                </button>
+              </span>
+            );
+
+            if (effectiveDeliveryNote) return (
+              <span key="delivery-display" className="flex items-center gap-0.5 shrink-0">
+                {dot}
+                <span className="text-xs font-normal italic normal-case tracking-normal text-stone-400 dark:text-stone-500">
+                  {effectiveDeliveryNote}
+                </span>
+              </span>
+            );
+
+            // No effective delivery note but override exists (note suppressed) — show dot only
+            if (dot) return <span key="delivery-dot" className="shrink-0">{dot}</span>;
+
+            return null;
+          })()}
 
           {/* Part 2 badge — "split" indicator; hidden in clean view; "cont." only if isContinuation covers it */}
           {splitRole === "part2" && !isCut && !isContinuation && !isClean && (
@@ -393,13 +469,14 @@ export default function SpeechBlock({
           )}
 
           {/* Restore button — only visible in Restore mode; always-shown (not hover-only) */}
-          {!readonly && activeTool === "restore" && (isCut || hasWordEdits || hasLineCuts || hasReassignment) && (
+          {!readonly && activeTool === "restore" && (isCut || hasWordEdits || hasLineCuts || hasReassignment || hasDeliveryNoteEdit) && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 if (isCut) { onToggle?.(); }
                 if (hasWordEdits || hasLineCuts) { onClearEdits?.(speech.id); }
                 if (hasReassignment) { onReassign?.(speech.id, null); }
+                if (hasDeliveryNoteEdit) { dispatch({ type: "SET_DELIVERY_NOTE", speechId: speech.id, text: null }); }
               }}
               className="text-xs px-1.5 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-300 dark:border-green-800 dark:bg-green-950/50 dark:text-green-400 dark:hover:bg-green-900/50 dark:hover:border-green-700 transition-all shrink-0"
               title="Restore this speech"
