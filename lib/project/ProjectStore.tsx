@@ -71,6 +71,7 @@ type ProjectAction =
   | { type: "REMOVE_INSERTED_SD"; insertedSdId: string }
   | { type: "SET_SD_FLAGS"; sdId: string; isSong?: boolean; isDance?: boolean }
   | { type: "SET_SD_TEXT"; stageId: string; text: string | null }
+  | { type: "SET_DELIVERY_NOTE"; speechId: string; text: string | null }
   | { type: "TOGGLE_LINE_SONG"; lineId: string; currentValue: boolean }
   | { type: "SET_ACT_DESCRIPTION"; actId: string; description: string | null }
   | { type: "SET_SCENE_DESCRIPTION"; sceneId: string; description: string | null }
@@ -260,6 +261,7 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
           : undefined,
         lineSongOverrides: source?.lineSongOverrides ? { ...source.lineSongOverrides } : undefined,
         sdTextEdits: source?.sdTextEdits ? { ...source.sdTextEdits } : undefined,
+        deliveryNoteEdits: source?.deliveryNoteEdits ? { ...source.deliveryNoteEdits } : undefined,
         sceneSubdivisions: source?.sceneSubdivisions
           ? Object.fromEntries(Object.entries(source.sceneSubdivisions).map(([k, v]) => [k, v.map((s) => ({ ...s }))]))
           : undefined,
@@ -663,6 +665,21 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
         return {
           ...c,
           sdTextEdits: Object.keys(edits).length > 0 ? edits : undefined,
+        };
+      });
+    }
+
+    case "SET_DELIVERY_NOTE": {
+      return withUndo(state, (c) => {
+        const edits = { ...(c.deliveryNoteEdits ?? {}) };
+        if (action.text === null) {
+          delete edits[action.speechId];
+        } else {
+          edits[action.speechId] = action.text;
+        }
+        return {
+          ...c,
+          deliveryNoteEdits: Object.keys(edits).length > 0 ? edits : undefined,
         };
       });
     }

@@ -133,6 +133,11 @@ export interface Cut {
    */
   sdTextEdits?: Record<string, string>;
   /**
+   * Delivery note overrides: speechId → replacement text.
+   * Empty string means "suppress the TEI note for this cut". Absent key = use TEI value.
+   */
+  deliveryNoteEdits?: Record<string, string>;
+  /**
    * Scene sub-divisions: splits a scene into A/B/C sub-parts for planning purposes.
    * Key = real scene ID. Value = ordered array of split points (each defines where a new part begins).
    * N splits → N+1 parts, labelled A, B, C, …
