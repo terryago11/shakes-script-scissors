@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            label: macOS
+          - os: windows-latest
+            label: Windows
+
+    name: Build (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build and publish
+        run: npm run electron:release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          SESSION_SECRET: ci-placeholder-not-a-real-secret-at-least-32chars
+          AUTH_PASSWORD_HASH: $2b$10$placeholder.placeholder.placeholder.plac
+          NODE_ENV: production
