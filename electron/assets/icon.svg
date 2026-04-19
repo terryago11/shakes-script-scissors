@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <rect width="1024" height="1024" rx="180" fill="#292524"/>
+  <text
+    x="512"
+    y="720"
+    font-size="660"
+    text-anchor="middle"
+    font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fill="#f5f5f4"
+  >✂</text>
+</svg>

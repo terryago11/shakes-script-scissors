@@ -62,6 +62,52 @@ Not a developer? See the [Setup Guide](docs/SETUP.md) for step-by-step instructi
 
 ---
 
+## Desktop App
+
+ShakesScriptScissors ships as a native desktop app (macOS DMG, Windows NSIS installer, Linux AppImage) via Electron. The desktop app runs the same Next.js server locally — no internet connection required after install.
+
+### Quick Start
+
+> Requires Node.js v22 via nvm. See [CLAUDE.md](CLAUDE.md) for the full command reference.
+
+```bash
+npm run electron:build   # Next.js build → Electron bundle → installer
+# Output: dist-electron/
+npm run electron:dev     # Dev mode (Electron window + Next.js dev server)
+```
+
+### Smoke Test Walkthrough
+
+After `npm run electron:build`:
+
+1. **Mount the DMG** — open `dist-electron/ShakesScriptScissors-<version>-arm64.dmg`. Drag to Applications.
+2. **Launch** — double-click in Applications (see Gatekeeper note below). A native window loads the app.
+3. **Verify the UI** — play selector should appear. No login prompt (auth is disabled in the desktop build).
+4. **Check auto-update** — run `log stream --predicate 'process == "ShakesScriptScissors"'` in Terminal. You'll see `[updater] checkForUpdates` — either a success or a non-fatal 404 if no GitHub Release exists yet. Both are expected.
+5. **Quit cleanly** — Cmd+Q should exit without hanging. The Next.js server is terminated by the `before-quit` handler in `electron/main.ts`.
+
+### GitHub Release Setup
+
+1. Create a GitHub Personal Access Token with `repo` scope.
+2. Export it: `export GH_TOKEN=ghp_your_token_here`
+3. Bump version and publish:
+   ```bash
+   npm version patch           # bumps package.json + creates git tag
+   npm run electron:release    # builds + uploads artifacts to GitHub Releases
+   ```
+4. Go to the repo's Releases page and **publish the draft** to make auto-update live.
+
+### Code Signing Warning
+
+**This build is not code-signed.**
+
+- **macOS**: Gatekeeper shows an _"unidentified developer"_ dialog. Bypass: right-click the app in Finder → **Open** → **Open**. One-time only.
+- **Windows**: SmartScreen shows a warning. Click **More info** → **Run anyway**.
+
+Code signing requires an Apple Developer membership ($99/yr) for macOS notarization, and a Windows certificate. Neither is currently configured. See the [electron-builder code signing docs](https://www.electron.build/code-signing) when ready.
+
+---
+
 ## Tech Stack
 
 **Next.js 16** App Router · **TypeScript** · **Tailwind CSS v4** · TEI data from [shakedracor](https://github.com/dracor-org/shakedracor) (Folger Shakespeare Library) · Browser `localStorage` storage (no database — ephemeral; export `.sss.json` backups regularly)
