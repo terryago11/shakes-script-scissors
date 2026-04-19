@@ -37,3 +37,9 @@ win:
 linux:
   target:
     - target: AppImage
+
+publish:
+  provider: github
+  owner: terryago11
+  repo: shakes-script-scissors
+  private: false

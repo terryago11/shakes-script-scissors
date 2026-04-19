@@ -16,15 +16,19 @@ Node must be loaded via nvm: `export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:
 ## Electron Desktop App
 
 ```bash
-npm run electron:build  # Full build: next build → cp -rL standalone → tsc → electron-builder
-npm run electron:dev    # Compile main.ts then open Electron window (spawns next dev automatically)
+npm run electron:build    # Full build: next build → cp -rL standalone → esbuild → electron-builder
+npm run electron:release  # Same as build, but publishes artifacts to GitHub Releases (needs GH_TOKEN)
+npm run electron:dev      # Bundle main.ts with esbuild then open Electron window (spawns next dev automatically)
+npm run electron:typecheck # TypeScript type-check electron/main.ts (no emit)
 ```
 
 **Key conventions:**
 - `next.config.ts` has `output: "standalone"` — required for Electron packaging; do not remove.
 - `electron:build` creates `.next/standalone-resolved` (a symlink-dereferenced copy via `cp -rL`) before calling electron-builder. This step is necessary because electron-builder's `extraResources` silently strips `node_modules` and `.next` directories; the `afterPack` hook (`electron/afterPack.js`) copies them manually instead.
-- `electron/main.js` (compiled from `main.ts`) and `dist-electron/` are gitignored.
+- `electron/main.ts` is compiled by **esbuild** (not tsc) via `electron:bundle`. esbuild bundles `electron-updater` and all its deps into the single `electron/main.js` output — this is required because `electron-builder.yml` excludes `node_modules` from the ASAR. `tsconfig.electron.json` is type-check-only (`noEmit: true`).
+- `electron/main.js` (bundled from `main.ts`) and `dist-electron/` are gitignored.
 - Icons go in `electron/assets/icon.icns` (Mac) and `electron/assets/icon.ico` (Windows) — currently unset.
+- Auto-updates: `electron-updater` checks for new GitHub Releases on startup (production only). When a download completes, a "Restart / Later" dialog appears. To publish a release: `npm version patch && GH_TOKEN=<token> npm run electron:release`.
 
 ## Auth Middleware
 

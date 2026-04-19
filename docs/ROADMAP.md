@@ -12,8 +12,15 @@ The packaging pipeline is working (`.app` verified on Mac arm64). What's left be
 
 - **App icon** — need `electron/assets/icon.icns` (Mac) and `electron/assets/icon.ico` (Windows); currently uses the default Electron blue-ball icon
 - **Windows build** — `.exe` (NSIS) config is written but untested; needs a Windows machine or GitHub Actions `windows-latest` runner
-- **GitHub Release** — run `npm run electron:build` on both Mac and Windows, upload `.dmg` + `.exe` to a GitHub Release so users can download
-- **Auto-updates** — add `electron-updater` so users are prompted when a new version is out (optional, can add when first release ships)
+- **GitHub Release** ⚠️ untested — the full release pipeline (version bump → build → publish → auto-update on a user machine) has not been run end-to-end yet; do a dry run before distributing to real users. Steps to ship:
+  1. Bump the version and create a git tag: `npm version patch` (or `minor` / `major`)
+  2. Push the tag: `git push --follow-tags`
+  3. Build and publish from Mac: `GH_TOKEN=<token> npm run electron:release` → uploads `.dmg` + `latest-mac.yml`
+  4. Build and publish from Windows: same command on a Windows machine → uploads `.exe` + `latest.yml`
+  - `GH_TOKEN` needs `repo` scope (or use `GITHUB_TOKEN` in GitHub Actions)
+  - electron-builder creates the GitHub Release automatically if it doesn't exist; subsequent runs for other platforms add their artifacts to the same release
+  - After the first release, `electron-updater` on installed copies will detect `latest-mac.yml` / `latest.yml` and prompt users to update
+- **Auto-updates** ✓ — `electron-updater` integrated; uses esbuild to bundle into main.js; prompts "Restart / Later" on update-downloaded; publish config points to GitHub Releases
 
 ---
 

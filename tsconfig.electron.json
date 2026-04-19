@@ -5,8 +5,7 @@
     "moduleResolution": "node",
     "strict": true,
     "esModuleInterop": true,
-    "outDir": ".",
-    "rootDir": ".",
+    "noEmit": true,
     "skipLibCheck": true
   },
   "include": ["electron/main.ts"],

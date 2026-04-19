@@ -1,4 +1,5 @@
-import { app, BrowserWindow, shell } from "electron";
+import { app, BrowserWindow, shell, dialog } from "electron";
+import { autoUpdater } from "electron-updater";
 import path from "path";
 import http from "http";
 import { spawn, ChildProcess } from "child_process";
@@ -8,6 +9,35 @@ const isDev = !app.isPackaged;
 
 let mainWindow: BrowserWindow | null = null;
 let nextProcess: ChildProcess | null = null;
+
+function setupAutoUpdater() {
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on("error", (err) => {
+    console.error("[updater] error:", err.message);
+  });
+
+  autoUpdater.on("update-downloaded", () => {
+    if (!mainWindow) return;
+    dialog
+      .showMessageBox(mainWindow, {
+        type: "info",
+        title: "Update ready",
+        message: "A new update has been downloaded. Restart to install?",
+        buttons: ["Restart", "Later"],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      .then(({ response }) => {
+        if (response === 0) autoUpdater.quitAndInstall();
+      });
+  });
+
+  autoUpdater.checkForUpdates().catch((err) => {
+    console.error("[updater] checkForUpdates failed:", err.message);
+  });
+}
 
 function waitForServer(retries = 60): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -85,6 +115,7 @@ app.whenReady().then(async () => {
   try {
     await waitForServer();
     createWindow();
+    if (!isDev) setupAutoUpdater();
   } catch (err) {
     console.error(err);
     app.quit();
