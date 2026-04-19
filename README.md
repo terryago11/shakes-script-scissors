@@ -76,27 +76,6 @@ npm run electron:build   # Next.js build → Electron bundle → installer
 npm run electron:dev     # Dev mode (Electron window + Next.js dev server)
 ```
 
-### Smoke Test Walkthrough
-
-After `npm run electron:build`:
-
-1. **Mount the DMG** — open `dist-electron/ShakesScriptScissors-<version>-arm64.dmg`. Drag to Applications.
-2. **Launch** — double-click in Applications (see Gatekeeper note below). A native window loads the app.
-3. **Verify the UI** — play selector should appear. No login prompt (auth is disabled in the desktop build).
-4. **Check auto-update** — run `log stream --predicate 'process == "ShakesScriptScissors"'` in Terminal. You'll see `[updater] checkForUpdates` — either a success or a non-fatal 404 if no GitHub Release exists yet. Both are expected.
-5. **Quit cleanly** — Cmd+Q should exit without hanging. The Next.js server is terminated by the `before-quit` handler in `electron/main.ts`.
-
-### GitHub Release Setup
-
-1. Create a GitHub Personal Access Token with `repo` scope.
-2. Export it: `export GH_TOKEN=ghp_your_token_here`
-3. Bump version and publish:
-   ```bash
-   npm version patch           # bumps package.json + creates git tag
-   npm run electron:release    # builds + uploads artifacts to GitHub Releases
-   ```
-4. Go to the repo's Releases page and **publish the draft** to make auto-update live.
-
 ### Code Signing Warning
 
 **This build is not code-signed.**
