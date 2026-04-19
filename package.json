@@ -5,7 +5,7 @@
   "author": "Natan S.",
   "main": "electron/main.js",
   "scripts": {
-    "predev": "rm -f .next/dev/lock 2>/dev/null; exit 0",
+    "predev": "node -e \"try{require('fs').unlinkSync('.next/dev/lock')}catch(_){}\"",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
