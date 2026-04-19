@@ -66,16 +66,6 @@ Not a developer? See the [Setup Guide](docs/SETUP.md) for step-by-step instructi
 
 ShakesScriptScissors ships as a native desktop app (macOS DMG, Windows NSIS installer, Linux AppImage) via Electron. The desktop app runs the same Next.js server locally — no internet connection required after install.
 
-### Quick Start
-
-> Requires Node.js v22 via nvm. See [CLAUDE.md](CLAUDE.md) for the full command reference.
-
-```bash
-npm run electron:build   # Next.js build → Electron bundle → installer
-# Output: dist-electron/
-npm run electron:dev     # Dev mode (Electron window + Next.js dev server)
-```
-
 ### Code Signing Warning
 
 **This build is not code-signed.**
