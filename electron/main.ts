@@ -4,6 +4,8 @@ import path from "path";
 import http from "http";
 import { spawn, ChildProcess } from "child_process";
 
+process.title = "ShakesScriptScissors";
+
 const PORT = 3000;
 const isDev = !app.isPackaged;
 
