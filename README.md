@@ -83,8 +83,6 @@ npm run electron:dev     # Dev mode (Electron window + Next.js dev server)
 - **macOS**: Gatekeeper shows an _"unidentified developer"_ dialog. Bypass: right-click the app in Finder → **Open** → **Open**. One-time only.
 - **Windows**: SmartScreen shows a warning. Click **More info** → **Run anyway**.
 
-Code signing requires an Apple Developer membership ($99/yr) for macOS notarization, and a Windows certificate. Neither is currently configured. See the [electron-builder code signing docs](https://www.electron.build/code-signing) when ready.
-
 ---
 
 ## Tech Stack
