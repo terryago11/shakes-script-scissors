@@ -85,6 +85,6 @@ export const PLAYS: PlayMeta[] = [
   { id: "Tro", slug: "troilus-and-cressida", title: "Troilus and Cressida" },
   { id: "TN", slug: "twelfth-night", title: "Twelfth Night" },
   { id: "TGV", slug: "the-two-gentlemen-of-verona", localFile: "two-gentlemen-of-verona", title: "The Two Gentlemen of Verona" },
-  { id: "TNK", slug: "the-two-noble-kinsmen", title: "The Two Noble Kinsmen", folgerSource: "https://www.folgerdigitaltexts.org/download/xml/FolgerDigitalTexts_XML_TNK.zip" },
+  { id: "TNK", slug: "the-two-noble-kinsmen", title: "The Two Noble Kinsmen", folgerSource: "https://flgr.sh/txtfssTNKxml" },
   { id: "WT", slug: "the-winters-tale", title: "The Winter's Tale" },
 ];
