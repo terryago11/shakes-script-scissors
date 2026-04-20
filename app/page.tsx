@@ -303,7 +303,7 @@ export default function HomePage() {
           </a>
           {" "}— free for non-commercial use with attribution; share-alike.
           {process.env.NEXT_PUBLIC_COMMIT_DATE ? (
-            <> · v1.0.0 · updated {process.env.NEXT_PUBLIC_COMMIT_DATE}</>
+            <> · v{process.env.NEXT_PUBLIC_APP_VERSION} · updated {process.env.NEXT_PUBLIC_COMMIT_DATE}</>
           ) : null}
         </p>
       </footer>
