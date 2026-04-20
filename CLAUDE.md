@@ -37,13 +37,12 @@ cd shakedracor && git pull origin main && cd ..
 git add shakedracor && git commit -m "chore: update DraCor submodule"
 ```
 
-**The Two Noble Kinsmen (Folger source)**: Check for updates at the `folgerSource` URL in `FolgerClient.ts`, then re-run the normalizer.
+**The Two Noble Kinsmen (Folger source)**: TNK is not in DraCor — its normalized XML lives in `tei/` in the main repo (not in the shakedracor submodule, which is a read-only external repo). Check for updates at the `folgerSource` URL in `FolgerClient.ts`, then re-run the normalizer.
 ```bash
 curl -L -o /tmp/TNK.zip https://flgr.sh/txtfssTNKxml
 unzip -o /tmp/TNK.zip -d /tmp/TNK_extracted
-python3 scripts/normalize-folger-tei.py /tmp/TNK_extracted/the-two-noble-kinsmen_XML_FolgerShakespeare/TNK.xml shakedracor/tei/the-two-noble-kinsmen.xml
-cd shakedracor && git add tei/the-two-noble-kinsmen.xml && git commit -m "chore: update TNK from Folger" && cd ..
-git add shakedracor && git commit -m "chore: update TNK submodule ref"
+python3 scripts/normalize-folger-tei.py /tmp/TNK_extracted/the-two-noble-kinsmen_XML_FolgerShakespeare/TNK.xml tei/the-two-noble-kinsmen.xml
+git add tei/the-two-noble-kinsmen.xml && git commit -m "chore: update TNK from Folger"
 ```
 Both updates should be done together.
 

@@ -33,6 +33,9 @@ exports.default = async function afterPack(context) {
   const teiSource = path.join(projectRoot, "shakedracor", "tei");
   await cp(teiSource, path.join(standaloneTarget, "shakedracor", "tei"), { recursive: true, force: true });
 
+  const teiExtrasSource = path.join(projectRoot, "tei");
+  await cp(teiExtrasSource, path.join(standaloneTarget, "tei"), { recursive: true, force: true });
+
   console.log(`  • copied standalone Next.js server to ${standaloneTarget}`);
-  console.log(`  • copied shakedracor/tei into standalone bundle`);
+  console.log(`  • copied shakedracor/tei and tei/ into standalone bundle`);
 };
