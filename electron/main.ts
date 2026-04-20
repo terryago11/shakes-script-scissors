@@ -10,7 +10,7 @@ autoUpdater.logger = log;
 
 process.title = "ShakesScriptScissors";
 
-const PORT = 3000;
+const PORT = 47321;
 const isDev = !app.isPackaged;
 
 let mainWindow: BrowserWindow | null = null;
