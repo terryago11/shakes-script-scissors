@@ -4,6 +4,12 @@ Completed feature groups for shakes-script-scissors.
 
 ## Done ✓
 
+- **v1.0.7 — TEI rendering fixes + script search**
+  - **Inline SD ordering**: `<stage>` elements mid-verse/mid-prose now render in correct reading order — text before the stage → SD block → continuation text indented as a shared verse line. New `stageNotePre` field on `Line` preserves the pre-stage text through the parser → `expandStageNotes` pipeline. Prose lines updated in `splitProseByLb` too.
+  - **Song detection**: songs encoded as `<lg type="quatrain">` (or other `POEM_LG_TYPES`) preceded by `<label>Song.</label>` are now correctly detected as songs (`inSongContext || !POEM_LG_TYPES.has(lgType)`). Fixes "Full fathom five" in The Tempest.
+  - **Song alternating indent**: song lines in poem-type stanzas (quatrain, couplet, etc.) now get the Folger alternating-indent layout — B-rhyme (even-indexed) lines indented. `extractLgLines` gains `isPoemType` param; `SpeechBlock` stacks song base padding + poem indent via `calc()`.
+  - **Script search**: Cmd+F / Ctrl+F opens a floating search bar. Searches kept dialogue and character names; ↑ ↓ navigate matches; current match outlined and scrolled into view. Magnifying-glass button in nav next to scene jumper. State via `SearchContext`.
+
 - **Group 1**: Jump-to-scene dropdown, scene focus mode
 - **Group 2**: Filter by character/actor, cue name normalization, character normalization
 - **Group 3**: Word-level track-changes edits within lines; line-level cuts within speeches
