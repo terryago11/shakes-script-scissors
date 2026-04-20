@@ -37,3 +37,37 @@ jobs:
           SESSION_SECRET: ci-placeholder-not-a-real-secret-at-least-32chars
           AUTH_PASSWORD_HASH: $2b$10$placeholder.placeholder.placeholder.plac
           NODE_ENV: production
+
+  release-notes:
+    name: Add download table
+    needs: release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Prepend download table to release body
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          EXISTING=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq '.body // ""')
+          DOWNLOAD_TABLE="### Download
+
+          | Platform | File |
+          |----------|------|
+          | macOS — Apple Silicon (M1/M2/M3/M4) | \`ShakesScriptScissors-${VERSION}-arm64.dmg\` |
+          | macOS — Intel | \`ShakesScriptScissors-${VERSION}.dmg\` |
+          | Windows | \`ShakesScriptScissors-Setup-${VERSION}.exe\` |
+
+          *The \`.zip\`, \`.blockmap\`, and \`.yml\` files are used for automatic updates — you don't need to download them.*"
+
+          if [ -n "$EXISTING" ]; then
+            BODY="${DOWNLOAD_TABLE}
+
+          ---
+
+          ${EXISTING}"
+          else
+            BODY="$DOWNLOAD_TABLE"
+          fi
+
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes "$BODY"
