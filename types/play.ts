@@ -63,10 +63,14 @@ export interface Line {
   /** Character count of all preceding parts in the shared-line chain.
    *  Used for proportional ch-based indent so the fragment visually "completes" the line. */
   partIndentChars?: number;
-  /** Inline stage direction text preceding this line's spoken text (e.g. "To Helen.").
-   *  Extracted from <stage> elements inside <l> or <p>/<lb> prose; rendered as italic muted
-   *  annotation before the line text. Not part of the editable spoken text. */
+  /** Inline stage direction extracted from a <stage> element inside this verse/prose line.
+   *  When stageNotePre is also set, the SD is mid-line: stageNotePre is the spoken text
+   *  before the SD, and `text` is the spoken text after it.
+   *  When stageNotePre is absent, the SD leads the line (text = after) or trails it (text = before). */
   stageNote?: string;
+  /** Spoken text before the inline <stage> within this line.
+   *  Only set when the SD is mid-line (before-text AND after-text are both non-empty). */
+  stageNotePre?: string;
 }
 
 export interface StageDirection {

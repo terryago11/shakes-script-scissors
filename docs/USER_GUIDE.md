@@ -43,6 +43,12 @@ The script editor is the main working view. It shows the full play divided by ac
 - `[within]` after a character name — a delivery qualifier (e.g. speaking offstage)
 - `[To Orlando.]` as a stage direction block between speech parts — inline delivery stage notes (e.g. `<stage>To Orlando.</stage>` embedded inside a line in the TEI) are expanded into a proper stage direction, splitting the speech into a first part, the stage direction, and a continuation below
 
+**Finding text**
+- Press **Cmd+F** (Mac) or **Ctrl+F** (Windows/Linux), or click the **🔍 magnifying glass** button in the nav bar, to open the floating search bar.
+- Type any text to search dialogue and character names across all kept lines.
+- Use the **↑ ↓** buttons or **Enter / Shift+Enter** to step through matches. The current match is highlighted and scrolled into view.
+- Press **Esc** or click **×** to close.
+
 ---
 
 ## 2. Making Cuts

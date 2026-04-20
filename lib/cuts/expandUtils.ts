@@ -181,9 +181,15 @@ export function expandStageNotes(units: ScriptUnit[]): ScriptUnit[] {
     const stageLine = speech.lines[snIdx];
     const linesAfter = speech.lines.slice(snIdx + 1);
 
+    // If the inline stage was mid-line, stageNotePre holds the spoken text that came before it.
+    // Append a synthetic "pre" line to linesBefore so it renders before the SD block.
+    const allLinesBefore: Line[] = stageLine.stageNotePre
+      ? [...linesBefore, { ...stageLine, text: stageLine.stageNotePre, stageNote: undefined, stageNotePre: undefined }]
+      : linesBefore;
+
     // Part 1: lines before the stageNote line (emit only if non-empty)
-    if (linesBefore.length > 0) {
-      result.push({ ...speech, lines: linesBefore, lineCount: linesBefore.length });
+    if (allLinesBefore.length > 0) {
+      result.push({ ...speech, lines: allLinesBefore, lineCount: allLinesBefore.length });
     }
 
     // Synthetic StageDirection
@@ -196,8 +202,18 @@ export function expandStageNotes(units: ScriptUnit[]): ScriptUnit[] {
     };
     result.push(syntheticSD);
 
-    // Part 2: the stageLine with stageNote stripped + remaining lines
-    const continuedLine: Line = { ...stageLine, stageNote: undefined };
+    // Part 2: the stageLine (after-text) with stageNote/stageNotePre stripped + remaining lines.
+    // Add indentation to show the text continues on the same verse line as the before-text.
+    // Only add if the line doesn't already have a partIndent from TEI shared-verse encoding.
+    const sdIndentChars = stageLine.stageNotePre
+      ? stageLine.stageNotePre.length  // mid-line SD: indent by length of before-text
+      : 6;                             // leading SD (burden/refrain): small fixed indent
+    const continuedLine: Line = {
+      ...stageLine,
+      stageNote: undefined,
+      stageNotePre: undefined,
+      ...(!stageLine.partIndent && { partIndent: true, partIndentChars: sdIndentChars }),
+    };
     const part2Lines = [continuedLine, ...linesAfter].filter((l) => l.text.trim().length > 0);
     if (part2Lines.length > 0) {
       const part2: Speech = {

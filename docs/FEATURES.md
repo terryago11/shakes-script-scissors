@@ -44,7 +44,7 @@ A complete list of capabilities for power users. For a full walkthrough, see the
 | **SD character editing** | Add or remove individual characters from any stage direction |
 | **SD sync exits** | ⟳ sync exits pre-fills exit SDs from on-stage tracking |
 | **SD sync entrances** | ⟳ sync entrances pre-fills an entrance SD's character list from on-stage tracking (mirrors sync exits logic) |
-| **Inline stage notes** | `<stage>` elements inside a verse line or prose line (e.g. `[To Helen.]`, `[To Orlando.]`) are expanded at render time into a proper **StageDirection block** between speech parts; the speech continues below as a continuation; no longer rendered as inline italic text prefix |
+| **Inline stage notes** | `<stage>` elements inside a verse line or prose line (e.g. `[To Helen.]`, `[To Orlando.]`) are expanded at render time into a proper **StageDirection block** between speech parts in correct reading order (before-text → SD → after-text); the continuation is indented to show it shares the verse line |
 | **Insert song/dance SD** | Edit SDs tool: hover strip between any two units → insert a new song/dance stage direction with custom text and characters |
 | **Song/dance flag toggle** | Edit SDs tool: toggle the ♪ or ⊛ flag on any existing SD per production needs |
 | **SD text rewrite** | Edit SDs tool: click ✎ on any stage direction to rewrite its prose text; edited SDs show a green left border and "edited" badge in Standard/Diff views, plain in Clean; restore original wording via the Restore tool; propagated to cue scripts and HTML/Word exports |
@@ -155,11 +155,23 @@ All three modes are available in the script editor and in the exported HTML file
 
 ---
 
+## Script Search
+
+| Feature | Details |
+|---------|---------|
+| **Find in script** | **Cmd+F** (Mac) / **Ctrl+F** (Windows/Linux) or the 🔍 button in the nav bar opens a floating search bar |
+| **Scope** | Searches all kept dialogue lines and character names across the entire script |
+| **Navigation** | ↑ ↓ buttons (or Enter / Shift+Enter) step through matches; current match is outlined and scrolled into view |
+| **Close** | Esc or × button |
+
+---
+
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
-| **Esc** | Exit edit mode |
+| **Cmd/Ctrl+F** | Open find-in-script search bar |
+| **Esc** | Close search bar / exit edit mode |
 | **Cmd/Ctrl+Z** | Undo (in edit mode) |
 | **Cmd/Ctrl+Shift+Z** | Redo (in edit mode) |
 

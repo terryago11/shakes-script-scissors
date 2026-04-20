@@ -70,6 +70,7 @@ Both updates should be done together.
 | `lib/project/projectIO.ts` | JSON export/import with Zod validation (`exportProject` / `importProject`) |
 | `app/api/play/[playId]/route.ts` | GET: fetch + parse + cache a play |
 | `app/api/plays/route.ts` | GET: returns `PLAYS` listing |
+| `lib/ui/SearchContext.tsx` | React context sharing `searchOpen`/`setSearchOpen` between nav `NavSearchButton` and `ScriptEditor` |
 
 **Critical conventions in key files:**
 - `projectIO.ts`: When adding a new field to `Cut` in `types/project.ts`, also add it to `CutSchema` — fields not in the schema are silently stripped on import.
@@ -84,7 +85,9 @@ Both updates should be done together.
 - `Scene`: `id`, `number`, `title`, `units[]`, `sceneType?` (`"chorus"|"epilogue"|"prologue"`)
 - `Speech`: `characterId`, `characterName`, `speakerTag` (raw `<speaker>` text), `deliveryNote?`, `lines[]`, `lineCount`
 - `StageDirection`: `id`, `text`, `characters[]`, `stageType?` (`"entrance"|"exit"|"business"|"delivery"`; dumbshow → `"business"` + `isDance: true`), `isSong?`, `isDance?`
-- `Line`: `id`, `ftln`, `text`, `isSong?`, `poemIndent?`, `partIndent?`, `partIndentChars?`, `stageNote?`
+- `Line`: `id`, `ftln`, `text`, `isSong?`, `poemIndent?`, `partIndent?`, `partIndentChars?`, `stageNote?`, `stageNotePre?`
+  - `stageNote`: inline `<stage>` text extracted from a verse/prose line; `expandStageNotes` in `expandUtils.ts` splits the speech around it at render time
+  - `stageNotePre`: spoken text *before* the inline `<stage>`; when set, `text` holds the after-portion; both halves are preserved in correct reading order
 
 ### `Project` (stored in localStorage, exported as `.sss.json`)
 - `name?` — display name distinct from `playTitle`

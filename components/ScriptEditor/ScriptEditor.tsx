@@ -18,6 +18,7 @@ import { useSceneJump } from "@/lib/ui/SceneJumpContext";
 import { useEditMode } from "@/lib/ui/EditModeContext";
 import { useViewMode } from "@/lib/ui/ViewModeContext";
 import { useMetric } from "@/lib/ui/MetricContext";
+import { useSearch } from "@/lib/ui/SearchContext";
 import type { EditOp } from "@/types/edit";
 import { resolveSelectionToOps } from "@/lib/cuts/resolveSelection";
 
@@ -151,7 +152,12 @@ export default function ScriptEditor({ playId }: Props) {
   const { activeTool, setActiveTool } = useEditMode();
   const { viewMode } = useViewMode();
   const { setWpm } = useMetric();
+  const { searchOpen, setSearchOpen } = useSearch();
   const scriptColRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatchIdx, setSearchMatchIdx] = useState(0);
+  const [searchHighlightId, setSearchHighlightId] = useState<string | null>(null);
 
   // Keep MetricContext WPM in sync with project settings
   useEffect(() => {
@@ -175,6 +181,44 @@ export default function ScriptEditor({ playId }: Props) {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [activeTool, setActiveTool, dispatch]);
+
+  // Highlight the current search match in the DOM
+  useEffect(() => {
+    const prev = scriptColRef.current?.querySelector("[data-search-current]");
+    if (prev) prev.removeAttribute("data-search-current");
+    if (!searchHighlightId) return;
+    const el = scriptColRef.current?.querySelector(`[data-line-id="${searchHighlightId}"]`);
+    if (el) el.setAttribute("data-search-current", "true");
+  }, [searchHighlightId]);
+
+  // Cmd+F / Ctrl+F opens in-script search; Esc closes it
+  useEffect(() => {
+    function handleSearchKey(e: KeyboardEvent) {
+      if (e.key === "f" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+      if (e.key === "Escape" && searchOpen) {
+        setSearchOpen(false);
+        setSearchQuery("");
+        setSearchMatchIdx(0);
+        setSearchHighlightId(null);
+      }
+    }
+    document.addEventListener("keydown", handleSearchKey);
+    return () => document.removeEventListener("keydown", handleSearchKey);
+  }, [searchOpen, setSearchOpen]);
+
+  // Auto-focus input whenever search bar opens
+  useEffect(() => {
+    if (searchOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 0);
+    } else {
+      setSearchQuery("");
+      setSearchMatchIdx(0);
+      setSearchHighlightId(null);
+    }
+  }, [searchOpen]);
 
   useEffect(() => {
     setLoading(true);
@@ -300,6 +344,30 @@ export default function ScriptEditor({ playId }: Props) {
     project.actors
   );
 
+  // Build flat search index from kept units. Each entry maps a line DOM id to its text.
+  // Character-name entries use the first line id of that speech as the anchor.
+  type SearchEntry = { lineId: string; text: string };
+  const searchIndex: SearchEntry[] = [];
+  if (viewMode !== "diff") {
+    for (const units of unitsByScene.values()) {
+      for (const { unit, status } of units) {
+        if (status === "cut" || unit.type !== "speech") continue;
+        // Character name — anchors to the first line
+        if (unit.lines.length > 0) {
+          searchIndex.push({ lineId: unit.lines[0].id, text: unit.characterName });
+        }
+        for (const line of unit.lines) {
+          searchIndex.push({ lineId: line.id, text: line.text });
+        }
+      }
+    }
+  }
+  const searchMatches = searchQuery.trim()
+    ? searchIndex.filter((e) => e.text.toLowerCase().includes(searchQuery.toLowerCase()))
+    : [];
+  const clampedMatchIdx = searchMatches.length > 0 ? searchMatchIdx % searchMatches.length : 0;
+  const currentMatch = searchMatches[clampedMatchIdx] ?? null;
+
   // Diff mode: resolve left/right cuts
   const leftDiffCut = diffLeftId ? (project.cuts.find((c) => c.id === diffLeftId) ?? activeCut) : activeCut;
   const rightDiffCut = diffRightId ? (project.cuts.find((c) => c.id === diffRightId) ?? null) : null;
@@ -345,6 +413,36 @@ export default function ScriptEditor({ playId }: Props) {
 
   function handleReassign(unitId: string, characterIds: string[] | null) {
     dispatch({ type: "REASSIGN_SPEECH", unitId, characterIds });
+  }
+
+  function scrollToMatch(matches: SearchEntry[], idx: number) {
+    const match = matches[idx % matches.length];
+    if (!match) return;
+    setSearchHighlightId(match.lineId);
+    const el = scriptColRef.current?.querySelector(`[data-line-id="${match.lineId}"]`);
+    if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+
+  function handleSearchNext() {
+    const next = searchMatches.length > 0 ? (clampedMatchIdx + 1) % searchMatches.length : 0;
+    setSearchMatchIdx(next);
+    scrollToMatch(searchMatches, next);
+  }
+
+  function handleSearchPrev() {
+    const prev = searchMatches.length > 0 ? (clampedMatchIdx - 1 + searchMatches.length) % searchMatches.length : 0;
+    setSearchMatchIdx(prev);
+    scrollToMatch(searchMatches, prev);
+  }
+
+  function handleSearchQueryChange(q: string) {
+    setSearchQuery(q);
+    setSearchMatchIdx(0);
+    const newMatches = q.trim()
+      ? searchIndex.filter((e) => e.text.toLowerCase().includes(q.toLowerCase()))
+      : [];
+    if (newMatches.length > 0) scrollToMatch(newMatches, 0);
+    else setSearchHighlightId(null);
   }
 
   function handleSplit(unitId: string, atLineIndex: number, atWordOffset?: number) {
@@ -547,6 +645,50 @@ export default function ScriptEditor({ playId }: Props) {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* In-script search bar — fixed so it floats over the content regardless of scroll position */}
+        {searchOpen && (
+          <div className="no-print fixed top-14 left-0 right-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-sm border-b border-stone-200 dark:border-stone-800 px-4 py-2 flex items-center gap-2 shadow-sm">
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchQueryChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.shiftKey ? handleSearchPrev() : handleSearchNext(); }
+                if (e.key === "Escape") { setSearchOpen(false); setSearchQuery(""); setSearchMatchIdx(0); }
+              }}
+              placeholder="Find in script…"
+              className="flex-1 min-w-0 text-sm bg-transparent border border-stone-300 dark:border-stone-600 rounded px-2.5 py-1 outline-none focus:border-amber-400 dark:focus:border-amber-500 dark:text-stone-100 placeholder:text-stone-400"
+            />
+            <span className="text-xs text-stone-500 dark:text-stone-400 shrink-0 tabular-nums min-w-[4rem] text-center">
+              {searchQuery.trim() ? (searchMatches.length > 0 ? `${clampedMatchIdx + 1} / ${searchMatches.length}` : "0 results") : ""}
+            </span>
+            <button
+              onClick={handleSearchPrev}
+              disabled={searchMatches.length === 0}
+              className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 disabled:opacity-30"
+              title="Previous match (Shift+Enter)"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 9l4-4 4 4"/></svg>
+            </button>
+            <button
+              onClick={handleSearchNext}
+              disabled={searchMatches.length === 0}
+              className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 disabled:opacity-30"
+              title="Next match (Enter)"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 7l4 4 4-4"/></svg>
+            </button>
+            <button
+              onClick={() => { setSearchOpen(false); setSearchQuery(""); setSearchMatchIdx(0); }}
+              className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
+              title="Close (Esc)"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+            </button>
           </div>
         )}
 
