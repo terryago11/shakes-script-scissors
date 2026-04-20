@@ -633,14 +633,14 @@ export default function SpeechBlock({
                     ? "line-through text-red-500 bg-red-50 dark:bg-red-950/50 rounded px-0.5"
                     : "line-through text-red-400 opacity-60"
                   : isLineSong
-                    ? "text-violet-700 dark:text-violet-300 italic pl-4"
+                    ? `text-violet-700 dark:text-violet-300 italic ${isLinePoem ? "pl-6" : "pl-4"}`
                     : isLinePoem
                       ? "pl-6"
                       : ""}${canToggleLineSong ? " cursor-pointer hover:bg-violet-50 dark:hover:bg-violet-950/20 rounded" : ""}`}
                 style={effectivePartIndent ? {
                   paddingLeft: isManuallyAdded && !line.partIndent
                     ? "10ch"
-                    : `${((line.partIndentChars ?? 3) * 0.5).toFixed(1)}ch`,
+                    : `calc(${isLineSong ? (isLinePoem ? "1.5rem + " : "1rem + ") : ""}${((line.partIndentChars ?? 3) * 0.5).toFixed(1)}ch)`,
                 } : undefined}
                 onClick={lineSongClickHandler}
                 title={canToggleLineSong ? (effectiveLineSong ? "Click to un-mark as sung" : "Click to mark as sung ♪") : undefined}

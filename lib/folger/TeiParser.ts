@@ -424,7 +424,8 @@ function parseSpeech(
       // named stanza types like "quatrain" are still treated as sung (e.g. "Full fathom five").
       const lgType = (getAttr(child, "@_type") ?? "").toLowerCase();
       const isSongStanza = inSongContext || !POEM_LG_TYPES.has(lgType);
-      const lgLines = extractLgLines(child, id, lineIndex, isSongStanza);
+      const isPoemTypeLg = POEM_LG_TYPES.has(lgType);
+      const lgLines = extractLgLines(child, id, lineIndex, isSongStanza, undefined, isPoemTypeLg);
       for (const ll of lgLines) {
         if (ll.text) {
           segments[segments.length - 1].push(ll);
@@ -1022,7 +1023,7 @@ function extractAllText(nodes: unknown[]): string {
  * @param isSong — when true, every extracted line gets `isSong: true` (marks it as a sung line)
  * @param stanzaPos — running position within the stanza (0-indexed); tracks indent alternation
  */
-function extractLgLines(lgNode: unknown, speechId: string, startIndex: number, isSong = false, stanzaPos = { n: 0 }): Line[] {
+function extractLgLines(lgNode: unknown, speechId: string, startIndex: number, isSong = false, stanzaPos = { n: 0 }, isPoemType = false): Line[] {
   const lines: Line[] = [];
   let lineIndex = startIndex;
   for (const child of getChildren(lgNode)) {
@@ -1041,10 +1042,10 @@ function extractLgLines(lgNode: unknown, speechId: string, startIndex: number, i
       if (text) {
         const line: Line = { id: lineId, ftln, text };
         if (lgStageNoteText) line.stageNote = lgStageNoteText;
-        if (isSong) {
-          line.isSong = true;
-        } else if (stanzaPos.n % 2 === 1) {
-          // Odd position (0-indexed) = B-rhyme line in poem stanza → indent (Folger layout)
+        if (isSong) line.isSong = true;
+        // B-rhyme indent: odd positions in poem stanzas, and in song stanzas that are
+        // also a named poem type (e.g. quatrain) — gives the Folger alternating-indent layout
+        if (stanzaPos.n % 2 === 1 && (!isSong || isPoemType)) {
           line.poemIndent = true;
         }
         stanzaPos.n++;
@@ -1053,16 +1054,15 @@ function extractLgLines(lgNode: unknown, speechId: string, startIndex: number, i
       }
     } else if (tag === "lg") {
       // Nested <lg> inherits the isSong flag and continues the stanza position counter
-      const nested = extractLgLines(child, speechId, lineIndex, isSong, stanzaPos);
+      const nested = extractLgLines(child, speechId, lineIndex, isSong, stanzaPos, isPoemType);
       for (const l of nested) { if (l.text) { lines.push(l); lineIndex++; } }
     } else if (tag === "p") {
       const pChildren = getChildren(child);
       const proseLines = splitProseByLb(pChildren, speechId, lineIndex);
       for (const pl of proseLines) {
         if (pl.text) {
-          if (isSong) {
-            pl.isSong = true;
-          } else if (stanzaPos.n % 2 === 1) {
+          if (isSong) pl.isSong = true;
+          if (stanzaPos.n % 2 === 1 && (!isSong || isPoemType)) {
             pl.poemIndent = true;
           }
           stanzaPos.n++;
@@ -1077,9 +1077,8 @@ function extractLgLines(lgNode: unknown, speechId: string, startIndex: number, i
       const text = extractAllText(getChildren(child)).trim();
       if (text) {
         const line: Line = { id: lineId, ftln, text };
-        if (isSong) {
-          line.isSong = true;
-        } else if (stanzaPos.n % 2 === 1) {
+        if (isSong) line.isSong = true;
+        if (stanzaPos.n % 2 === 1 && (!isSong || isPoemType)) {
           line.poemIndent = true;
         }
         stanzaPos.n++;
