@@ -293,8 +293,6 @@ function parseSpeech(
   const castEntry = castList.find((c) => c.id === characterId);
   const characterName = castEntry ? castEntry.name.toUpperCase() : speakerTagName;
 
-  void inSongContext; // reserved for future use (label context flows through POEM_LG_TYPES exclusion)
-
   // Segments: each embedded mid-speech <stage> creates a boundary.
   // segments[i] = lines for speech part i; embSds[i] = stage node emitted after segment i.
   const segments: Line[][] = [[]];
@@ -343,16 +341,38 @@ function parseSpeech(
       const partAttr = getAttr(child, "@_part") ?? "";
       const prevAttr = getAttr(child, "@_prev") ?? "";
       const lChildren = getChildren(child);
-      const text = extractAllTextSkippingStages(lChildren).trim();
-      // Collect inline <stage> text as a stageNote (e.g. "To Helena." in MND 3.2.296)
-      const stageNoteText = lChildren
-        .filter((c) => typeof c === "object" && c !== null && getTagName(c) === "stage")
-        .map((c) => extractAllText(getChildren(c)).trim())
-        .filter(Boolean)
-        .join(" ");
+      // Split spoken text around the first inline <stage> so that expandStageNotes can insert
+      // the SD block between the before-text and after-text rather than before the whole line.
+      // Multiple stages: only the first is split; additional ones are appended to stageNoteText.
+      let rawBefore = "";
+      let rawAfter = "";
+      let stageNoteText = "";
+      let foundStage = false;
+      for (const lc of lChildren) {
+        if (typeof lc !== "object" || lc === null) continue;
+        const lcTag = getTagName(lc as Record<string, unknown>);
+        if (lcTag === "stage") {
+          const st = extractAllText(getChildren(lc)).trim();
+          if (st) stageNoteText = stageNoteText ? stageNoteText + " " + st : st;
+          foundStage = true;
+        } else if (!foundStage) {
+          rawBefore += extractAllText([lc]);
+        } else {
+          rawAfter += extractAllText([lc]);
+        }
+      }
+      const textBefore = rawBefore.trim();
+      const textAfter = rawAfter.trim();
+      // If stage is mid-line (text exists on both sides), text = after-part; stageNotePre = before-part.
+      // If stage trails (no after), text = before-part; stageNotePre not set.
+      // If stage leads (no before), text = after-part; stageNotePre not set.
+      // If no stage at all, text = full line (textBefore only).
+      const text = stageNoteText ? (textAfter || textBefore) : extractAllTextSkippingStages(lChildren).trim();
+      const stageNotePre = (stageNoteText && textBefore && textAfter) ? textBefore : undefined;
       if (text) {
         const line: Line = { id: lineId, ftln, text };
         if (stageNoteText) line.stageNote = stageNoteText;
+        if (stageNotePre) line.stageNotePre = stageNotePre;
         if (partAttr === "I" && !prevAttr) {
           // First fragment — start chain, no indent on this line
           partCtx.accumulatedText = text;
@@ -399,9 +419,11 @@ function parseSpeech(
       }
       partCtx.accumulatedText = "";
     } else if (tag === "lg") {
-      // <lg> line group / stanza — songs vs poems
+      // <lg> line group / stanza — songs vs poems.
+      // A preceding <label>Song.</label> (inSongContext) overrides POEM_LG_TYPES so that
+      // named stanza types like "quatrain" are still treated as sung (e.g. "Full fathom five").
       const lgType = (getAttr(child, "@_type") ?? "").toLowerCase();
-      const isSongStanza = !POEM_LG_TYPES.has(lgType);
+      const isSongStanza = inSongContext || !POEM_LG_TYPES.has(lgType);
       const lgLines = extractLgLines(child, id, lineIndex, isSongStanza);
       for (const ll of lgLines) {
         if (ll.text) {
@@ -1080,20 +1102,27 @@ function splitProseByLb(pChildren: unknown[], speechId: string, startIndex: numb
   let currentFtln = 0;
   let currentText = "";
   let pendingStageNote: string | undefined;
+  // Text accumulated before the first inline stage on the current prose line — used for stageNotePre.
+  let textBeforeStage: string | undefined;
   let lineIndex = startIndex;
 
   function flush() {
-    const text = currentText.trim();
+    // After-stage text is in currentText; before-stage text (if mid-line stage) is in textBeforeStage.
+    const textAfter = currentText.trim();
+    const textBefore = textBeforeStage?.trim();
+    const text = textAfter || textBefore || "";
     if (text && currentLbId) {
       const line: Line = { id: currentLbId, ftln: currentFtln, text };
       if (pendingStageNote) {
         line.stageNote = pendingStageNote;
         pendingStageNote = undefined;
       }
+      if (textBefore && textAfter) line.stageNotePre = textBefore;
       lines.push(line);
       lineIndex++;
     }
     currentText = "";
+    textBeforeStage = undefined;
   }
 
   for (const child of pChildren) {
@@ -1108,9 +1137,14 @@ function splitProseByLb(pChildren: unknown[], speechId: string, startIndex: numb
       currentFtln = parseFtln(currentLbId, n);
     } else if (tag === "stage") {
       // Inline stage direction inside a prose paragraph (e.g. <stage type="delivery">To Helen.</stage>).
-      // Captured as stageNote on the line — rendered as italic muted annotation, not spoken text.
+      // Snapshot text-so-far as stageNotePre (before-text), then reset so subsequent text becomes after-text.
       const stageText = extractAllText(getChildren(child)).trim();
       if (stageText) {
+        if (textBeforeStage === undefined) {
+          // First stage on this prose line — capture before-text, reset currentText for after-text
+          textBeforeStage = currentText;
+          currentText = "";
+        }
         pendingStageNote = (pendingStageNote ? pendingStageNote + " " : "") + stageText;
       }
       // Ensure any following text is separated from preceding text by a space.

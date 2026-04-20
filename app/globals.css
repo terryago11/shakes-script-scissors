@@ -142,3 +142,10 @@ html.renaissance .border-t::before {
   color: #8b1a1a;
   font-size: 0.85em;
 }
+
+/* In-script search: highlight current match */
+[data-search-current] {
+  outline: 2px solid oklch(0.75 0.18 85);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
