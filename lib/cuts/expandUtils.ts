@@ -202,8 +202,18 @@ export function expandStageNotes(units: ScriptUnit[]): ScriptUnit[] {
     };
     result.push(syntheticSD);
 
-    // Part 2: the stageLine (after-text) with stageNote/stageNotePre stripped + remaining lines
-    const continuedLine: Line = { ...stageLine, stageNote: undefined, stageNotePre: undefined };
+    // Part 2: the stageLine (after-text) with stageNote/stageNotePre stripped + remaining lines.
+    // Add indentation to show the text continues on the same verse line as the before-text.
+    // Only add if the line doesn't already have a partIndent from TEI shared-verse encoding.
+    const sdIndentChars = stageLine.stageNotePre
+      ? stageLine.stageNotePre.length  // mid-line SD: indent by length of before-text
+      : 6;                             // leading SD (burden/refrain): small fixed indent
+    const continuedLine: Line = {
+      ...stageLine,
+      stageNote: undefined,
+      stageNotePre: undefined,
+      ...(!stageLine.partIndent && { partIndent: true, partIndentChars: sdIndentChars }),
+    };
     const part2Lines = [continuedLine, ...linesAfter].filter((l) => l.text.trim().length > 0);
     if (part2Lines.length > 0) {
       const part2: Speech = {

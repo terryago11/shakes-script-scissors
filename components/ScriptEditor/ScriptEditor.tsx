@@ -18,6 +18,7 @@ import { useSceneJump } from "@/lib/ui/SceneJumpContext";
 import { useEditMode } from "@/lib/ui/EditModeContext";
 import { useViewMode } from "@/lib/ui/ViewModeContext";
 import { useMetric } from "@/lib/ui/MetricContext";
+import { useSearch } from "@/lib/ui/SearchContext";
 import type { EditOp } from "@/types/edit";
 import { resolveSelectionToOps } from "@/lib/cuts/resolveSelection";
 
@@ -151,9 +152,9 @@ export default function ScriptEditor({ playId }: Props) {
   const { activeTool, setActiveTool } = useEditMode();
   const { viewMode } = useViewMode();
   const { setWpm } = useMetric();
+  const { searchOpen, setSearchOpen } = useSearch();
   const scriptColRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchIdx, setSearchMatchIdx] = useState(0);
   const [searchHighlightId, setSearchHighlightId] = useState<string | null>(null);
@@ -190,22 +191,33 @@ export default function ScriptEditor({ playId }: Props) {
     if (el) el.setAttribute("data-search-current", "true");
   }, [searchHighlightId]);
 
-  // Cmd+F / Ctrl+F opens in-script search
+  // Cmd+F / Ctrl+F opens in-script search; Esc closes it
   useEffect(() => {
     function handleSearchKey(e: KeyboardEvent) {
       if (e.key === "f" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         setSearchOpen(true);
-        setTimeout(() => searchInputRef.current?.focus(), 0);
       }
       if (e.key === "Escape" && searchOpen) {
         setSearchOpen(false);
         setSearchQuery("");
         setSearchMatchIdx(0);
+        setSearchHighlightId(null);
       }
     }
     document.addEventListener("keydown", handleSearchKey);
     return () => document.removeEventListener("keydown", handleSearchKey);
+  }, [searchOpen, setSearchOpen]);
+
+  // Auto-focus input whenever search bar opens
+  useEffect(() => {
+    if (searchOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 0);
+    } else {
+      setSearchQuery("");
+      setSearchMatchIdx(0);
+      setSearchHighlightId(null);
+    }
   }, [searchOpen]);
 
   useEffect(() => {
@@ -636,9 +648,9 @@ export default function ScriptEditor({ playId }: Props) {
           </div>
         )}
 
-        {/* In-script search bar */}
+        {/* In-script search bar — fixed so it floats over the content regardless of scroll position */}
         {searchOpen && (
-          <div className="no-print sticky top-14 z-30 bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 px-4 py-2 flex items-center gap-2 shadow-sm">
+          <div className="no-print fixed top-14 left-0 right-0 z-40 bg-white/95 dark:bg-stone-900/95 backdrop-blur-sm border-b border-stone-200 dark:border-stone-800 px-4 py-2 flex items-center gap-2 shadow-sm">
             <input
               ref={searchInputRef}
               type="text"

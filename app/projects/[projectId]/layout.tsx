@@ -13,6 +13,7 @@ import { SceneJumpProvider, useSceneJump } from "@/lib/ui/SceneJumpContext";
 import { EditModeProvider, useEditMode, type EditTool } from "@/lib/ui/EditModeContext";
 import { MetricProvider } from "@/lib/ui/MetricContext";
 import { ViewModeProvider, useViewMode, type ViewMode } from "@/lib/ui/ViewModeContext";
+import { SearchProvider, useSearch } from "@/lib/ui/SearchContext";
 
 // ─── Nav icons ────────────────────────────────────────────────────────────────
 
@@ -104,16 +105,18 @@ export default function ProjectLayout({
       <EditModeProvider>
         <MetricProvider>
           <ViewModeProvider>
-            <ProjectNav
-              project={project}
-              activeCut={activeCut}
-              projectId={projectId}
-              isScriptPage={isScriptPage}
-              router={router}
-              pathname={pathname}
-              dispatch={dispatch}
-            />
-            <div className="flex-1">{children}</div>
+            <SearchProvider>
+              <ProjectNav
+                project={project}
+                activeCut={activeCut}
+                projectId={projectId}
+                isScriptPage={isScriptPage}
+                router={router}
+                pathname={pathname}
+                dispatch={dispatch}
+              />
+              <div className="flex-1">{children}</div>
+            </SearchProvider>
           </ViewModeProvider>
         </MetricProvider>
       </EditModeProvider>
@@ -392,6 +395,7 @@ function ProjectNav({
         {isScriptPage && (
           <div className="hidden lg:flex items-center gap-1">
             <NavEditModeButton />
+            <NavSearchButton />
             <NavJumpSelect />
           </div>
         )}
@@ -411,6 +415,7 @@ function ProjectNav({
               <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg shadow-lg p-3 z-50 flex flex-col gap-3">
                 <div className="text-xs text-stone-400 dark:text-stone-500 uppercase tracking-wider font-semibold">Script controls</div>
                 <NavEditModeButton onActivated={() => setHamburgerOpen(false)} />
+                <NavSearchButton onActivated={() => setHamburgerOpen(false)} />
                 <NavJumpSelect />
               </div>
             )}
@@ -663,6 +668,26 @@ function EditToolbar({ activeTool, setActiveTool }: { activeTool: EditTool; setA
         </div>
       </div>
     </div>
+  );
+}
+
+function NavSearchButton({ onActivated }: { onActivated?: () => void }) {
+  const { searchOpen, setSearchOpen } = useSearch();
+  return (
+    <button
+      onClick={() => { setSearchOpen(!searchOpen); onActivated?.(); }}
+      title="Find in script (Cmd+F / Ctrl+F)"
+      className={`p-1.5 rounded border transition-colors ${
+        searchOpen
+          ? "bg-amber-100 border-amber-300 text-amber-700 dark:bg-amber-900/40 dark:border-amber-800 dark:text-amber-400"
+          : "border-stone-200 dark:border-stone-700 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 hover:border-stone-300 dark:hover:border-stone-600"
+      }`}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+    </button>
   );
 }
 
