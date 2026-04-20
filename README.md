@@ -7,6 +7,8 @@
 [![CI](https://github.com/terryago11/shakes-script-scissors/actions/workflows/ci.yml/badge.svg)](https://github.com/terryago11/shakes-script-scissors/actions/workflows/ci.yml)
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC_BY--NC--SA_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Vibe coded with Claude Code](https://img.shields.io/badge/vibe_coded_with-Claude_Code-blueviolet)](https://claude.ai/code)
+[![Latest Release](https://img.shields.io/github/v/release/terryago11/shakes-script-scissors?label=download&color=blue)](https://github.com/terryago11/shakes-script-scissors/releases/latest)
+[![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)](https://github.com/terryago11/shakes-script-scissors/releases/latest)
 
 A tool for directors and dramaturgs to cut Shakespeare scripts for production. Load any of the 38 Folger texts of Shakespeare plays, edit (cut, insert, change speech titles, etc.), track before/after line/word counts and estimated running time, manage multiple cut versions, handle double-casting, generate export actor cue scripts, and see charts and stats on your cut — all from the app with no account required.
 
@@ -14,55 +16,7 @@ A tool for directors and dramaturgs to cut Shakespeare scripts for production. L
 
 ---
 
-## Documentation
-
-| Guide | For |
-|-------|-----|
-| [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) | First-time users — open a play, make a cut, assign an actor, export a cue script |
-| [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) | Full feature walkthrough — cutting, casting, dashboard, export |
-| [`docs/FEATURES.md`](docs/FEATURES.md) | Scannable feature reference — every feature in tables |
-| [`docs/SETUP.md`](docs/SETUP.md) | Step-by-step setup for non-technical users (no coding experience needed) |
-| [`docs/architecture.md`](docs/architecture.md) | Component layout, TEI parsing, engine internals |
-| [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | History of completed feature groups |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Planned and deferred features |
-| [`CLAUDE.md`](CLAUDE.md) | Architecture overview, data models, conventions (for contributors) |
-
----
-
-## Setup
-
-Requires Node.js v22 via nvm.
-
-```bash
-# 1. Install dependencies
-export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:$PATH"
-npm install
-
-# 2. Check out the Shakespeare TEI corpus (37 plays, ~15MB)
-git submodule update --init
-
-# 3. Start the dev server
-npm run dev
-# → http://localhost:3000
-```
-
-Not a developer? See the [Setup Guide](docs/SETUP.md) for step-by-step instructions with no assumed technical knowledge.
-
----
-
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start dev server at http://localhost:3000 |
-| `npm run build` | Production build |
-| `npm run lint` | ESLint check |
-| `npm run validate` | Parse all 37 local TEI files and report line/character counts |
-| `npx tsc --noEmit` | TypeScript type check |
-
----
-
-## Desktop App — Download and Install
+## Download
 
 The easiest way to use ShakesScriptScissors is to install the native desktop app. No terminal or Node.js required.
 
@@ -91,6 +45,54 @@ The easiest way to use ShakesScriptScissors is to install the native desktop app
 The desktop app runs the same Next.js server locally — no internet connection required after install (play texts are bundled). Authentication is disabled in the desktop build; the play selector opens directly.
 
 **Network access prompts**: The app may ask for local and/or remote network access on first launch — click **Allow**. The local prompt is for the built-in Next.js server (`localhost`); the remote prompt is for fetching play texts from dracor.org. Both are required.
+
+---
+
+## Documentation
+
+| Guide | For |
+|-------|-----|
+| [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) | First-time users — open a play, make a cut, assign an actor, export a cue script |
+| [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) | Full feature walkthrough — cutting, casting, dashboard, export |
+| [`docs/FEATURES.md`](docs/FEATURES.md) | Scannable feature reference — every feature in tables |
+| [`docs/SETUP.md`](docs/SETUP.md) | Step-by-step setup for non-technical users (no coding experience needed) |
+| [`docs/architecture.md`](docs/architecture.md) | Component layout, TEI parsing, engine internals |
+| [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | History of completed feature groups |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Planned and deferred features |
+| [`CLAUDE.md`](CLAUDE.md) | Architecture overview, data models, conventions (for contributors) |
+
+---
+
+## Developer Setup
+
+> Use this if you want to develop, self-host, or contribute. Most users should [download the desktop app](#download) instead.
+
+Requires Node.js v22 via nvm.
+
+```bash
+# 1. Install dependencies
+export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:$PATH"
+npm install
+
+# 2. Check out the Shakespeare TEI corpus (37 plays, ~15MB)
+git submodule update --init
+
+# 3. Start the dev server
+npm run dev
+# → http://localhost:3000
+```
+
+---
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server at http://localhost:3000 |
+| `npm run build` | Production build |
+| `npm run lint` | ESLint check |
+| `npm run validate` | Parse all 37 local TEI files and report line/character counts |
+| `npx tsc --noEmit` | TypeScript type check |
 
 ---
 

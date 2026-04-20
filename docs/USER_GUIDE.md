@@ -2,7 +2,7 @@
 
 A full feature walkthrough for directors and dramaturgs using the tool in production.
 
-> **Haven't set up the app yet?** See the [Setup Guide](SETUP.md) for step-by-step instructions with no assumed technical knowledge, or the [Quick Setup in the README](../README.md#setup) if you're comfortable with a terminal.
+> **Haven't set up the app yet?** [Download the desktop app](https://github.com/terryago11/shakes-script-scissors/releases/latest) — no terminal required. Or see the [Setup Guide](SETUP.md) for step-by-step source instructions, or the [Developer Setup in the README](../README.md#developer-setup) if you're comfortable with a terminal.
 
 ---
 
@@ -72,19 +72,15 @@ The toolbar shows the active tool. Switch tools using the buttons:
 
 **Help**: click **?** in the toolbar for tool-specific instructions. The Cut tool `?` also shows a "How to cut a play" guide.
 
-### Speech-level cuts
+### Making cuts
 
-**Drag to cut**: in Cut mode, click and drag across any text. The selection highlights in red; release to cut. You can drag across multiple speeches.
+**Drag to cut**: in Cut mode, click and drag across any text — from a single word to whole speeches across a scene. The selection highlights in red; release to cut.
 
-**Restore a speech**: switch to **Restore** mode, then click **↩** on any cut speech to restore it (plus any line cuts within it).
+A speech with some words or lines cut shows in amber (partially cut) rather than full strikethrough.
+
+**Restore a cut**: switch to **Restore** mode, then click **↩** on any cut speech to restore it.
 
 **Restore all in a scene**: click the **↺ restore all** button in the scene header (visible in edit mode) to remove all cuts in that scene.
-
-### Line-level cuts
-
-1. In Cut mode, click **✂** on the left edge of a speech to expand line-level controls.
-2. Toggle individual lines to cut or restore them.
-3. A speech with some lines cut shows in amber (partially cut) rather than full strikethrough.
 
 ### Stage directions
 
@@ -168,7 +164,7 @@ A project can hold many cuts — different versions of the script. Examples: "Fi
 **Switching cuts**: open ⚙ Settings → the Cut selector shows all cuts; click to switch.
 
 **Each cut stores independently**:
-- Speech, line, and word-level cuts
+- Word-level cuts
 - Stage direction character list edits
 - Scene ordering
 - Actor assignments
@@ -341,12 +337,12 @@ Directors who work by highlighting text in a Word document can import that `.doc
 3. Select your `.docx` file — the app parses it immediately.
 4. Review the **preview panel**:
    - A green or amber badge shows the match rate (% of speeches matched to this play's text).
-   - Counts of fully cut speeches, line cuts, and word-level cuts are shown.
+   - Counts of fully cut speeches and word-level cuts are shown.
    - Any highlighted passages that could not be matched are listed in a collapsible section — review these to spot edition mismatches.
 5. Enter a name for the cut and click **Create cut**.
 6. Click **View in script →** to close the modal and go straight to the new cut.
 
-**What is read**: highlighted text only — converted to cuts at speech, line, or word level depending on how much of the text is highlighted.
+**What is read**: highlighted text only — converted to word-level cuts.
 
 **What is ignored**: stage directions (even if highlighted), speaker names and headings, new or inserted text, Word's tracked changes (strikethrough/balloon), and any text that cannot be matched to this play's Folger edition.
 
