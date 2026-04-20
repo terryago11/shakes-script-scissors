@@ -7,25 +7,21 @@ export async function fetchPlayXml(playId: string): Promise<string> {
   const play = PLAYS.find((p) => p.id === playId);
   if (!play) throw new Error(`Unknown play ID: "${playId}"`);
 
-  // Try local submodule first (unless flagged as absent from shakedracor)
+  // Try local files first (submodule, then main-repo tei/ for non-DraCor plays like TNK)
   if (!play.noLocal) {
     const filename = play.localFile ?? play.slug;
-    const localPath = path.join(
-      process.cwd(),
-      "shakedracor",
-      "tei",
-      `${filename}.xml`
-    );
-    try {
-      return await fs.readFile(localPath, "utf-8");
-    } catch {
-      console.warn(
-        `[FolgerClient] Submodule file missing for "${filename}", fetching from DraCor`
-      );
+    for (const dir of ["shakedracor/tei", "tei"]) {
+      const localPath = path.join(process.cwd(), dir, `${filename}.xml`);
+      try {
+        return await fs.readFile(localPath, "utf-8");
+      } catch {
+        // try next location
+      }
     }
+    console.warn(`[FolgerClient] No local file found for "${filename}", fetching from DraCor`);
   }
 
-  // Live DraCor fallback (submodule file missing at runtime)
+  // Live DraCor fallback (play not found locally)
   const url = `${DRACOR_BASE}/${play.slug}/tei`;
   const res = await fetch(url, {
     next: { revalidate: 86400 },
