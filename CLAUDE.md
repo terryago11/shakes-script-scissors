@@ -39,8 +39,9 @@ git add shakedracor && git commit -m "chore: update DraCor submodule"
 
 **The Two Noble Kinsmen (Folger source)**: Check for updates at the `folgerSource` URL in `FolgerClient.ts`, then re-run the normalizer.
 ```bash
-curl -o /tmp/TNK-raw.xml https://www.folgerdigitaltexts.org/download/xml/TNK.xml
-python3 scripts/normalize-folger-tei.py /tmp/TNK-raw.xml shakedracor/tei/the-two-noble-kinsmen.xml
+curl -L -o /tmp/TNK.zip https://www.folgerdigitaltexts.org/download/xml/FolgerDigitalTexts_XML_TNK.zip
+unzip -o /tmp/TNK.zip -d /tmp/TNK_extracted
+python3 scripts/normalize-folger-tei.py /tmp/TNK_extracted/FolgerDigitalTexts_XML_TNK/TNK.xml shakedracor/tei/the-two-noble-kinsmen.xml
 cd shakedracor && git add tei/the-two-noble-kinsmen.xml && git commit -m "chore: update TNK from Folger" && cd ..
 git add shakedracor && git commit -m "chore: update TNK submodule ref"
 ```

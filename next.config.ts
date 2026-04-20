@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 import { execSync } from "child_process";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pkg = require("./package.json") as { version: string };
 
 function getGitCommitDate(): string {
   try {
@@ -16,6 +18,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   env: {
     NEXT_PUBLIC_COMMIT_DATE: getGitCommitDate(),
+    NEXT_PUBLIC_APP_VERSION: pkg.version,
   },
   // Keep pdfkit external so its __dirname-based AFM font resolution works at runtime.
   serverExternalPackages: ["pdfkit"],
