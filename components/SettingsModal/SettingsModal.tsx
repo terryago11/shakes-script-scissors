@@ -461,6 +461,12 @@ export default function SettingsModal({
             <label className={sectionLabel}>About & Copyright</label>
             <div className="text-xs text-stone-400 dark:text-stone-500 space-y-1.5 leading-relaxed">
               <p>
+                Shakespeare Script Scissors is a script-cutting tool for directors and dramaturgs.
+                Load any of 38 Shakespeare plays, mark word-level cuts, assign actors to roles with double-casting support,
+                and export clean actor cue scripts or full annotated Word documents.
+                All data stays in the app — no account required.
+              </p>
+              <p>
                 Shakespeare texts (37 plays) from{" "}
                 <a href="https://dracor.org/shake" target="_blank" rel="noopener noreferrer" className="underline">DraCor</a>.{" "}
                 <em>The Two Noble Kinsmen</em> from{" "}
@@ -477,7 +483,8 @@ export default function SettingsModal({
                 Licensed{" "}
                 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener noreferrer" className="underline">CC BY-NC-SA 4.0</a>.
                 Non-commercial use only. Share-alike required.
-                {process.env.NEXT_PUBLIC_COMMIT_DATE ? ` · v5.18 · updated ${process.env.NEXT_PUBLIC_COMMIT_DATE}` : " · v5.18"}
+                {process.env.NEXT_PUBLIC_APP_VERSION ? ` · v${process.env.NEXT_PUBLIC_APP_VERSION}` : ""}
+                {process.env.NEXT_PUBLIC_COMMIT_DATE ? ` · updated ${process.env.NEXT_PUBLIC_COMMIT_DATE}` : ""}
               </p>
             </div>
           </div>

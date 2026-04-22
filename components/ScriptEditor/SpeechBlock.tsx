@@ -375,8 +375,8 @@ export default function SpeechBlock({
             </span>
           )}
 
-          {/* Delivery note — editable when edit-sds tool is active */}
-          {!isCut && (() => {
+          {/* Delivery note — editable when edit-sds tool is active; hidden on continuation blocks */}
+          {!isCut && !isContinuation && (() => {
             const canEdit = !readonly && activeTool === "edit-sds";
             const dotColor = hasDeliveryNoteEdit && !isClean
               ? (!speech.deliveryNote && !!activeCut?.deliveryNoteEdits?.[speech.id]

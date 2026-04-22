@@ -1,6 +1,6 @@
 {
   "name": "shakes-script-scissors",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Interactive script-cutting tool for Shakespeare productions",
   "author": "Natan S.",
   "main": "electron/main.js",

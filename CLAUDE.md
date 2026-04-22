@@ -76,6 +76,8 @@ Both updates should be done together.
 - `projectIO.ts`: When adding a new field to `Cut` in `types/project.ts`, also add it to `CutSchema` — fields not in the schema are silently stripped on import.
 - `projectUtils.ts`: Always use `getEffectiveSceneOrder(play, cut)` instead of `cut.sceneOrder ?? defaultOrder` in engines — it appends any missing scenes.
 - `defaultColors` excludes reds and greens (reserved for cut/addition UI indicators).
+- `TeiParser.ts` `splitProseByLb`: `<q>/<lg>` nodes with `<l>` children inside `<p>` are now routed to `extractLgLines` (flush pending text first). The `<l>` child guard is precise — `type="letter"` bodies with `<lb>` not `<l>` are unaffected.
+- `DashboardMatrix.tsx` accepts optional `sceneLineTotals?: Map<string, number>` and `sceneWordTotals?: Map<string, number>` props (passed from `SceneDashboard`). When present, `getRowTotal` and `grandTotal` read from these Maps instead of summing per-character cells (which inflated counts for multi-speaker speeches).
 
 ## Data Models
 

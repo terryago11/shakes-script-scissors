@@ -1153,6 +1153,17 @@ function splitProseByLb(pChildren: unknown[], speechId: string, startIndex: numb
       }
     } else if ("#text" in (child as Record<string, unknown>)) {
       currentText += String((child as Record<string, unknown>)["#text"] || "");
+    } else if ((tag === "q" || tag === "lg") && getChildren(child).some((gc) => getTagName(gc) === "l")) {
+      // <q>/<lg> with verse <l> children inside a prose paragraph — flush pending prose,
+      // then extract as verse lines. This handles <p><q type="song"><l>...</l></q></p>
+      // where no <lb> precedes the <q>, so the generic text path silently drops the lines.
+      flush();
+      const qType = (getAttr(child, "@_type") ?? "").toLowerCase();
+      const isSong = qType === "song" || /\bsong\b/.test(qType);
+      const verseLines = extractLgLines(child, speechId, lineIndex, isSong);
+      for (const vl of verseLines) {
+        if (vl.text) { lines.push(vl); lineIndex++; }
+      }
     } else if (tag) {
       // Inline elements (e.g. <hi>, <w>) — extract their text
       currentText += extractAllText(getChildren(child));
