@@ -118,7 +118,6 @@ export async function renderScriptDocx(
             cut.deliveryNoteEdits?.[speech.id] !== undefined
               ? cut.deliveryNoteEdits[speech.id] || undefined
               : speech.deliveryNote;
-          const delivery = effectiveDeliveryNote ? ` ${effectiveDeliveryNote}` : "";
 
           // Speaker label: in standard mode show original struck-out + new name for reassignments
           const labelRuns: TextRun[] = [];
@@ -131,17 +130,31 @@ export async function renderScriptDocx(
             // New name in green
             const newName = resolveSpeakerLabel(speech, cut);
             labelRuns.push(new TextRun({
-              text: (newName + delivery).toUpperCase(),
+              text: newName.toUpperCase(),
               bold: true, size: 18, color: "1d6b38",
             }));
+            if (effectiveDeliveryNote) {
+              labelRuns.push(new TextRun({
+                text: ` ${effectiveDeliveryNote.toUpperCase()}`,
+                italics: true, bold: false, size: 18, color: "1d6b38",
+              }));
+            }
           } else {
             const label = resolveSpeakerLabel(speech, cut);
             labelRuns.push(new TextRun({
-              text: (label + delivery).toUpperCase(),
+              text: label.toUpperCase(),
               bold: true, size: 18,
               ...(effectivelyCut ? { strike: true, color: "999999" } : {}),
               ...(isInsertion ? { color: "1d6b38" } : {}),
             }));
+            if (effectiveDeliveryNote) {
+              labelRuns.push(new TextRun({
+                text: ` ${effectiveDeliveryNote.toUpperCase()}`,
+                italics: true, bold: false, size: 18,
+                ...(effectivelyCut ? { strike: true, color: "999999" } : {}),
+                ...(isInsertion ? { color: "1d6b38" } : {}),
+              }));
+            }
           }
 
           paragraphs.push(
@@ -171,13 +184,13 @@ export async function renderScriptDocx(
                 .filter((s) => s.type !== "cut" || viewMode === "standard")
                 .map((s) => {
                   if (s.type === "cut") {
-                    return new TextRun({ text: s.text, size: 22, strike: true, color: "999999" });
+                    return new TextRun({ text: s.text, size: 24, strike: true, color: "999999" });
                   } else if (s.type === "insert") {
                     // Inserted words: underlined to distinguish from original text
-                    return new TextRun({ text: s.text, size: 22, underline: {}, color: "1d6b38" });
+                    return new TextRun({ text: s.text, size: 24, underline: {}, color: "1d6b38" });
                   } else {
                     return new TextRun({
-                      text: s.text, size: 22,
+                      text: s.text, size: 24,
                       ...(baseStrike ? { strike: true, color: "999999" } : {}),
                     });
                   }
@@ -190,12 +203,12 @@ export async function renderScriptDocx(
                 .map((s) => s.text)
                 .join("");
               if (!text.trim()) continue;
-              runs = [new TextRun({ text, size: 22 })];
+              runs = [new TextRun({ text, size: 24 })];
             } else {
               if (!line.text.trim()) continue;
               runs = [new TextRun({
                 text: line.text,
-                size: 22,
+                size: 24,
                 ...(baseStrike ? { strike: true, color: "999999" } : {}),
                 // Highlight inserted speeches (from cut.insertions) in green
                 ...(isInsertion ? { color: "1d6b38" } : {}),
@@ -246,7 +259,7 @@ export async function renderScriptDocx(
     sections: [{ children: paragraphs }],
     styles: {
       default: {
-        document: { run: { font: "Times New Roman", size: 22 } },
+        document: { run: { font: "Times New Roman", size: 24 } },
       },
     },
   });

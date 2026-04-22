@@ -174,8 +174,12 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
 
   // Actual scene durations (words / wpm) — includes virtual sub-scene IDs when subdivided
   const sceneTimings = new Map<string, number>();
+  const sceneLineTotals = new Map<string, number>();
+  const sceneWordTotals = new Map<string, number>();
   for (const [sceneKey, sc] of Object.entries(lineCounts.byScene)) {
     sceneTimings.set(sceneKey, sc.words.afterCut / wpm);
+    sceneLineTotals.set(sceneKey, sc.lines.afterCut);
+    sceneWordTotals.set(sceneKey, sc.words.afterCut);
   }
 
   // Fully-cut scenes: had lines originally but afterCut = 0
@@ -407,6 +411,8 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           characterAliases={activeCut.characterAliases}
           viewType="table"
           sceneTimings={sceneTimings}
+          sceneLineTotals={sceneLineTotals}
+          sceneWordTotals={sceneWordTotals}
           actDescriptions={project.actDescriptions}
           sceneDescriptions={project.sceneDescriptions}
         />
@@ -449,6 +455,8 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
               characterAliases={activeCut.characterAliases}
               viewType="chart"
               sceneTimings={sceneTimings}
+              sceneLineTotals={sceneLineTotals}
+              sceneWordTotals={sceneWordTotals}
               actDescriptions={project.actDescriptions}
               sceneDescriptions={project.sceneDescriptions}
             />

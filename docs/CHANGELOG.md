@@ -4,6 +4,14 @@ Completed feature groups for shakes-script-scissors.
 
 ## Done ✓
 
+- **v1.0.8 — Critical bug fixes + About**
+  - **Song parsing** (`TeiParser.ts`): `<p><q type="song"><l>` nesting silently dropped lines because `splitProseByLb` had no `<lb>` ID for `flush()`. Added a guard: detect `<q>/<lg>` with `<l>` children inside prose, flush pending text, then delegate to `extractLgLines`. Also catches `type="letter"` bodies with `<l>` children (e.g. Two Gentlemen). Letter bodies using `<lb>` are unaffected by the guard.
+  - **Delivery note on continuation speeches** (`SpeechBlock.tsx`): continuation blocks (Part 2+ of a split speech) no longer show the delivery note (e.g. `[aside]`) that belongs only to the first segment. Fixed by adding `!isContinuation` guard alongside existing `!isCut` check.
+  - **Word export — delivery note italic** (`renderScriptDocx.ts`): delivery note was concatenated into the bold speaker-label `TextRun`. Now emitted as a separate `TextRun` with `italics: true, bold: false` in both the normal and reassignment branches.
+  - **Word export — body text 12pt** (`renderScriptDocx.ts`): all body text runs changed from `size: 22` (11pt) to `size: 24` (12pt). Speaker label runs (`size: 18`, 9pt) unchanged.
+  - **Dashboard matrix totals** (`SceneDashboard.tsx`, `DashboardMatrix.tsx`): Total row and grand total were inflated for scenes with multi-speaker speeches (each speaker's count was summed separately). Fixed by deriving scene-level line/word totals from `lineCounts.byScene` (CutEngine increments once per speech, not per speaker) and passing them as `sceneLineTotals` / `sceneWordTotals` Maps to `DashboardMatrix`. Column totals (per-character) are unchanged.
+  - **About section** (`SettingsModal.tsx`): added 4-sentence app description; version now reads from `NEXT_PUBLIC_APP_VERSION` (injected from `package.json`) instead of a hardcoded string; build date shown when `NEXT_PUBLIC_COMMIT_DATE` is set.
+
 - **v1.0.7 — TEI rendering fixes + script search**
   - **Inline SD ordering**: `<stage>` elements mid-verse/mid-prose now render in correct reading order — text before the stage → SD block → continuation text indented as a shared verse line. New `stageNotePre` field on `Line` preserves the pre-stage text through the parser → `expandStageNotes` pipeline. Prose lines updated in `splitProseByLb` too.
   - **Song detection**: songs encoded as `<lg type="quatrain">` (or other `POEM_LG_TYPES`) preceded by `<label>Song.</label>` are now correctly detected as songs (`inSongContext || !POEM_LG_TYPES.has(lgType)`). Fixes "Full fathom five" in The Tempest.

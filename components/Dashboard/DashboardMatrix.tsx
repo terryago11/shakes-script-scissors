@@ -36,6 +36,10 @@ interface Props {
   viewType: "table" | "chart";
   /** Actual scene durations (wordsAfterCut / wpm) for correct row totals in time metric */
   sceneTimings?: Map<string, number>;
+  /** Scene-level line totals from CutEngine (de-duplicated; avoids multi-speaker inflation) */
+  sceneLineTotals?: Map<string, number>;
+  /** Scene-level word totals from CutEngine (de-duplicated; avoids multi-speaker inflation) */
+  sceneWordTotals?: Map<string, number>;
   actDescriptions?: Record<string, string>;
   sceneDescriptions?: Record<string, string>;
   /** When provided, replaces effectiveSceneOrder for columns — expands subdivided scenes to A/B/C sub-columns */
@@ -65,6 +69,8 @@ export default function DashboardMatrix({
   characterAliases,
   viewType,
   sceneTimings,
+  sceneLineTotals,
+  sceneWordTotals,
   actDescriptions,
   sceneDescriptions,
   columnEntries,
@@ -175,11 +181,11 @@ export default function DashboardMatrix({
     if (firstVisible) visibleGroupStartSet.add(firstVisible);
   }
 
-  /** Row total for time: use actual scene duration to avoid double-counting simultaneous chars */
+  /** Row total: use scene-level engine data to avoid double-counting multi-speaker speeches */
   function getRowTotal(sceneId: string): number {
-    if (metric === "time" && sceneTimings) {
-      return sceneTimings.get(sceneId) ?? 0;
-    }
+    if (metric === "time" && sceneTimings) return sceneTimings.get(sceneId) ?? 0;
+    if (metric === "lines" && sceneLineTotals) return sceneLineTotals.get(sceneId) ?? 0;
+    if (metric === "words" && sceneWordTotals) return sceneWordTotals.get(sceneId) ?? 0;
     return visibleCharIds.reduce((sum, charId) => sum + getCellValue(charId, sceneId), 0);
   }
 
@@ -187,9 +193,15 @@ export default function DashboardMatrix({
     return visibleSceneIds.reduce((sum, sceneId) => sum + getCellValue(charId, sceneId), 0);
   }
 
-  const grandTotal = metric === "time" && sceneTimings
-    ? visibleSceneIds.reduce((sum, sid) => sum + (sceneTimings.get(sid) ?? 0), 0)
-    : visibleCharIds.reduce((sum, charId) => sum + getColTotal(charId), 0);
+  const grandTotal = (() => {
+    if (metric === "time" && sceneTimings)
+      return visibleSceneIds.reduce((sum, sid) => sum + (sceneTimings.get(sid) ?? 0), 0);
+    if (metric === "lines" && sceneLineTotals)
+      return visibleSceneIds.reduce((sum, sid) => sum + (sceneLineTotals.get(sid) ?? 0), 0);
+    if (metric === "words" && sceneWordTotals)
+      return visibleSceneIds.reduce((sum, sid) => sum + (sceneWordTotals.get(sid) ?? 0), 0);
+    return visibleCharIds.reduce((sum, charId) => sum + getColTotal(charId), 0);
+  })();
 
   // Chart data: per-character totals across all (unfiltered) columns, sorted descending
   const charTotals = orderedCharIds
