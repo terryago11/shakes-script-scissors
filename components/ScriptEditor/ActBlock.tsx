@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { Act, Character, Scene } from "@/types/play";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import type { ScriptUnitWithStatus, LineCounts } from "@/types/cut";
@@ -53,6 +53,12 @@ interface Props {
   onRestoreScene?: () => void;
   /** Active cut — used to compute splitUnitIds for sub-scene dividers in SceneBlock */
   activeCut?: Cut;
+  /** Whether this act is collapsed (lifted from ScriptEditor) */
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+  /** Scene-level collapse state (lifted from ScriptEditor) */
+  collapsedScenes?: Set<string>;
+  onToggleScene?: (sceneId: string) => void;
 }
 
 export default function ActBlock({
@@ -66,10 +72,18 @@ export default function ActBlock({
   insertedSDs,
   onRestoreScene,
   activeCut,
+  collapsed, onToggleCollapsed,
+  collapsedScenes, onToggleScene,
 }: Props) {
-  const [collapsed, setCollapsed] = useState(false);
-  // Generation increments each time act collapses → SceneBlocks remount in collapsed state
+  // Increment generation each time act transitions to collapsed → SceneBlocks remount fresh (uncollapsed)
   const [generation, setGeneration] = useState(0);
+  const prevCollapsedRef = useRef(collapsed);
+  useEffect(() => {
+    if (collapsed && !prevCollapsedRef.current) {
+      setGeneration((g) => g + 1);
+    }
+    prevCollapsedRef.current = collapsed;
+  }, [collapsed]);
   const { metric, wpm } = useMetric();
   const { viewMode } = useViewMode();
   const isClean = viewMode === "clean";
@@ -95,12 +109,7 @@ export default function ActBlock({
   // Hide act entirely if no scenes to show
   if (displayScenes.length === 0) return null;
 
-  function handleToggle() {
-    if (!collapsed) {
-      setGeneration((g) => g + 1);
-    }
-    setCollapsed((c) => !c);
-  }
+  function handleToggle() { onToggleCollapsed(); }
 
   const actCounts = lineCounts?.byAct[act.id];
   const counts = actCounts
@@ -185,6 +194,8 @@ export default function ActBlock({
                   filteredCharacterIds={filteredCharacterIds}
                   sceneCounts={showOriginal ? undefined : lineCounts?.byScene[scene.id]}
                   focusedSceneId={focusedSceneId}
+                  collapsed={collapsedScenes?.has(scene.id) ?? false}
+                  onToggleCollapsed={() => onToggleScene?.(scene.id)}
                   showOriginal={showOriginal}
                   speechReassignments={showOriginal ? undefined : speechReassignments}
                   charsWithEntrance={charsWithEntrance}

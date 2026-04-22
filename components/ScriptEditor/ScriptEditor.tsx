@@ -148,7 +148,7 @@ export default function ScriptEditor({ playId }: Props) {
   // Diff mode cut pickers: null = active cut (left) / original text (right)
   const [diffLeftId, setDiffLeftId] = useState<string | null>(null);
   const [diffRightId, setDiffRightId] = useState<string | null>(null);
-  const { setScenes, setActiveSceneId, jumpingRef, focusedSceneId, setFocusedSceneId, setHiddenSceneIds } = useSceneJump();
+  const { scenes, setScenes, activeSceneId, setActiveSceneId, jumpToScene, jumpingRef, focusedSceneId, setFocusedSceneId, hiddenSceneIds, setHiddenSceneIds } = useSceneJump();
   const { activeTool, setActiveTool } = useEditMode();
   const { viewMode } = useViewMode();
   const { setWpm } = useMetric();
@@ -158,6 +158,10 @@ export default function ScriptEditor({ playId }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchIdx, setSearchMatchIdx] = useState(0);
   const [searchHighlightId, setSearchHighlightId] = useState<string | null>(null);
+  const [collapsedActs, setCollapsedActs] = useState<Set<string>>(new Set());
+  const [collapsedScenes, setCollapsedScenes] = useState<Set<string>>(new Set());
+  const pendingScrollRef = useRef<string | null>(null);
+  const [scenePickerOpen, setScenePickerOpen] = useState(false);
 
   // Keep MetricContext WPM in sync with project settings
   useEffect(() => {
@@ -190,6 +194,26 @@ export default function ScriptEditor({ playId }: Props) {
     const el = scriptColRef.current?.querySelector(`[data-line-id="${searchHighlightId}"]`);
     if (el) el.setAttribute("data-search-current", "true");
   }, [searchHighlightId]);
+
+  // Close scene picker on outside click
+  useEffect(() => {
+    if (!scenePickerOpen) return;
+    function handle(e: MouseEvent) {
+      if (!(e.target as Element).closest("[data-scene-picker]")) setScenePickerOpen(false);
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [scenePickerOpen]);
+
+  // After expanding a collapsed act/scene, scroll to the pending search match
+  useEffect(() => {
+    if (!pendingScrollRef.current) return;
+    const el = scriptColRef.current?.querySelector(`[data-line-id="${pendingScrollRef.current}"]`);
+    if (el) {
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      pendingScrollRef.current = null;
+    }
+  }, [collapsedActs, collapsedScenes]);
 
   // Cmd+F / Ctrl+F opens in-script search; Esc closes it
   useEffect(() => {
@@ -312,7 +336,7 @@ export default function ScriptEditor({ playId }: Props) {
       }
     }, 100);
     return () => { clearTimeout(timeout); observer.disconnect(); };
-  }, [play, setActiveSceneId]);
+  }, [play, setActiveSceneId, collapsedActs]);
 
   // Reset diff pickers if their referenced cuts are deleted
   useEffect(() => {
@@ -329,6 +353,39 @@ export default function ScriptEditor({ playId }: Props) {
   }
   if (!project || !activeCut) return null;
 
+  // Map lineId → { sceneId, actId } for search auto-expand
+  const lineToLocation = new Map<string, { sceneId: string; actId: string }>();
+  for (const act of play.acts) {
+    for (const scene of act.scenes) {
+      for (const unit of scene.units) {
+        if (unit.type === "speech") {
+          for (const line of unit.lines) {
+            lineToLocation.set(line.id, { sceneId: scene.id, actId: act.id });
+          }
+        }
+      }
+    }
+  }
+
+  // Map sceneId → { actTitle, sceneTitle } for context strip
+  const sceneContextMap = new Map<string, { actTitle: string; sceneTitle: string }>();
+  for (const act of play.acts) {
+    const actTitle = act.divType === "prologue" ? "Prologue"
+      : act.divType === "epilogue" ? "Epilogue"
+      : act.divType === "induction" ? "Induction"
+      : act.title;
+    for (const scene of act.scenes) {
+      sceneContextMap.set(scene.id, { actTitle, sceneTitle: scene.title });
+    }
+  }
+
+  const contextLabel = (() => {
+    if (!activeSceneId) return null;
+    const ctx = sceneContextMap.get(activeSceneId);
+    if (!ctx) return null;
+    return `${ctx.actTitle} · ${ctx.sceneTitle}`;
+  })();
+
   // Original play units — unexpanded, no cut filtering — used by DiffView's right (original) column
   const origUnitsByScene = new Map<string, import("@/types/play").ScriptUnit[]>();
   for (const act of play.acts) {
@@ -344,20 +401,59 @@ export default function ScriptEditor({ playId }: Props) {
     project.actors
   );
 
-  // Build flat search index from kept units. Each entry maps a line DOM id to its text.
-  // Character-name entries use the first line id of that speech as the anchor.
+  // Diff mode: resolve left/right cuts (declared here so search index can use them)
+  const leftDiffCut = diffLeftId ? (project.cuts.find((c) => c.id === diffLeftId) ?? activeCut) : activeCut;
+  const rightDiffCut = diffRightId ? (project.cuts.find((c) => c.id === diffRightId) ?? null) : null;
+  const diffLeftUnits = (viewMode === "diff" && diffLeftId && diffLeftId !== activeCut.id)
+    ? computeCuts(play, leftDiffCut, project.assignments, project.actors).unitsByScene
+    : unitsByScene;
+  const diffRightUnits = (viewMode === "diff" && rightDiffCut && play)
+    ? computeCuts(play, rightDiffCut, project.assignments, project.actors).unitsByScene
+    : undefined;
+  const diffRightSpeechEdits = rightDiffCut?.speechEdits;
+
+  // Build flat search index. Scope depends on view mode:
+  //   standard — all speeches including cut ones
+  //   clean    — only kept speeches and kept individual lines
+  //   diff     — left column (all) + right column (all), deduplicated by lineId
   type SearchEntry = { lineId: string; text: string };
   const searchIndex: SearchEntry[] = [];
-  if (viewMode !== "diff") {
+
+  if (viewMode === "clean") {
     for (const units of unitsByScene.values()) {
-      for (const { unit, status } of units) {
+      for (const { unit, status, lineStatuses } of units) {
         if (status === "cut" || unit.type !== "speech") continue;
-        // Character name — anchors to the first line
-        if (unit.lines.length > 0) {
-          searchIndex.push({ lineId: unit.lines[0].id, text: unit.characterName });
+        if (unit.lines.length > 0) searchIndex.push({ lineId: unit.lines[0].id, text: unit.characterName });
+        const lineStatusMap = new Map((lineStatuses ?? []).map((ls) => [ls.lineId, ls.status]));
+        for (const line of unit.lines) {
+          if ((lineStatusMap.get(line.id) ?? "kept") !== "cut") {
+            searchIndex.push({ lineId: line.id, text: line.text });
+          }
         }
+      }
+    }
+  } else {
+    // standard or diff: include all speeches (cut or kept) from the left/main column
+    for (const units of unitsByScene.values()) {
+      for (const { unit } of units) {
+        if (unit.type !== "speech") continue;
+        if (unit.lines.length > 0) searchIndex.push({ lineId: unit.lines[0].id, text: unit.characterName });
         for (const line of unit.lines) {
           searchIndex.push({ lineId: line.id, text: line.text });
+        }
+      }
+    }
+    // diff: also search right column, deduplicated
+    if (viewMode === "diff") {
+      const seen = new Set(searchIndex.map((e) => e.lineId));
+      const rightSrc = diffRightUnits ?? origUnitsByScene;
+      for (const units of rightSrc.values()) {
+        for (const u of units) {
+          const unit = "unit" in u ? u.unit : u;
+          if (unit.type !== "speech") continue;
+          for (const line of unit.lines) {
+            if (!seen.has(line.id)) { seen.add(line.id); searchIndex.push({ lineId: line.id, text: line.text }); }
+          }
         }
       }
     }
@@ -367,21 +463,6 @@ export default function ScriptEditor({ playId }: Props) {
     : [];
   const clampedMatchIdx = searchMatches.length > 0 ? searchMatchIdx % searchMatches.length : 0;
   const currentMatch = searchMatches[clampedMatchIdx] ?? null;
-
-  // Diff mode: resolve left/right cuts
-  const leftDiffCut = diffLeftId ? (project.cuts.find((c) => c.id === diffLeftId) ?? activeCut) : activeCut;
-  const rightDiffCut = diffRightId ? (project.cuts.find((c) => c.id === diffRightId) ?? null) : null;
-
-  // Recompute left units only when a different cut is selected for left column
-  const diffLeftUnits = (viewMode === "diff" && diffLeftId && diffLeftId !== activeCut.id)
-    ? computeCuts(play, leftDiffCut, project.assignments, project.actors).unitsByScene
-    : unitsByScene;
-
-  // Right column: when a cut is selected, compute its full unit statuses for DiffView
-  const diffRightUnits = (viewMode === "diff" && rightDiffCut && play)
-    ? computeCuts(play, rightDiffCut, project.assignments, project.actors).unitsByScene
-    : undefined;
-  const diffRightSpeechEdits = rightDiffCut?.speechEdits;
 
   const stageTime = computeStageTime(play, activeCut, project.settings);
 
@@ -415,12 +496,53 @@ export default function ScriptEditor({ playId }: Props) {
     dispatch({ type: "REASSIGN_SPEECH", unitId, characterIds });
   }
 
+  function toggleAct(actId: string) {
+    const isCollapsing = !collapsedActs.has(actId);
+    setCollapsedActs((prev) => {
+      const next = new Set(prev);
+      isCollapsing ? next.add(actId) : next.delete(actId);
+      return next;
+    });
+    if (isCollapsing) {
+      const actScenes = play!.acts.find((a) => a.id === actId)?.scenes ?? [];
+      setCollapsedScenes((prev) => {
+        const next = new Set(prev);
+        actScenes.forEach((s) => next.delete(s.id));
+        return next;
+      });
+    }
+  }
+
+  function toggleScene(sceneId: string) {
+    setCollapsedScenes((prev) => {
+      const next = new Set(prev);
+      next.has(sceneId) ? next.delete(sceneId) : next.add(sceneId);
+      return next;
+    });
+  }
+
   function scrollToMatch(matches: SearchEntry[], idx: number) {
     const match = matches[idx % matches.length];
     if (!match) return;
     setSearchHighlightId(match.lineId);
-    const el = scriptColRef.current?.querySelector(`[data-line-id="${match.lineId}"]`);
-    if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+    const loc = lineToLocation.get(match.lineId);
+    let needsExpand = false;
+    if (loc) {
+      if (collapsedActs.has(loc.actId)) {
+        setCollapsedActs((prev) => { const next = new Set(prev); next.delete(loc.actId); return next; });
+        needsExpand = true;
+      }
+      if (collapsedScenes.has(loc.sceneId)) {
+        setCollapsedScenes((prev) => { const next = new Set(prev); next.delete(loc.sceneId); return next; });
+        needsExpand = true;
+      }
+    }
+    if (needsExpand) {
+      pendingScrollRef.current = match.lineId;
+    } else {
+      const el = scriptColRef.current?.querySelector(`[data-line-id="${match.lineId}"]`);
+      if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
   }
 
   function handleSearchNext() {
@@ -614,6 +736,79 @@ export default function ScriptEditor({ playId }: Props) {
   };
 
   return (
+    <>
+    {/* Focus mode strip — same shape/size as context strip, fixed below navbar */}
+    {focusedSceneId && viewMode !== "diff" && !searchOpen && (
+      <div className="no-print fixed top-14 left-0 right-0 z-10">
+        <div className="flex items-center bg-amber-50/95 dark:bg-amber-950/95 backdrop-blur-sm border-b border-amber-200 dark:border-amber-900">
+          <button
+            onClick={() => setFocusedSceneId(null)}
+            title="Exit focus"
+            className="shrink-0 px-3 py-1 text-amber-500 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-100/95 dark:hover:bg-amber-900/95 transition-colors border-r border-amber-200 dark:border-amber-900 text-sm"
+          >
+            ◉
+          </button>
+          <span className="flex-1 text-xs text-amber-700 dark:text-amber-400 font-medium tracking-wide px-3 py-1">
+            {focusedSceneTitle ?? "Focused scene"}
+          </span>
+        </div>
+      </div>
+    )}
+
+    {/* Context strip — fixed below navbar, doubles as scene jumper + focus toggle */}
+    {contextLabel && !focusedSceneId && viewMode !== "diff" && !searchOpen && (
+      <div data-scene-picker className="no-print fixed top-14 left-0 right-0 z-10">
+        <div className="flex items-center bg-white/95 dark:bg-stone-950/95 backdrop-blur-sm border-b border-stone-100 dark:border-stone-800">
+          {/* Focus toggle */}
+          <button
+            onClick={() => activeSceneId && setFocusedSceneId(activeSceneId)}
+            title="Focus on current scene"
+            className="shrink-0 px-3 py-1 text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-stone-50/95 dark:hover:bg-stone-900/95 transition-colors border-r border-stone-100 dark:border-stone-800 text-sm"
+          >
+            ○
+          </button>
+          {/* Scene picker trigger */}
+          <button
+            onClick={() => setScenePickerOpen((o) => !o)}
+            className="flex-1 flex items-center gap-1.5 px-3 py-1 hover:bg-stone-50/95 dark:hover:bg-stone-900/95 transition-colors text-left"
+          >
+            <span className="text-xs text-stone-400 dark:text-stone-500 font-medium tracking-wide flex-1">
+              {contextLabel}
+            </span>
+            <svg
+              className={`w-3 h-3 text-stone-400 dark:text-stone-500 shrink-0 transition-transform ${scenePickerOpen ? "rotate-180" : ""}`}
+              viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="1.5"
+            >
+              <path d="M1 1l4 4 4-4"/>
+            </svg>
+          </button>
+        </div>
+        {scenePickerOpen && (
+          <div className="absolute top-full left-0 right-0 max-h-64 overflow-y-auto bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-700 shadow-md">
+            {scenes.map((scene) => {
+              const ctx = sceneContextMap.get(scene.id);
+              const isActive = scene.id === activeSceneId;
+              const isHidden = hiddenSceneIds.has(scene.id);
+              return (
+                <button
+                  key={scene.id}
+                  disabled={isHidden}
+                  onClick={() => { setActiveSceneId(scene.id); jumpToScene(scene.id); setScenePickerOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-1.5 text-left text-xs transition-colors ${
+                    isHidden ? "text-stone-300 dark:text-stone-600 cursor-default"
+                    : isActive ? "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400"
+                    : "text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800"
+                  }`}
+                >
+                  <span className="tabular-nums font-mono text-stone-400 dark:text-stone-500 shrink-0 w-8">{scene.label}</span>
+                  <span>{ctx ? `${ctx.actTitle} · ${ctx.sceneTitle}` : scene.id}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    )}
     <div className="max-w-screen-xl mx-auto flex gap-0">
       {/* Script column */}
       <div
@@ -621,30 +816,15 @@ export default function ScriptEditor({ playId }: Props) {
         className={`flex-1 min-w-0 overflow-y-auto ${activeTool === "cut" ? "cursor-crosshair select-text" : ""}`}
         onMouseUp={handleScriptMouseUp}
       >
-        {/* Focus banner + filter badge */}
-        {(focusedSceneId || filterLabel) && (
+        {/* Filter badge — shown when filtering by character/actor */}
+        {filterLabel && viewMode !== "diff" && (
           <div className="no-print sticky top-14 z-20 bg-white dark:bg-stone-950">
-            {focusedSceneId && (
-              <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900 px-4 py-1.5 flex items-center gap-3">
-                <span className="text-sm text-amber-700 dark:text-amber-400 font-medium">
-                  {focusedSceneTitle ?? "Focused scene"}
-                </span>
-                <button
-                  onClick={() => setFocusedSceneId(null)}
-                  className="ml-auto text-xs px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900 border border-amber-200 dark:border-amber-800 font-medium transition-colors shrink-0"
-                >
-                  ✕ Exit focus
-                </button>
+            <div className="px-4 py-2 border-b border-stone-100 dark:border-stone-800 flex items-center gap-2">
+              <div className="flex items-center gap-1.5 text-xs bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 px-2 py-1 rounded">
+                <span>Showing: <strong>{filterLabel}</strong></span>
+                <button onClick={() => setFilter(null)} className="text-amber-500 hover:text-amber-700 font-medium ml-1">✕</button>
               </div>
-            )}
-            {filterLabel && (
-              <div className="px-4 py-2 border-b border-stone-100 dark:border-stone-800 flex items-center gap-2">
-                <div className="flex items-center gap-1.5 text-xs bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 px-2 py-1 rounded">
-                  <span>Showing: <strong>{filterLabel}</strong></span>
-                  <button onClick={() => setFilter(null)} className="text-amber-500 hover:text-amber-700 font-medium ml-1">✕</button>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
 
@@ -720,8 +900,9 @@ export default function ScriptEditor({ playId }: Props) {
           />
         ) : (
           <div className={`px-4 pb-6 ${
-            focusedSceneId && filterLabel ? "pt-24"
-            : (focusedSceneId || filterLabel) ? "pt-16"
+            (focusedSceneId || contextLabel) && filterLabel ? "pt-24"
+            : (focusedSceneId || contextLabel) ? "pt-12"
+            : filterLabel ? "pt-16"
             : "pt-6"
           }`}>
             {orderedGroups.map((group) => (
@@ -729,6 +910,10 @@ export default function ScriptEditor({ playId }: Props) {
                 key={`${group.act.id}-${group.scenes[0].id}`}
                 act={group.act}
                 scenes={group.scenes}
+                collapsed={collapsedActs.has(group.act.id)}
+                onToggleCollapsed={() => toggleAct(group.act.id)}
+                collapsedScenes={collapsedScenes}
+                onToggleScene={toggleScene}
                 onToggle={handleToggle}
                 speechEdits={activeCut.speechEdits}
                 onClearEdits={handleClearEdits}
@@ -796,5 +981,6 @@ export default function ScriptEditor({ playId }: Props) {
         onDismiss={() => setEasterEggVisible(false)}
       />
     </div>
+    </>
   );
 }
