@@ -396,8 +396,7 @@ function ProjectNav({
           <div className="hidden lg:flex items-center gap-1">
             <NavEditModeButton />
             <NavSearchButton />
-            <NavJumpSelect />
-          </div>
+                      </div>
         )}
 
         {/* Hamburger — tablet/mobile, script page only */}
@@ -416,8 +415,7 @@ function ProjectNav({
                 <div className="text-xs text-stone-400 dark:text-stone-500 uppercase tracking-wider font-semibold">Script controls</div>
                 <NavEditModeButton onActivated={() => setHamburgerOpen(false)} />
                 <NavSearchButton onActivated={() => setHamburgerOpen(false)} />
-                <NavJumpSelect />
-              </div>
+                              </div>
             )}
           </div>
         )}
@@ -691,59 +689,29 @@ function NavSearchButton({ onActivated }: { onActivated?: () => void }) {
   );
 }
 
-/** Condensed scene jump select — labels like "1:1", "2:3", "pr:1", "3:ch" */
-function NavJumpSelect() {
-  const { scenes, activeSceneId, setActiveSceneId, jumpToScene, focusedSceneId, setFocusedSceneId, hiddenSceneIds } = useSceneJump();
+/** Focus-mode toggle button — stays in the navbar */
+function NavFocusButton() {
+  const { scenes, activeSceneId, focusedSceneId, setFocusedSceneId } = useSceneJump();
   if (scenes.length === 0) return null;
 
   const isFocused = !!focusedSceneId;
 
   function handleFocusToggle() {
-    if (isFocused) {
-      setFocusedSceneId(null);
-    } else if (activeSceneId) {
-      setFocusedSceneId(activeSceneId);
-    }
+    if (isFocused) setFocusedSceneId(null);
+    else if (activeSceneId) setFocusedSceneId(activeSceneId);
   }
 
-  const focusedLabel = isFocused
-    ? scenes.find((s) => s.id === focusedSceneId)?.label ?? "?"
-    : null;
-
   return (
-    <div className="flex items-center gap-1 shrink-0">
-      {isFocused ? (
-        <span
-          className="text-xs font-medium tabular-nums px-2 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 w-16 text-center select-none"
-          title="Scene jumper locked in focus mode"
-        >
-          {focusedLabel}
-        </span>
-      ) : (
-        <select
-          value={activeSceneId}
-          onChange={(e) => { const val = e.target.value; if (val) { setActiveSceneId(val); jumpToScene(val); } }}
-          className="text-xs px-2 py-1.5 border border-stone-200 dark:border-stone-700 rounded bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 hover:border-stone-300 dark:hover:border-stone-600 focus:outline-none focus:ring-1 focus:ring-amber-400 w-16"
-        >
-          <option value="">—</option>
-          {scenes.map((s) => (
-            <option key={s.id} value={s.id} disabled={hiddenSceneIds.has(s.id)}>
-              {hiddenSceneIds.has(s.id) ? `— ${s.label}` : s.label}
-            </option>
-          ))}
-        </select>
-      )}
-      <button
-        onClick={handleFocusToggle}
-        title={isFocused ? "Exit focus" : "Focus current scene"}
-        className={`text-sm px-1.5 py-1 rounded border transition-colors ${
-          isFocused
-            ? "bg-amber-100 border-amber-300 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:border-amber-800 dark:text-amber-400"
-            : "border-stone-200 text-stone-400 hover:border-stone-300 hover:text-stone-600 dark:border-stone-700 dark:text-stone-400 dark:hover:border-stone-600 dark:hover:text-stone-300"
-        }`}
-      >
-        {isFocused ? "◉" : "○"}
-      </button>
-    </div>
+    <button
+      onClick={handleFocusToggle}
+      title={isFocused ? "Exit focus" : "Focus current scene"}
+      className={`text-sm px-1.5 py-1 rounded border transition-colors ${
+        isFocused
+          ? "bg-amber-100 border-amber-300 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:border-amber-800 dark:text-amber-400"
+          : "border-stone-200 text-stone-400 hover:border-stone-300 hover:text-stone-600 dark:border-stone-700 dark:text-stone-400 dark:hover:border-stone-600 dark:hover:text-stone-300"
+      }`}
+    >
+      {isFocused ? "◉" : "○"}
+    </button>
   );
 }

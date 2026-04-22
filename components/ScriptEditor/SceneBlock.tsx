@@ -33,6 +33,8 @@ interface Props {
   sceneCounts?: SceneCounts;
   // Scene focus (used by ActBlock to filter visible scenes)
   focusedSceneId: string | null;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
   /** When true, render all content as original (no cuts/edits applied) — for diff side-by-side */
   showOriginal?: boolean;
   /** unitId → speaker override (string[] = set of effective speakers) */
@@ -65,7 +67,7 @@ interface Props {
 export default function SceneBlock({
   scene, units, assignments, actors, castList, onToggle, speechEdits, onClearEdits,
   filteredCharacterIds, sceneCounts,
-  focusedSceneId, showOriginal,
+  focusedSceneId, collapsed, onToggleCollapsed, showOriginal,
   speechReassignments, charsWithEntrance, onReassign,
   characterAliases, stageDirectionEdits,
   speechSplits, onSplit, onMerge,
@@ -85,8 +87,6 @@ export default function SceneBlock({
     | { mode: "create"; afterUnitId: string }
     | { mode: "edit"; sd: InsertedSD };
 
-  // Default to collapsed so after act re-expand, scenes are collapsed and user can pick
-  const [collapsed, setCollapsed] = useState(false);
   const [insertionModalState, setInsertionModalState] = useState<InsertionModalState>(null);
   const [insertSDModalState, setInsertSDModalState] = useState<InsertSDModalState>(null);
   const { metric, wpm } = useMetric();
@@ -306,7 +306,7 @@ export default function SceneBlock({
       {/* Header row: collapse button + restore-all + focus */}
       <div className={`group flex items-center rounded-lg ${isFullyCut ? "opacity-50" : ""}`}>
         <button
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={() => onToggleCollapsed()}
           className="flex items-center gap-3 flex-1 text-left px-4 py-3 hover:bg-stone-50 dark:hover:bg-stone-800 rounded-lg"
         >
           <span className="text-xs text-stone-400 dark:text-stone-400">{collapsed ? "▶" : "▼"}</span>
