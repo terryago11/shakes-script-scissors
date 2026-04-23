@@ -644,7 +644,7 @@ function FullyRemovedSection({ chars }: { chars: FullyRemovedChar[] }) {
                           <span>{sceneTitle}</span>
                         </div>
                         <div className="text-amber-600 dark:text-amber-400 italic pl-2 truncate" title={text}>
-                          "{text}"
+                          &ldquo;{text}&rdquo;
                         </div>
                       </div>
                     ))}
