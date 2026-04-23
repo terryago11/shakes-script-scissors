@@ -286,7 +286,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: "scenes", label: "Scenes & Pauses" },
     { key: "matrix", label: "Matrix" },
-    { key: "chart", label: "Chart" },
+    { key: "chart", label: "Charts" },
     { key: "rehearsal", label: "Rehearsal" },
     { key: "props", label: "Props" },
     { key: "integrity", label: integrityWarnings.length > 0 ? `Integrity ⚠ ${integrityWarnings.length}` : "Integrity" },

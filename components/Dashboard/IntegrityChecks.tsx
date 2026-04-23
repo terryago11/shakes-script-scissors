@@ -363,9 +363,54 @@ function EntranceExitSection({
   );
 }
 
-function PropsSection({ refs }: { refs: PropReference[] }) {
-  const [open, setOpen] = useState(false);
+function getContext(text: string, keyword: string): { prefix: string; match: string; suffix: string } | null {
+  const pattern = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}s?\\b`, "i");
+  const m = pattern.exec(text);
+  if (!m) return null;
+  const prefix = text.slice(0, m.index).trim().split(/\s+/).filter(Boolean).slice(-5).join(" ");
+  const suffix = text.slice(m.index + m[0].length).trim().split(/\s+/).filter(Boolean).slice(0, 5).join(" ");
+  return { prefix, match: m[0], suffix };
+}
 
+function PropContextBadge({
+  label,
+  text,
+  keyword,
+  characterName,
+  className,
+}: {
+  label: string;
+  text: string;
+  keyword: string;
+  characterName?: string;
+  className: string;
+}) {
+  const [show, setShow] = useState(false);
+  const ctx = getContext(text, keyword);
+  return (
+    <span
+      className="relative"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <span className={className}>{label}</span>
+      {show && ctx && (
+        <div className="absolute z-50 bottom-full left-0 mb-1.5 max-w-xs bg-stone-900 dark:bg-stone-950 text-white text-xs rounded px-2.5 py-1.5 shadow-lg pointer-events-none whitespace-normal border border-stone-700">
+          {characterName && (
+            <div className="text-stone-400 mb-0.5 font-medium text-[10px] uppercase tracking-wide">
+              {characterName}
+            </div>
+          )}
+          <span className="text-stone-300">{ctx.prefix ? `…${ctx.prefix} ` : ""}</span>
+          <strong className="text-white">{ctx.match}</strong>
+          <span className="text-stone-300">{ctx.suffix ? ` ${ctx.suffix}…` : ""}</span>
+        </div>
+      )}
+    </span>
+  );
+}
+
+function PropsSection({ refs }: { refs: PropReference[] }) {
   // Group by prop keyword
   const byProp = new Map<string, PropReference[]>();
   for (const r of refs) {
@@ -375,41 +420,98 @@ function PropsSection({ refs }: { refs: PropReference[] }) {
   }
   const sorted = [...byProp.entries()].sort(([a], [b]) => a.localeCompare(b));
 
+  const sdCount = refs.filter((r) => r.source === "sd").length;
+  const highCount = refs.filter((r) => r.confidence === "high").length;
+  const lowCount = refs.filter((r) => r.confidence === "low").length;
+
   return (
-    <div className="mt-6 border-t border-stone-200 dark:border-stone-700 pt-4">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="text-sm font-semibold text-stone-500 dark:text-stone-400 flex items-center gap-1.5 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
-      >
-        <span>{open ? "▼" : "▶"}</span>
-        <span>Props</span>
-        <span className="font-normal text-stone-400 dark:text-stone-400">
-          ({sorted.length} prop type{sorted.length !== 1 ? "s" : ""}, {refs.length} reference{refs.length !== 1 ? "s" : ""})
-        </span>
-      </button>
-      {open && (
-        <div className="mt-3 space-y-3">
-          {sorted.length === 0 ? (
-            <p className="text-xs text-stone-400 dark:text-stone-500 italic">No prop references found in stage directions.</p>
-          ) : (
-            sorted.map(([prop, propRefs]) => (
+    <div>
+      {/* Methodology explainer */}
+      <div className="mb-5 p-3 rounded-md bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 text-xs text-stone-500 dark:text-stone-400 space-y-1.5">
+        <p>
+          <span className="font-semibold text-stone-600 dark:text-stone-300">How props are detected</span>
+          {" "}· This is an algorithmic suggestion — treat it as a starting point, not an authoritative list.
+        </p>
+        <p>
+          Stage direction references are explicit (the word appears verbatim in an SD).
+          Dialogue references are heuristic: a prop keyword was found in speech text alongside a physical-use signal.
+          Large set pieces (bed, table, throne, coffin) are excluded from dialogue detection.
+        </p>
+        {/* Legend */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-stone-200 dark:bg-stone-700 border border-stone-300 dark:border-stone-600" />
+            stage direction
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-amber-100 dark:bg-amber-900 border border-amber-300 dark:border-amber-700" />
+            dialogue — action verb detected (high confidence)
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-amber-50 dark:bg-amber-950/50 border border-dashed border-amber-300 dark:border-amber-700" />
+            dialogue — demonstrative context only (lower confidence)
+          </span>
+        </div>
+      </div>
+
+      {/* Summary line */}
+      <div className="mb-4 text-xs text-stone-400 dark:text-stone-500">
+        {sorted.length} prop type{sorted.length !== 1 ? "s" : ""}
+        {" · "}{sdCount} in stage direction{sdCount !== 1 ? "s" : ""}
+        {" · "}{highCount + lowCount} in dialogue
+        {highCount + lowCount > 0 && (
+          <span className="text-stone-400 dark:text-stone-500">
+            {" "}({highCount} high confidence, {lowCount} lower)
+          </span>
+        )}
+      </div>
+
+      {sorted.length === 0 ? (
+        <p className="text-xs text-stone-400 dark:text-stone-500 italic">No prop references found in stage directions or dialogue.</p>
+      ) : (
+        <div className="space-y-3">
+          {sorted.map(([prop, propRefs]) => {
+            const sdRefs = propRefs.filter((r) => r.source === "sd");
+            const highRefs = propRefs.filter((r) => r.confidence === "high");
+            const lowRefs = propRefs.filter((r) => r.confidence === "low");
+            return (
               <div key={prop} className="text-xs">
                 <span className="font-semibold text-stone-600 dark:text-stone-300 capitalize">{prop}</span>
-                <span className="text-stone-400 dark:text-stone-500 ml-1">×{propRefs.length}</span>
+                <span className="text-stone-400 dark:text-stone-500 ml-1.5">— {propRefs.length} ref{propRefs.length !== 1 ? "s" : ""}</span>
                 <div className="flex flex-wrap gap-1.5 mt-1">
-                  {propRefs.map((r) => (
-                    <span
+                  {sdRefs.map((r) => (
+                    <PropContextBadge
                       key={r.sdId}
-                      className="px-1.5 py-0.5 rounded bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 border border-stone-200 dark:border-stone-700"
-                      title={r.sdText}
-                    >
-                      Act {r.actNum}.{r.sceneNum} ~l.{r.approxLine}
-                    </span>
+                      label={`Act ${r.actNum}.${r.sceneNum} ~l.${r.approxLine}`}
+                      text={r.sdText}
+                      keyword={prop}
+                      className="px-1.5 py-0.5 rounded bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 border border-stone-200 dark:border-stone-700 cursor-default"
+                    />
+                  ))}
+                  {highRefs.map((r) => (
+                    <PropContextBadge
+                      key={r.lineId}
+                      label={`Act ${r.actNum}.${r.sceneNum} ~l.${r.approxLine}`}
+                      text={r.lineText ?? ""}
+                      keyword={prop}
+                      characterName={r.characterName}
+                      className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 cursor-default"
+                    />
+                  ))}
+                  {lowRefs.map((r) => (
+                    <PropContextBadge
+                      key={r.lineId}
+                      label={`Act ${r.actNum}.${r.sceneNum} ~l.${r.approxLine}`}
+                      text={r.lineText ?? ""}
+                      keyword={prop}
+                      characterName={r.characterName}
+                      className="px-1.5 py-0.5 rounded bg-amber-50/50 dark:bg-amber-950/30 text-amber-500 dark:text-amber-500/70 border border-dashed border-amber-200 dark:border-amber-800/70 cursor-default"
+                    />
                   ))}
                 </div>
               </div>
-            ))
-          )}
+            );
+          })}
         </div>
       )}
     </div>

@@ -64,7 +64,7 @@ Both updates should be done together.
 | `lib/cuts/CueScriptBuilder.ts` | Builds per-actor cue scripts from cut play |
 | `lib/cuts/CastingUtils.ts` | `suggestMinimumCast` (Welsh–Powell graph colouring) + `buildForbiddenPairs` |
 | `lib/cuts/QuickChangeEngine.ts` | `computeQuickChanges` — actor quick-change warnings with act/scene/line locations |
-| `lib/cuts/PropsEngine.ts` | Scans SD text for prop keywords; returns `PropMention[]` |
+| `lib/cuts/PropsEngine.ts` | Scans stage directions and speech text for prop keywords; returns `PropReference[]` with `source`, `confidence`, and context fields |
 | `lib/project/ProjectStore.tsx` | React context + localStorage persistence; all project mutations |
 | `lib/project/projectUtils.ts` | `generateId()`, `defaultColors`, `resolveCharacterName()`, `getEffectiveSceneOrder()` |
 | `lib/project/projectIO.ts` | JSON export/import with Zod validation (`exportProject` / `importProject`) |
