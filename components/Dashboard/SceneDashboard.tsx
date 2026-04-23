@@ -22,7 +22,7 @@ import type { CharSceneData } from "./DashboardMatrix";
 import PresenceChart from "./PresenceChart";
 import SceneList from "./SceneList";
 import RehearsalGroupings from "./RehearsalGroupings";
-import IntegrityChecks from "./IntegrityChecks";
+import IntegrityChecks, { PropsTab } from "./IntegrityChecks";
 
 const DEFAULT_WPM = 135;
 
@@ -32,7 +32,7 @@ interface Props {
   activeCut: Cut;
 }
 
-type Tab = "scenes" | "matrix" | "chart" | "rehearsal" | "integrity";
+type Tab = "scenes" | "matrix" | "chart" | "rehearsal" | "props" | "integrity";
 
 /** Count words in a string (matches CutEngine logic) */
 function countWords(text: string): number {
@@ -286,8 +286,9 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: "scenes", label: "Scenes & Pauses" },
     { key: "matrix", label: "Matrix" },
-    { key: "chart", label: "Chart" },
+    { key: "chart", label: "Charts" },
     { key: "rehearsal", label: "Rehearsal" },
+    { key: "props", label: "Props" },
     { key: "integrity", label: integrityWarnings.length > 0 ? `Integrity ⚠ ${integrityWarnings.length}` : "Integrity" },
   ];
 
@@ -314,7 +315,17 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
                   : "text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
               }`}
             >
-              {m === "time" ? "Time" : m === "lines" ? "Lines" : "Words"}
+              {m === "time" ? "Time" : m === "words" ? "Words" : (
+                <span className="flex items-center gap-0.5">
+                  Lines
+                  <span className="relative group/linetip" onClick={(e) => e.stopPropagation()}>
+                    <span className="text-[9px] opacity-40 cursor-help border border-current rounded-full w-3 h-3 inline-flex items-center justify-center leading-none">?</span>
+                    <span className="absolute bottom-full right-0 mb-1 hidden group-hover/linetip:block w-52 max-w-[min(13rem,calc(100vw-1rem))] bg-stone-800 text-white text-[10px] leading-snug rounded px-2 py-1.5 whitespace-normal z-50 shadow-lg pointer-events-none text-left font-normal normal-case tracking-normal">
+                      Each kept line counts as 1. Partial lines (e.g. half-lines shared between characters) each count as 1 full line.
+                    </span>
+                  </span>
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -499,6 +510,11 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           actDescriptions={project.actDescriptions}
           sceneDescriptions={project.sceneDescriptions}
         />
+      )}
+
+      {/* Tab: Props */}
+      {tab === "props" && (
+        <PropsTab play={play} activeCut={activeCut} />
       )}
 
       {/* Tab: Integrity */}

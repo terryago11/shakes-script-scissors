@@ -270,11 +270,11 @@ A character × scene grid showing cut-only values (lines, words, or time — set
 - **Column click**: filter visible rows to scenes where that character appears. Click again to clear.
 - **Row total**: right-edge column shows each character's total across all scenes.
 - **Column total**: footer row shows each scene's total across all characters.
-- **Table / Chart toggle**: Chart view shows horizontal bars per character sorted by total descending. Switch to **Presence** mode for the Tableau-style character presence chart (see Chart tab below).
+- **Table / Chart toggle**: Chart view shows horizontal bars per character sorted by total descending. Switch to **Presence** mode for the Tableau-style character presence chart (see Charts tab below).
 
-### Tab 2B — Chart · Presence mode
+### Tab 2B — Charts · Presence mode
 
-Switch the Chart tab toggle to **Presence** for a Tableau-style two-panel visualization:
+Switch the Charts tab toggle to **Presence** for a Tableau-style two-panel visualization:
 
 - **By line number** (upper panel): one swimlane row per character, grouped by actor. Each speech appears as a colored bar positioned at its Folger through-line number, so you can see the temporal flow of who speaks when across the whole play. Act headers span the top; act boundary dividers mark the transitions. Click any character name to filter — their bars stay highlighted while all others dim. The same filter applies to the scene strips below.
 - **By scene** (lower panel): one row per scene, each strip proportionally sized to the scene's line count (longest scene = full width). Speech segments are colored by actor. Click any scene label to filter the swimlane above to only the characters who appear in that scene. Click again to clear.
@@ -299,7 +299,7 @@ Flags potential data gaps in the TEI source:
 
 Each warning card is expandable and shows the scenes involved and the approximate line number of the nearest complementary SD.
 
-**Props** (collapsible): scans all kept stage directions for prop keywords (swords, letters, keys, torches, etc.) and lists each mention with its act, scene, and stage direction. Useful for compiling a props list for the stage manager.
+**Props tab**: an algorithmic props list useful as a starting point for the stage manager. Scans both stage directions (reliable — grey badges) and speech text (heuristic — amber badges). Dialogue refs carry a confidence signal: solid border = action verb detected on the same line (high confidence); dashed border = demonstrative/possessive context only (lower confidence). Large set pieces (bed, table, throne, coffin) are excluded from dialogue detection and only shown when explicitly called for in a stage direction. Hover any badge for a 5-word context snippet with the matched keyword in bold. Plurals are consolidated (sword + swords → sword). Treat all results as a starting point — verify before finalising your props list.
 
 **Name Diagnostics** (collapsible): a developer/dramaturg table showing every character's name from each source — TEI ID, cast list, raw speaker tag, ID-normalized fallback, SD references, and resolved display name. Sky-blue rows have an active alias.
 
