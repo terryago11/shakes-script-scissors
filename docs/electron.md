@@ -17,7 +17,7 @@ npm run electron:typecheck # TypeScript type-check electron/main.ts (no emit)
 - `electron/main.js` (bundled from `main.ts`) and `dist-electron/` are gitignored.
 - Icons live in `electron/assets/` — `icon.icns` (macOS), `icon.png` (Linux), `icon.ico` (Windows). Regenerate from `icon.svg` via `bash scripts/generate-icons.sh` (uses macOS built-ins; `brew install imagemagick` for `.ico`).
 - Auto-updates: `electron-updater` checks for new GitHub Releases on startup (production only).
-  - **Windows**: downloads the new installer in the background; shows "Restart / Later" dialog when done; installs silently on restart.
+  - **Windows**: downloads the new installer in the background; shows "Restart now / Later" dialog when done — dialog includes release notes when provided by the GitHub Release; title bar shows download progress (`Downloading update X%`) while downloading; installs silently on restart.
   - **macOS**: app is not code-signed, so Squirrel.Mac rejects unsigned installs. Instead, shows "Version X.X.X is available" dialog with a "Download" button that opens the GitHub Releases page. User manually installs the new `.dmg`.
   - Logs: macOS → `~/Library/Logs/shakes-script-scissors/main.log`; Windows → `%APPDATA%\ShakesScriptScissors\logs\main.log`.
 
@@ -38,7 +38,7 @@ npm version patch          # or minor / major — bumps package.json + creates g
 git push origin tag v<x.y.z>   # triggers the Release workflow on GitHub Actions
 ```
 
-2. The workflow builds macOS (arm64 + x64 DMG + ZIP) and Windows (NSIS) in parallel and uploads artifacts as a draft release.
+2. The workflow builds macOS (arm64 + x64 DMG + ZIP) and Windows (NSIS wizard installer, `oneClick: false`) in parallel and uploads artifacts as a draft release.
 3. Go to the repo's **Releases page**, open the draft, and click **Publish release** — this makes auto-update live for existing users.
 
 > The macOS `.zip` target is required alongside `.dmg` — `electron-updater` needs it to detect the update (even though it can't install it automatically on unsigned builds).

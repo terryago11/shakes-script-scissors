@@ -26,9 +26,12 @@ The packaging pipeline is working (`.app` verified on Mac arm64). What's left be
 
 See [CHANGELOG.md](./CHANGELOG.md) for Groups 24B and 24C (completed).
 
-## Upcoming — Groups 24D — Electron Native File I/O + Installer
+## Done ✓ — Group 24D — Installer & Update UX
+- **Installer experience** (`electron-builder.yml`): Windows NSIS `oneClick: false`, desktop + start menu shortcuts, file association for `.sss.json` (double-click opens app).
+- **Update UX** (`electron/main.ts`): release notes shown in update dialogs (Mac + Windows); Windows download progress reflected in title bar; `checking-for-update` / `update-not-available` log entries.
+
+## Upcoming — Group 25 — Electron Native File I/O
 - **Native open/save** (`electron/main.ts`, `electron/preload.ts`, `ProjectStore.tsx`, `SettingsModal.tsx`): replace web-style import/export with native `dialog.showOpenDialog` / `showSaveDialog` IPC in Electron. Projects open/save like Word documents. Web app keeps existing download/upload flow. Cmd+S saves without dialog once a path is known.
-- **Installer experience** (`electron-builder.yml`): Windows NSIS — `oneClick: false`, desktop + start menu shortcuts, finish screen. File association for `.sss.json` (double-click opens app). Improved update UX (download notification + restart prompt with release notes).
 
 ### Group 24E — Help System (design-first, deferred)
 - Consolidate scattered `?` buttons into a shared `HelpPopover` component. Add a Help nav entry linking to a topic index modal. Optionally: first-time onboarding highlights on first project load (hand-rolled, no library dependency). Design discussion required before implementation.

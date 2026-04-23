@@ -35,6 +35,16 @@ mac:
 win:
   target:
     - target: nsis
+  fileAssociations:
+    - ext: sss.json
+      name: ShakesScriptScissors Project
+      description: ShakesScriptScissors project file
+
+nsis:
+  oneClick: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ShakesScriptScissors
 
 linux:
   target:
