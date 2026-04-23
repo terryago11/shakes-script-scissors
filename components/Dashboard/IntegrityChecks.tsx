@@ -309,6 +309,60 @@ function extractSdRefs(
   ];
 }
 
+function EntranceExitSection({
+  noExitChars,
+  noEntranceChars,
+}: {
+  noExitChars: CharDetail[];
+  noEntranceChars: CharDetail[];
+}) {
+  const [open, setOpen] = useState(false);
+  const issueCount = noExitChars.length + noEntranceChars.length;
+  const hasIssues = issueCount > 0;
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="text-sm font-semibold text-stone-500 dark:text-stone-400 flex items-center gap-1.5 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
+      >
+        <span>{open ? "▼" : "▶"}</span>
+        <span>Entrance/Exit Checks</span>
+        {hasIssues ? (
+          <span className="font-normal text-amber-500 dark:text-amber-400">
+            ({issueCount} issue{issueCount !== 1 ? "s" : ""})
+          </span>
+        ) : (
+          <span className="font-normal text-green-500 text-xs ml-1">✓</span>
+        )}
+      </button>
+      {open && (
+        <div className="mt-3">
+          {hasIssues ? (
+            <div className="grid grid-cols-2 gap-8">
+              <WarningSection
+                title="Missing Exit Stage Directions"
+                description="These characters have kept speeches but no paired exit SD. Their stage time accumulates until end of scene — add a corresponding SD as needed."
+                chars={noExitChars}
+              />
+              <WarningSection
+                title="Missing Entrance Stage Directions"
+                description="These characters have kept speeches but no paired entrance SD. Their stage time accumulates from start of scene — add a corresponding SD as needed."
+                chars={noEntranceChars}
+              />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 py-2 text-sm text-stone-400 dark:text-stone-400">
+              <span className="text-green-500">✓</span>
+              No entrance/exit integrity issues found with the current cut.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PropsSection({ refs }: { refs: PropReference[] }) {
   const [open, setOpen] = useState(false);
 
@@ -360,6 +414,10 @@ function PropsSection({ refs }: { refs: PropReference[] }) {
       )}
     </div>
   );
+}
+
+export function PropsTab({ play, activeCut }: { play: Play; activeCut: Cut }) {
+  return <PropsSection refs={scanProps(play, activeCut)} />;
 }
 
 function NameDiagnosticsTable({
@@ -493,6 +551,116 @@ function NameDiagnosticsTable({
   );
 }
 
+interface FullyRemovedChar {
+  charId: string;
+  charName: string;
+  remnantSds: Array<{ text: string; actTitle: string; sceneTitle: string }>;
+}
+
+function FullyRemovedSection({ chars }: { chars: FullyRemovedChar[] }) {
+  const [open, setOpen] = useState(false);
+  const [expandedChars, setExpandedChars] = useState<Set<string>>(new Set());
+
+  function toggleChar(charId: string) {
+    setExpandedChars((prev) => {
+      const next = new Set(prev);
+      if (next.has(charId)) next.delete(charId); else next.add(charId);
+      return next;
+    });
+  }
+
+  const hasRemnants = chars.some((c) => c.remnantSds.length > 0);
+
+  return (
+    <div className="mt-6 border-t border-stone-200 dark:border-stone-700 pt-4">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="text-sm font-semibold text-stone-500 dark:text-stone-400 flex items-center gap-1.5 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
+      >
+        <span>{open ? "▼" : "▶"}</span>
+        <span>Fully Removed Characters</span>
+        {chars.length === 0 ? (
+          <span className="font-normal text-green-500 text-xs ml-1">✓</span>
+        ) : hasRemnants ? (
+          <span className="font-normal text-amber-500 dark:text-amber-400">
+            ({chars.length} character{chars.length !== 1 ? "s" : ""}, some with SD remnants)
+          </span>
+        ) : (
+          <span className="font-normal text-stone-400 dark:text-stone-400">
+            ({chars.length} character{chars.length !== 1 ? "s" : ""}, all clean)
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="mt-3">
+          {chars.length === 0 ? (
+            <div className="flex items-center gap-2 py-1 text-sm text-stone-400 dark:text-stone-400">
+              <span className="text-green-500">✓</span>
+              No fully cut characters in the current cut.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-stone-400 dark:text-stone-400 mb-3">
+                Characters whose speeches and entrance/exit SDs are all cut. Check for remaining stage direction mentions that may need attention.
+              </p>
+              {chars.map(({ charId, charName, remnantSds }) => {
+            const hasRemnants = remnantSds.length > 0;
+            const isExpanded = expandedChars.has(charId);
+            if (!hasRemnants) {
+              return (
+                <div key={charId} className="flex items-center gap-2 px-3 py-2 rounded border border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/50 text-xs">
+                  <span className="text-green-500 shrink-0">✓</span>
+                  <span className="text-stone-600 dark:text-stone-300">{charName}</span>
+                  <span className="text-stone-400 dark:text-stone-500 ml-1">Cleanly removed</span>
+                </div>
+              );
+            }
+            return (
+              <div
+                key={charId}
+                className="rounded border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 text-xs overflow-hidden"
+              >
+                <button
+                  onClick={() => toggleChar(charId)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-amber-800 dark:text-amber-200 font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
+                >
+                  <span className="text-amber-500 shrink-0">⚠</span>
+                  <span className="flex-1 min-w-0 truncate">{charName}</span>
+                  <span className="text-amber-400 dark:text-amber-500 shrink-0 font-normal">
+                    {remnantSds.length} SD{remnantSds.length !== 1 ? "s" : ""}
+                  </span>
+                  <span className="text-amber-400 dark:text-amber-500 shrink-0 ml-1">{isExpanded ? "▲" : "▼"}</span>
+                </button>
+                {isExpanded && (
+                  <div className="border-t border-amber-200 dark:border-amber-800 px-3 py-2 space-y-1.5">
+                    <div className="text-amber-500 dark:text-amber-400 font-medium mb-1">
+                      Still mentioned in stage directions
+                    </div>
+                    {remnantSds.map(({ text, actTitle, sceneTitle }, i) => (
+                      <div key={i} className="space-y-0.5">
+                        <div className="flex gap-1.5 text-amber-700 dark:text-amber-300">
+                          <span className="text-amber-400 dark:text-amber-500 shrink-0">{actTitle}</span>
+                          <span className="text-amber-300 dark:text-amber-600">›</span>
+                          <span>{sceneTitle}</span>
+                        </div>
+                        <div className="text-amber-600 dark:text-amber-400 italic pl-2 truncate" title={text}>
+                          "{text}"
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface Props {
   play: Play;
   activeCut: Cut;
@@ -511,28 +679,65 @@ export default function IntegrityChecks({ play, activeCut, stageTime, characterA
   const noExitChars = buildCharDetails(play, activeCut, noExitIds, "exit", characterAliases);
   const noEntranceChars = buildCharDetails(play, activeCut, noEntranceIds, "entrance", characterAliases);
 
+  // Compute fully-removed characters and any SD remnants
+  const fullyRemovedChars: FullyRemovedChar[] = [];
+  {
+    const speechesByChar = new Map<string, string[]>();
+    const entranceExitSdsByChar = new Map<string, string[]>();
+    const speakingCharIds = new Set<string>();
+
+    for (const act of play.acts) {
+      for (const scene of act.scenes) {
+        for (const unit of scene.units) {
+          if (unit.type === "speech") {
+            speakingCharIds.add(unit.characterId);
+            const arr = speechesByChar.get(unit.characterId) ?? [];
+            arr.push(unit.id);
+            speechesByChar.set(unit.characterId, arr);
+          } else if (unit.type === "stage" && (unit.stageType === "entrance" || unit.stageType === "exit")) {
+            const chars = activeCut.stageDirectionEdits?.[unit.id] ?? unit.characters;
+            for (const charId of chars) {
+              const arr = entranceExitSdsByChar.get(charId) ?? [];
+              arr.push(unit.id);
+              entranceExitSdsByChar.set(charId, arr);
+            }
+          }
+        }
+      }
+    }
+
+    for (const charId of speakingCharIds) {
+      const speeches = speechesByChar.get(charId) ?? [];
+      const entranceExitSds = entranceExitSdsByChar.get(charId) ?? [];
+      const allSpeechesCut = speeches.length > 0 && speeches.every((id) => activeCut.cutMap[id] === "cut");
+      const allEntranceExitSdsCut = entranceExitSds.every((id) => activeCut.cutMap[id] === "cut");
+      if (!allSpeechesCut || !allEntranceExitSdsCut) continue;
+
+      const remnantSds: FullyRemovedChar["remnantSds"] = [];
+      for (const act of play.acts) {
+        for (const scene of act.scenes) {
+          for (const unit of scene.units) {
+            if (unit.type === "stage") {
+              const chars = activeCut.stageDirectionEdits?.[unit.id] ?? unit.characters;
+              if (chars.includes(charId) && activeCut.cutMap[unit.id] !== "cut") {
+                remnantSds.push({ text: unit.text.trim(), actTitle: act.title, sceneTitle: scene.title });
+              }
+            }
+          }
+        }
+      }
+
+      const charName = resolveCharacterName(charId, characterAliases, play.castList);
+      fullyRemovedChars.push({ charId, charName, remnantSds });
+    }
+
+    fullyRemovedChars.sort((a, b) => a.charName.localeCompare(b.charName));
+  }
+
   return (
     <div>
-      {noExitIds.length === 0 && noEntranceIds.length === 0 ? (
-        <div className="flex items-center gap-2 py-6 text-sm text-stone-400 dark:text-stone-400">
-          <span className="text-green-500">✓</span>
-          No integrity issues found with the current cut.
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-8">
-          <WarningSection
-            title="Missing Exit Stage Directions"
-            description="These characters have kept speeches but no paired exit SD. Their stage time accumulates until end of scene — add a corresponding SD as needed."
-            chars={noExitChars}
-          />
-          <WarningSection
-            title="Missing Entrance Stage Directions"
-            description="These characters have kept speeches but no paired entrance SD. Their stage time accumulates from start of scene — add a corresponding SD as needed."
-            chars={noEntranceChars}
-          />
-        </div>
-      )}
-      <PropsSection refs={scanProps(play, activeCut)} />
+      <EntranceExitSection noExitChars={noExitChars} noEntranceChars={noEntranceChars} />
+      <FullyRemovedSection chars={fullyRemovedChars} />
       <NameDiagnosticsTable play={play} characterAliases={characterAliases} />
     </div>
   );

@@ -82,7 +82,15 @@ export default function LineCountPanel({
           panelTab === "lines" ? "bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 shadow-sm" : "text-stone-400 dark:text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
         }`}
       >
-        Lines
+        <span className="flex items-center justify-center gap-0.5">
+          Lines
+          <span className="relative group/linetip" onClick={(e) => e.stopPropagation()}>
+            <span className="text-[9px] opacity-40 cursor-help border border-current rounded-full w-3 h-3 inline-flex items-center justify-center leading-none">?</span>
+            <span className="absolute top-full left-0 mt-1 hidden group-hover/linetip:block w-52 max-w-[min(13rem,calc(100vw-1rem))] bg-stone-800 text-white text-[10px] leading-snug rounded px-2 py-1.5 whitespace-normal z-50 shadow-lg pointer-events-none text-left font-normal normal-case tracking-normal">
+              Each kept line counts as 1. Partial lines (e.g. half-lines shared between characters) each count as 1 full line.
+            </span>
+          </span>
+        </span>
       </button>
       <button
         onClick={() => handleTabClick("words")}
@@ -334,6 +342,11 @@ export default function LineCountPanel({
             style={{ width: `${activeCounts.total.original > 0 ? (activeCounts.total.afterCut / activeCounts.total.original) * 100 : 100}%` }}
           />
         </div>
+        {(onFilterActor || onFilterCharacter) && (
+          <p className="mt-2 text-[10px] text-stone-300 dark:text-stone-600">
+            Click an actor or character to filter the script view.
+          </p>
+        )}
       </div>
 
       {/* By Actor */}

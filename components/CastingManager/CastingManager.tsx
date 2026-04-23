@@ -12,7 +12,7 @@ import { characterIdToName } from "@/lib/folger/TeiParser";
 import { suggestMinimumCast, buildForbiddenPairs } from "@/lib/cuts/CastingUtils";
 import { defaultColors, generateId } from "@/lib/project/projectUtils";
 import type { Actor, ActorAssignment } from "@/types/project";
-import CharacterCard from "./CharacterCard";
+import CharacterCard, { type CompatEntry } from "./CharacterCard";
 
 interface Props {
   playId: string;
@@ -187,8 +187,6 @@ export default function CastingManager({ playId }: Props) {
       }
     }
 
-    const forbiddenPairs = buildForbiddenPairs(play!, activeCut, project?.settings);
-
     const linkPairs = (activeCut?.characterLinks ?? []).filter(
       ([a, b]) => activeCharIds.includes(a) && activeCharIds.includes(b)
     );
@@ -337,6 +335,71 @@ export default function CastingManager({ playId }: Props) {
     return conflicting;
   }
 
+  // Forbidden pairs for compatibility computation (quick-change constraints)
+  const forbiddenPairs = activeCut
+    ? buildForbiddenPairs(play, activeCut, project?.settings)
+    : ([] as Array<[string, string]>);
+  const forbiddenPairsSet = new Set(forbiddenPairs.map(([a, b]) => `${a}|${b}`));
+  function areForbidden(a: string, b: string): boolean {
+    return forbiddenPairsSet.has(`${a}|${b}`) || forbiddenPairsSet.has(`${b}|${a}`);
+  }
+
+  // SD remnant count for fully-cut characters (non-cut SDs that still mention them)
+  const sdRemnantCountMap = new Map<string, number>();
+  if (activeCut) {
+    for (const charId of fullyCutCharIds) {
+      let count = 0;
+      for (const act of play.acts) {
+        for (const scene of act.scenes) {
+          for (const unit of scene.units) {
+            if (unit.type === "stage") {
+              const chars = getEffectiveChars(unit, activeCut.stageDirectionEdits);
+              if (chars.includes(charId) && activeCut.cutMap[unit.id] !== "cut") count++;
+            }
+          }
+        }
+      }
+      if (count > 0) sdRemnantCountMap.set(charId, count);
+    }
+  }
+
+  // Compatibility lists: for each assigned character, which other characters can/can't share the actor
+  const compatibilityMap = new Map<string, CompatEntry[]>();
+  for (const char of speakingChars) {
+    if (fullyCutCharIds.has(char.id)) continue;
+    const actorId = charToActor[char.id];
+    if (!actorId) continue;
+    const actorCharIds = project.assignments
+      .filter((a) => a.actorId === actorId)
+      .map((a) => a.characterId);
+    const entries: CompatEntry[] = [];
+    for (const other of speakingChars) {
+      if (other.id === char.id) continue;
+      if (fullyCutCharIds.has(other.id)) continue;
+      const isAssignedToSameActor = charToActor[other.id] === actorId;
+      const otherName = activeCut?.characterAliases?.[other.id] ?? other.name;
+      if (isAssignedToSameActor) {
+        entries.push({ charId: other.id, charName: otherName, status: "ok", assigned: true });
+        continue;
+      }
+      let conflictReason: string | undefined;
+      for (const actorCharId of actorCharIds) {
+        if (simultaneousMap.get(actorCharId)?.has(other.id)) {
+          const n = activeCut?.characterAliases?.[actorCharId] ?? speakingChars.find((c) => c.id === actorCharId)?.name ?? actorCharId;
+          conflictReason = `On stage with ${n}`;
+          break;
+        }
+        if (areForbidden(actorCharId, other.id)) {
+          const n = activeCut?.characterAliases?.[actorCharId] ?? speakingChars.find((c) => c.id === actorCharId)?.name ?? actorCharId;
+          conflictReason = `Quick change < ${threshold}m from ${n}`;
+          break;
+        }
+      }
+      entries.push({ charId: other.id, charName: otherName, status: conflictReason ? "conflict" : "ok", reason: conflictReason, assigned: false });
+    }
+    compatibilityMap.set(char.id, entries);
+  }
+
   // Build a Map<charId, Set<charId>> from the cut's character links
   const linkedCharIdsMap = new Map<string, Set<string>>();
   for (const [a, b] of activeCut?.characterLinks ?? []) {
@@ -344,6 +407,19 @@ export default function CastingManager({ playId }: Props) {
     if (!linkedCharIdsMap.has(b)) linkedCharIdsMap.set(b, new Set());
     linkedCharIdsMap.get(a)!.add(b);
     linkedCharIdsMap.get(b)!.add(a);
+  }
+
+  // Link violation: any "must double" linked character is assigned to a different actor
+  const hasLinkViolationMap = new Map<string, boolean>();
+  for (const char of speakingChars) {
+    const myActor = charToActor[char.id];
+    const linkedIds = linkedCharIdsMap.get(char.id);
+    if (!myActor || !linkedIds) continue;
+    const hasViolation = [...linkedIds].some((linkedId) => {
+      const linkedActor = charToActor[linkedId];
+      return linkedActor && linkedActor !== myActor;
+    });
+    if (hasViolation) hasLinkViolationMap.set(char.id, true);
   }
 
   // All active (non-fully-cut) characters with resolved display names — for the "Link with…" dropdown
@@ -486,8 +562,8 @@ export default function CastingManager({ playId }: Props) {
               actors with the fewest accumulated lines, minimising the total actor count.
             </p>
             <p>
-              <strong className="text-stone-600 dark:text-stone-300">Character links</strong> (the{" "}
-              <span className="font-mono text-stone-600 dark:text-stone-300">+ link</span> button on each
+              <strong className="text-stone-600 dark:text-stone-300">Must-double links</strong> (the{" "}
+              <span className="font-mono text-stone-600 dark:text-stone-300">+ must double</span> button on each
               character card) let you pin two characters to always share the same actor,
               regardless of quick-change constraints. Use them to encode dramaturgical
               choices — e.g. Theseus/Oberon or Hippolyta/Titania — <em>before</em> running
@@ -906,6 +982,10 @@ export default function CastingManager({ playId }: Props) {
             onToggleLink={(otherId) =>
               dispatch({ type: "TOGGLE_CHARACTER_LINK", charIdA: char.id, charIdB: otherId })
             }
+            compatibilityList={compatibilityMap.get(char.id)}
+            hasLinkViolation={hasLinkViolationMap.get(char.id) ?? false}
+            sdRemnantCount={sdRemnantCountMap.get(char.id)}
+            projectId={projectId}
           />
         ))}
       </div>
