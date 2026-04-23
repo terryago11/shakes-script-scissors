@@ -34,9 +34,10 @@ The easiest way to use ShakesScriptScissors is to install the native desktop app
 2. **First launch only**: macOS will block the app because it is not code-signed. To open it: right-click (or Control-click) the app in Finder → **Open** → **Open**. You only need to do this once.
 
 ### Windows
-1. Run the `.exe` installer. It runs silently — there is no "installation complete" screen. Look for a **ShakesScriptScissors** shortcut on your desktop as confirmation.
+1. Run the `.exe` installer. An install wizard will guide you through the setup and create desktop and Start Menu shortcuts.
 2. **First launch only**: Windows SmartScreen may show a warning. Click **More info** → **Run anyway**.
-3. To uninstall: **Settings → Apps → Apps & features → ShakesScriptScissors → Uninstall**.
+3. **File association**: `.sss.json` project files are associated with the app — you can double-click them to open directly.
+4. To uninstall: **Settings → Apps → Apps & features → ShakesScriptScissors → Uninstall**.
 
 ### Linux
 1. Make the AppImage executable: `chmod +x ShakesScriptScissors-<version>.AppImage`

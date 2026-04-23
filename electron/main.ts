@@ -1,5 +1,5 @@
 import { app, BrowserWindow, shell, dialog } from "electron";
-import { autoUpdater } from "electron-updater";
+import { autoUpdater, UpdateInfo } from "electron-updater";
 import log from "electron-log";
 import path from "path";
 import http from "http";
@@ -7,6 +7,17 @@ import { spawn, ChildProcess } from "child_process";
 
 autoUpdater.logger = log;
 (log as any).transports.file.level = "info";
+
+function releaseNotesDetail(info: UpdateInfo): string {
+  const notes = info.releaseNotes;
+  if (!notes) return "";
+  if (typeof notes === "string") return `\n\nWhat's new:\n${notes}`;
+  if (Array.isArray(notes) && notes.length > 0) {
+    const latest = notes[0] as { version?: string; note?: string };
+    return `\n\nWhat's new in ${latest.version ?? info.version}:\n${latest.note ?? ""}`;
+  }
+  return "";
+}
 
 process.title = "ShakesScriptScissors";
 
@@ -28,15 +39,23 @@ function setupAutoUpdater() {
     console.error("[updater] error:", err.message);
   });
 
+  autoUpdater.on("checking-for-update", () => {
+    log.info("[updater] checking for update");
+  });
+
+  autoUpdater.on("update-not-available", () => {
+    log.info("[updater] up to date");
+  });
+
   if (isMac) {
-    autoUpdater.on("update-available", (info) => {
+    autoUpdater.on("update-available", (info: UpdateInfo) => {
       if (!mainWindow) return;
       dialog
         .showMessageBox(mainWindow, {
           type: "info",
           title: "Update available",
           message: `Version ${info.version} is available.`,
-          detail: "Download the latest version from GitHub to update.",
+          detail: `Download the latest version from GitHub to update.${releaseNotesDetail(info)}`,
           buttons: ["Download", "Later"],
           defaultId: 0,
           cancelId: 1,
@@ -49,14 +68,24 @@ function setupAutoUpdater() {
         });
     });
   } else {
-    autoUpdater.on("update-downloaded", () => {
+    autoUpdater.on("download-progress", ({ percent }: { percent: number }) => {
+      if (mainWindow) {
+        mainWindow.setTitle(
+          `ShakesScriptScissors — Downloading update ${Math.round(percent)}%`
+        );
+      }
+    });
+
+    autoUpdater.on("update-downloaded", (info: UpdateInfo) => {
       if (!mainWindow) return;
+      mainWindow.setTitle("ShakesScriptScissors");
       dialog
         .showMessageBox(mainWindow, {
           type: "info",
           title: "Update ready",
-          message: "A new update has been downloaded. Restart to install?",
-          buttons: ["Restart", "Later"],
+          message: `Version ${info.version} downloaded. Restart to install?`,
+          detail: `The update will be applied on restart.${releaseNotesDetail(info)}`,
+          buttons: ["Restart now", "Later"],
           defaultId: 0,
           cancelId: 1,
         })

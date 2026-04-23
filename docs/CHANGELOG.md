@@ -122,3 +122,10 @@ Completed feature groups for shakes-script-scissors.
   - **Diff view**: right (original) column uses `ignoreTextEdits` prop on `StageDirectionBlock` so it always shows the TEI prose regardless of edits on the left
   - **Propagated to exports**: cue scripts (`CueScriptBuilder.ts`), self-contained HTML export (`HtmlExporter.ts`, edited SDs get green CSS in standard/diff HTML views), and Word export (`renderScriptDocx.ts`, green `1d6b38` colour matching inserted SDs)
   - **Persistence**: `sdTextEdits` round-trips in `.sss.json`; cloned independently when duplicating a cut
+
+- **Group 24D — Installer & Update UX**
+  - **Windows NSIS installer** (`electron-builder.yml`): `oneClick: false` — users now see a proper install wizard instead of a silent install; desktop and Start Menu shortcuts created automatically; `shortcutName: ShakesScriptScissors`.
+  - **File association** (`electron-builder.yml`): `.sss.json` files are associated with the app on Windows — double-clicking a project file opens it directly in ShakesScriptScissors.
+  - **Release notes in update dialogs** (`electron/main.ts`): `releaseNotesDetail()` helper extracts notes from the `UpdateInfo` object (handles both string and `Array<{version, note}>` forms); release notes appended to the `detail` field of both the Mac "update available" and Windows "update ready" dialogs.
+  - **Download progress** (`electron/main.ts`): Windows `download-progress` event updates the window title bar (`ShakesScriptScissors — Downloading update 42%`) and resets to `ShakesScriptScissors` when the download completes.
+  - **Updater logging** (`electron/main.ts`): `checking-for-update` and `update-not-available` events now log via `electron-log` for easier debugging.
