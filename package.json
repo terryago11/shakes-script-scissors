@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "eslint app components lib types",
     "validate": "node ./node_modules/jiti/lib/jiti-cli.mjs scripts/validate-counts.ts",
+    "audit-counts": "node ./node_modules/jiti/lib/jiti-cli.mjs scripts/audit-counts.ts",
     "electron:typecheck": "tsc -p tsconfig.electron.json",
     "electron:bundle": "esbuild electron/main.ts --bundle --platform=node --target=node20 --external:electron --outfile=electron/main.js",
     "electron:dev": "npm run electron:bundle && electron .",

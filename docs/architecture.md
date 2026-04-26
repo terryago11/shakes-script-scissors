@@ -74,6 +74,25 @@ On-stage tracking uses **entrance/exit SDs only** — no fallback from speech pr
 
 `StageTimeResult`: `byCharacter` (`{ minutes, originalMinutes, scenes[] }`), `totalMinutes`/`originalTotalMinutes`, `warnings` (`"no-exit"|"no-entrance"` — filtered to non-empty `characterId`).
 
+## Count Audit Harness (`scripts/audit-counts.ts`)
+
+CutEngine is the single source of truth for every line/word count exposed to UI. Two layers protect that invariant:
+
+1. **Runtime check** — `lib/cuts/countIntegrityCheck.ts` runs on every dashboard render. It cross-checks that `lineCounts.byCharacterByScene` and `lineCounts.byUnit` reconcile with the canonical `byCharacter` / `words.byCharacter` totals. On failure it logs `[CountIntegrity]` to the console with the discrepancy list — it does **not** throw, so a regression surfaces in dev/QA without crashing user dashboards.
+
+2. **Offline regression harness** — `scripts/audit-counts.ts` (run via `npm run audit-counts`) loads Hamlet, builds 6 synthetic Cut variants covering the matrix below, runs `computeCuts` + `runCountIntegrityCheck` on each, and exits non-zero on any discrepancy:
+
+| Pass | Cut state |
+|------|-----------|
+| P1 | No cuts at all |
+| P2 | Speech-level cuts (`cutMap`) |
+| P3 | Line-level cuts (`lineCutMap`) |
+| P4 | Word-level edits (`speechEdits`) |
+| P5 | Reassignments (`speechReassignments`) |
+| P6 | Combined |
+
+**When to extend**: any time a new aggregation is exposed to UI (new `byX` field in `LineCounts`), add an invariant to `runCountIntegrityCheck` that cross-checks it against `byCharacter` (or another already-trusted total) and add a 7th/8th pass if a new cut surface is introduced. Rule of thumb: any UI count must be derivable from `lineCounts.byUnit` without re-interpreting cuts/edits.
+
 ## Doubling Conflict Detection (`CastingManager.tsx`)
 
 `computeSimultaneousMap` walks entrance/exit SDs → `Map<charId, Set<charId>>` of characters ever simultaneously on stage.
@@ -108,7 +127,7 @@ Same-actor pairs (`Array<[charIdA, charIdB]>`, lexicographic order for stable eq
 
 **Tab 1 — Scenes & Pauses** (`SceneList.tsx`): drag-reorder via grab handle, dispatches `SET_SCENE_ORDER`; ⏸ inserts named intermissions with durations.
 
-**Tab 2 — Matrix** (`DashboardMatrix.tsx`): character × scene grid, cut-only values. Actor-grouped column headers. Column click filters rows. Table/Chart toggle (Chart = horizontal bars by total descending). `buildCharSceneMatrix` routes afterCut counts via `speechReassignments`.
+**Tab 2 — Matrix** (`DashboardMatrix.tsx`): character × scene grid, cut-only values. Actor-grouped column headers. Column click filters rows. Table/Chart toggle (Chart = horizontal bars by total descending). `buildCharSceneMatrix` in `SceneDashboard.tsx` re-buckets `lineCounts.byUnit` onto column entry IDs (subdivision-aware) — it does **not** re-interpret cuts/edits. CutEngine is the sole place that reads `cutMap` / `lineCutMap` / `speechEdits` / `speechReassignments`.
 
 **Tab 3 — Rehearsal** (`RehearsalGroupings.tsx`): By Actor (scenes per actor) + Suggested Rehearsal Blocks (consecutive scenes sharing ≥1 actor, multi-scene only).
 

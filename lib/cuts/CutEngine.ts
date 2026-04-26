@@ -2,7 +2,7 @@ import type { Play, Scene, ScriptUnit } from "@/types/play";
 import { expandSplits, expandInsertions, expandStageNotes } from "./expandUtils";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import { buildSceneEntries } from "./SceneSubdivisionUtils";
-import type { LineCounts, LineWithStatus, ScriptUnitWithStatus, CountPair, SceneCounts } from "@/types/cut";
+import type { LineCounts, LineWithStatus, ScriptUnitWithStatus, CountPair, SceneCounts, UnitCounts } from "@/types/cut";
 import { applyEditsToLine, segmentsToText } from "./applyEdits";
 
 /** Count words in a string */
@@ -73,6 +73,21 @@ export function computeCuts(
   const byScene: Record<string, SceneCounts> = {};
   const byAct: Record<string, SceneCounts> = {};
 
+  // Per-character-per-scene (real scene id) and per-unit breakdowns.
+  // byUnit is the load-bearing source of truth for any consumer that needs cell-level data.
+  const byCharacterByScene: Record<string, Record<string, SceneCounts>> = {};
+  const byUnit: Record<string, UnitCounts> = {};
+
+  function ensureCharScene(charId: string, sceneId: string): SceneCounts {
+    if (!byCharacterByScene[charId]) byCharacterByScene[charId] = {};
+    let entry = byCharacterByScene[charId][sceneId];
+    if (!entry) {
+      entry = { lines: { original: 0, afterCut: 0 }, words: { original: 0, afterCut: 0 } };
+      byCharacterByScene[charId][sceneId] = entry;
+    }
+    return entry;
+  }
+
   // Walk all scenes and units
   for (const act of play.acts) {
     byAct[act.id] = { lines: { original: 0, afterCut: 0 }, words: { original: 0, afterCut: 0 } };
@@ -141,6 +156,9 @@ export function computeCuts(
             for (const spkId of originalSpeakers) {
               byCharacter[spkId].original += unit.lineCount;
               wordsByCharacter[spkId].original += speechOriginalWords;
+              const cs = ensureCharScene(spkId, scene.id);
+              cs.lines.original += unit.lineCount;
+              cs.words.original += speechOriginalWords;
             }
             totalOriginal += unit.lineCount;
             totalWordsOriginal += speechOriginalWords;
@@ -150,39 +168,58 @@ export function computeCuts(
             byAct[act.id].words.original += speechOriginalWords;
           }
 
+          let unitKeptLines = 0;
+          let unitKeptWords = 0;
+
           if (effectiveStatus === "kept") {
             // Single pass: compute both word count and effective line count.
             // A line counts as "kept" only if it still has content after word-level ops.
             const edit = speechEdits[unit.id];
             const ops = edit?.ops ?? [];
-            let keptWords = 0;
-            let effectiveKeptLines = 0;
 
             for (const line of unit.lines) {
               if (lineCutMap[line.id] === "cut") continue;
               if (ops.length > 0) {
                 const segments = applyEditsToLine(line.id, line.text, ops);
                 const keptText = segmentsToText(segments);
-                keptWords += countWords(keptText);
-                if (keptText.trim().length > 0) effectiveKeptLines++;
+                unitKeptWords += countWords(keptText);
+                if (keptText.trim().length > 0) unitKeptLines++;
               } else {
-                keptWords += countWords(line.text);
-                effectiveKeptLines++;
+                unitKeptWords += countWords(line.text);
+                unitKeptLines++;
               }
             }
 
             // afterCut attributed to ALL effective speakers (each actor learns every line)
             for (const spkId of speakers) {
-              byCharacter[spkId].afterCut += effectiveKeptLines;
-              wordsByCharacter[spkId].afterCut += keptWords;
+              byCharacter[spkId].afterCut += unitKeptLines;
+              wordsByCharacter[spkId].afterCut += unitKeptWords;
+              const cs = ensureCharScene(spkId, scene.id);
+              cs.lines.afterCut += unitKeptLines;
+              cs.words.afterCut += unitKeptWords;
             }
-            totalAfterCut += effectiveKeptLines;
-            byScene[scene.id].lines.afterCut += effectiveKeptLines;
-            byAct[act.id].lines.afterCut += effectiveKeptLines;
-            totalWordsAfterCut += keptWords;
-            byScene[scene.id].words.afterCut += keptWords;
-            byAct[act.id].words.afterCut += keptWords;
+            totalAfterCut += unitKeptLines;
+            byScene[scene.id].lines.afterCut += unitKeptLines;
+            byAct[act.id].lines.afterCut += unitKeptLines;
+            totalWordsAfterCut += unitKeptWords;
+            byScene[scene.id].words.afterCut += unitKeptWords;
+            byAct[act.id].words.afterCut += unitKeptWords;
           }
+
+          // byUnit captures every speech (insertions included) so consumers can re-bucket
+          // by sub-scene / column / arbitrary grouping without re-interpreting cuts/edits.
+          byUnit[unit.id] = {
+            lines: {
+              original: isInsertion ? 0 : unit.lineCount,
+              afterCut: unitKeptLines,
+            },
+            words: {
+              original: isInsertion ? 0 : speechOriginalWords,
+              afterCut: unitKeptWords,
+            },
+            effectiveSpeakers: [...speakers],
+            originalSpeakers: [...originalSpeakers],
+          };
 
           unitsWithStatus.push({ unit, status: effectiveStatus, lineStatuses });
         } else {
@@ -284,6 +321,8 @@ export function computeCuts(
       byActor,
       byScene,
       byAct,
+      byCharacterByScene,
+      byUnit,
       words: {
         total: { original: totalWordsOriginal, afterCut: totalWordsAfterCut },
         byCharacter: wordsByCharacter,

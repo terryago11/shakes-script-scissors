@@ -22,12 +22,28 @@ export interface SceneCounts {
   words: CountPair;
 }
 
+/** Per-unit kept counts, the load-bearing source of truth for any UI count surface.
+ *  Consumers that need per-character-per-scene cells (with subdivision) should re-bucket
+ *  from this map rather than recomputing cuts/edits in parallel. */
+export interface UnitCounts {
+  lines: CountPair;
+  words: CountPair;
+  effectiveSpeakers: string[];
+  originalSpeakers: string[];
+}
+
 export interface LineCounts {
   total: CountPair;
   byCharacter: Record<string, CountPair>;
   byActor: Record<string, { characters: string[] } & CountPair>;
   byScene: Record<string, SceneCounts>;
   byAct: Record<string, SceneCounts>;
+  /** charId → real sceneId → counts. Sanity-check companion to byCharacter; subdivided
+   *  columns use byUnit instead. */
+  byCharacterByScene: Record<string, Record<string, SceneCounts>>;
+  /** unitId → kept counts + speaker attribution. Engine is the only place that interprets
+   *  cutMap / lineCutMap / speechEdits / speechReassignments. */
+  byUnit: Record<string, UnitCounts>;
   /** Word-level counts (parallel structure to line counts) */
   words: {
     total: CountPair;

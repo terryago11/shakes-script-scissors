@@ -103,6 +103,8 @@ function computeFocusedLineCounts(
     byActor,
     byScene: {},
     byAct: {},
+    byCharacterByScene: {},
+    byUnit: {},
     words: {
       total: { original: totalWordsOriginal, afterCut: totalWordsAfterCut },
       byCharacter: wordsByCharacter,

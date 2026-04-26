@@ -169,6 +169,19 @@ sharedMinutes?: Map<string, Map<string, number>>;
 
 ---
 
+### 25D-3: 25B Cleanup (folded into 25D wrap-up)
+
+After 25B landed, the `charSceneMatrix` prop on `DashboardMatrix` and `RehearsalGroupings` is misleadingly named — it's no longer an independent recompute, just a re-bucketing of `lineCounts.byUnit` onto column entry IDs. By the time 25D ships there will be additional matrices (casting snapshots, casting grid), so the rename is best done once over a stable API.
+
+**Change**: rename `charSceneMatrix` → `cellMatrix` (or similar) in:
+- [components/Dashboard/DashboardMatrix.tsx](components/Dashboard/DashboardMatrix.tsx) (prop)
+- [components/Dashboard/RehearsalGroupings.tsx](components/Dashboard/RehearsalGroupings.tsx) (prop)
+- [components/Dashboard/SceneDashboard.tsx](components/Dashboard/SceneDashboard.tsx) (call sites + local var)
+
+Pure refactor, no behavior change. ~10 LoC. Verify with `npx tsc --noEmit` + a dashboard reload.
+
+---
+
 ## Verification
 
 | Item | Test |
@@ -186,3 +199,4 @@ sharedMinutes?: Map<string, Map<string, number>>;
 3. **25C-2** — suggest cast actor count
 4. **25D-1** — casting grid print sheet
 5. **25D-2** — line buddy interactive HTML
+6. **25D-3** — 25B cleanup (rename `charSceneMatrix` → `cellMatrix`)
