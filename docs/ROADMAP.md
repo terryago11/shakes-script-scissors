@@ -10,11 +10,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature gro
 
 **25A ✓ Done** — see CHANGELOG for details.
 
-**25B — Matrix/Character Count Audit & Fix**
-- Root cause: `buildCharSceneMatrix` in `SceneDashboard.tsx` recomputes counts independently from CutEngine and does not apply word-level edits (`speechEdits`). Character cells in the Matrix over-count when word edits are present.
-- Fix: add `byCharacterByScene: Record<charId, Record<sceneId, { lines: Counts; words: Counts }>>` to `LineCounts` in `CutEngine.ts`; pass into `DashboardMatrix`; remove independent recomputation.
-- Integrity check: 6-pass test (no cuts → speech cuts → line cuts → word edits → reassignments → combined) asserting exact per-character word count equality.
-- **Use Opus model for this sub-group.**
+**25B ✓ Done** — see CHANGELOG for details.
 
 **25C — Audition Mode + Suggest Cast Actor Count**
 - Named casting snapshots (`CastingSnapshot` type, `castingSnapshots?: CastingSnapshot[]` on `Project`); snapshot bar in Casting page with Save / Switch / Apply / Rename / Delete; "Audition Mode" toggle; persistent "changes won't affect your project until you Apply" banner.

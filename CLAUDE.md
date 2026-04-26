@@ -72,6 +72,7 @@ Both updates should be done together.
 | `lib/cuts/CastingUtils.ts` | `suggestMinimumCast` (Welsh–Powell graph colouring) + `buildForbiddenPairs` |
 | `lib/cuts/QuickChangeEngine.ts` | `computeQuickChanges` — actor quick-change warnings with act/scene/line locations |
 | `lib/cuts/PropsEngine.ts` | Scans stage directions and speech text for prop keywords; returns `PropReference[]` with `source`, `confidence`, and context fields |
+| `lib/cuts/countIntegrityCheck.ts` | `runCountIntegrityCheck(lineCounts)` — cross-checks `byCharacterByScene` + `byUnit` against canonical totals; called from `SceneDashboard` on every render; `console.error` on failure, never throws |
 | `lib/project/ProjectStore.tsx` | React context + localStorage persistence; all project mutations |
 | `lib/project/projectUtils.ts` | `generateId()`, `defaultColors`, `resolveCharacterName()`, `getEffectiveSceneOrder()` |
 | `lib/project/projectIO.ts` | JSON export/import with Zod validation (`exportProject` / `importProject`) |
@@ -86,6 +87,7 @@ Both updates should be done together.
 - `defaultColors` excludes reds and greens (reserved for cut/addition UI indicators).
 - `TeiParser.ts` `splitProseByLb`: `<q>/<lg>` nodes with `<l>` children inside `<p>` are now routed to `extractLgLines` (flush pending text first). The `<l>` child guard is precise — `type="letter"` bodies with `<lb>` not `<l>` are unaffected.
 - `DashboardMatrix.tsx` accepts optional `sceneLineTotals?: Map<string, number>` and `sceneWordTotals?: Map<string, number>` props (passed from `SceneDashboard`). When present, `getRowTotal` and `grandTotal` read from these Maps instead of summing per-character cells (which inflated counts for multi-speaker speeches).
+- `CutEngine.ts` `LineCounts` now includes `byUnit: Record<unitId, UnitCounts>` and `byCharacterByScene`. `buildCharSceneMatrix` in `SceneDashboard` is a **pure re-bucketing** over `byUnit` — it does not re-interpret `cutMap`/`lineCutMap`/`speechEdits`/`speechReassignments`. Any future count surface exposed to the UI should re-bucket from `byUnit`, never recompute independently. Run `npm run audit-counts` to validate (6-pass harness, exits non-zero on discrepancy).
 
 ## Data Models
 

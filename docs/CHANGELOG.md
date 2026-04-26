@@ -4,6 +4,15 @@ Completed feature groups for shakes-script-scissors.
 
 ## Done ✓
 
+- **Group 25B — Matrix/Character Count Audit & Fix**: eliminated character-cell over-counting in the Scene Dashboard Matrix when word-level edits (`speechEdits`) were present.
+  - **Root cause**: `buildCharSceneMatrix` in `SceneDashboard.tsx` recomputed per-character per-scene counts independently from `CutEngine`, without applying word-level edits — so cells diverged from column totals when speeches were partially word-edited.
+  - **Fix** (`lib/cuts/CutEngine.ts`): added `byUnit: Record<unitId, UnitCounts>` and `byCharacterByScene: Record<charId, Record<sceneId, SceneCounts>>` to `LineCounts`. `byUnit` carries per-speech kept counts plus `effectiveSpeakers` / `originalSpeakers` arrays already computed by the engine.
+  - **Fix** (`components/Dashboard/SceneDashboard.tsx`): `buildCharSceneMatrix` is now a pure re-bucketing pass over `lineCounts.byUnit` — no `cutMap`/`lineCutMap`/`speechEdits`/`speechReassignments` interpretation. `CutEngine` is the sole place that applies those transforms.
+  - **Runtime integrity check** (`lib/cuts/countIntegrityCheck.ts` new): `runCountIntegrityCheck` cross-checks `byCharacterByScene` + `byUnit` sums against canonical `byCharacter` / `words.byCharacter` totals on every dashboard render. Logs `[CountIntegrity]` to console on failure; never throws so a regression surfaces in dev/QA without crashing production dashboards.
+  - **Audit harness** (`scripts/audit-counts.ts` new, `npm run audit-counts`): 6-pass regression script over Hamlet — no cuts, speech cuts, line cuts, word edits, reassignments, combined. Exits non-zero on any discrepancy. Committed for future regression prevention.
+  - **`types/cut.ts`**: new `UnitCounts` interface; `LineCounts` extended with `byUnit` and `byCharacterByScene`.
+  - **`docs/architecture.md`**: added "Count Audit Harness" section documenting both protection layers and guidance for extending the harness when new count surfaces are added.
+
 - **Session tooling — gotchas.md**: `gotchas.md` added at the project root as a persistent, append-only error log for AI-assisted sessions. One-line summaries of mistakes are appended as they occur; the file is reviewed at session start, during audits, and when troubleshooting. Convention documented in `CLAUDE.md` under `## Gotchas`.
 
 

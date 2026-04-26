@@ -13,6 +13,8 @@ export interface SongDanceItem {
 }
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import { computeCuts } from "@/lib/cuts/CutEngine";
+import { runCountIntegrityCheck } from "@/lib/cuts/countIntegrityCheck";
+import type { LineCounts } from "@/types/cut";
 import { computeStageTime } from "@/lib/cuts/StageTimeEngine";
 import { buildSceneEntries, type EffectiveSceneEntry } from "@/lib/cuts/SceneSubdivisionUtils";
 import { useProject } from "@/lib/project/ProjectStore";
@@ -34,20 +36,15 @@ interface Props {
 
 type Tab = "scenes" | "matrix" | "chart" | "rehearsal" | "props" | "integrity";
 
-/** Count words in a string (matches CutEngine logic) */
-function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
-}
-
-/** Build character × scene matrix with line and word counts.
- *  Accepts columnEntries — which may include virtual sub-scene IDs when scenes are subdivided.
- *  Each entry provides the relevant unit slice (entry.units) and its key (entry.id). */
+/** Build character × scene matrix by re-bucketing CutEngine's per-unit counts onto column
+ *  entry IDs. CutEngine is the only place that interprets cutMap / lineCutMap / speechEdits /
+ *  speechReassignments — this function is purely a re-bucketing pass. Columns may use virtual
+ *  sub-scene IDs when scenes are subdivided. */
 function buildCharSceneMatrix(
-  cut: Cut,
+  byUnit: LineCounts["byUnit"],
   columnEntries: EffectiveSceneEntry[],
 ): Map<string, Map<string, CharSceneData>> {
   const matrix = new Map<string, Map<string, CharSceneData>>();
-  const reassignments = cut.speechReassignments ?? {};
 
   function ensureEntry(charId: string, sceneKey: string): CharSceneData {
     if (!matrix.has(charId)) matrix.set(charId, new Map());
@@ -57,44 +54,20 @@ function buildCharSceneMatrix(
   }
 
   for (const entry of columnEntries) {
-    const sceneKey = entry.id; // virtual sub-scene ID or real scene ID
-
     for (const unit of entry.units) {
       if (unit.type !== "speech") continue;
+      const u = byUnit[unit.id];
+      if (!u) continue;
 
-      const origCharId = unit.characterId;
-      // Effective speakers: override list, or TEI multi-speaker list, or single original
-      const effectiveCharIds: string[] = reassignments[unit.id]
-        ?? unit.characterIds
-        ?? [origCharId];
-
-      const origLines = unit.lineCount;
-      const origWords = unit.lines.reduce((sum, l) => sum + countWords(l.text), 0);
-
-      const isKept = (cut.cutMap[unit.id] ?? "kept") === "kept";
-      let keptLines = 0;
-      let keptWords = 0;
-      if (isKept) {
-        for (const line of unit.lines) {
-          if (cut.lineCutMap?.[line.id] === "cut") continue;
-          keptLines++;
-          keptWords += countWords(line.text);
-        }
+      for (const charId of u.originalSpeakers) {
+        const data = ensureEntry(charId, entry.id);
+        data.linesOrig += u.lines.original;
+        data.wordsOrig += u.words.original;
       }
-
-      // Original counts go to ALL TEI-listed speakers
-      const originalCharIds: string[] = unit.characterIds ?? [origCharId];
-      for (const origId of originalCharIds) {
-        const origEntry = ensureEntry(origId, sceneKey);
-        origEntry.linesOrig += origLines;
-        origEntry.wordsOrig += origWords;
-      }
-
-      // Cut counts go to ALL effective speakers (each actor learns all lines)
-      for (const effId of effectiveCharIds) {
-        const effEntry = ensureEntry(effId, sceneKey);
-        effEntry.linesAfterCut += keptLines;
-        effEntry.wordsAfterCut += keptWords;
+      for (const charId of u.effectiveSpeakers) {
+        const data = ensureEntry(charId, entry.id);
+        data.linesAfterCut += u.lines.afterCut;
+        data.wordsAfterCut += u.words.afterCut;
       }
     }
   }
@@ -168,8 +141,14 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
   });
 
   const { lineCounts } = computeCuts(play, activeCut, project.assignments, project.actors);
+  const integrityReport = runCountIntegrityCheck(lineCounts);
+  if (!integrityReport.ok) {
+    // Should never fire — engine is the sole source of truth. Logged (not thrown) so a
+    // future regression surfaces in the console without crashing the dashboard for users.
+    console.error("[CountIntegrity]", integrityReport);
+  }
   const stageTime = computeStageTime(play, activeCut, project.settings);
-  const charSceneMatrix = buildCharSceneMatrix(activeCut, columnEntries);
+  const charSceneMatrix = buildCharSceneMatrix(lineCounts.byUnit, columnEntries);
   const actorSceneMatrix = buildActorSceneMatrix(stageTime, project.actors, project.assignments);
 
   // Actual scene durations (words / wpm) — includes virtual sub-scene IDs when subdivided
