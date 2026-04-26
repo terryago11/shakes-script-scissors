@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Play, Act, Scene } from "@/types/play";
 import type { LineCounts, ScriptUnitWithStatus } from "@/types/cut";
-import type { Actor, ActorAssignment } from "@/types/project";
+import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import type { SpeechEdit } from "@/types/edit";
+import type { EditTool } from "@/lib/ui/EditModeContext";
 import type { CharacterStageTime, StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import { useProject } from "@/lib/project/ProjectStore";
 import { computeCuts } from "@/lib/cuts/CutEngine";
@@ -16,6 +17,7 @@ import ShakespeareAnimation from "@/components/EasterEgg/ShakespeareAnimation";
 import LineCountPanel from "@/components/LineCounts/LineCountPanel";
 import { useSceneJump } from "@/lib/ui/SceneJumpContext";
 import { useEditMode } from "@/lib/ui/EditModeContext";
+import { useEditNav } from "@/lib/ui/EditNavContext";
 import { useViewMode } from "@/lib/ui/ViewModeContext";
 import { useMetric } from "@/lib/ui/MetricContext";
 import { useSearch } from "@/lib/ui/SearchContext";
@@ -132,6 +134,104 @@ function computeSceneSpeakingTime(
   };
 }
 
+// Sentinel prefix used in the search index to distinguish unit-level entries (SDs, delivery notes)
+// from line-level entries. Enables unified scroll/highlight logic with data-unit-id vs data-line-id.
+const UNIT_SEARCH_PREFIX = "@u/";
+function makeUnitSearchId(unitId: string) { return UNIT_SEARCH_PREFIX + unitId; }
+function isUnitSearchId(id: string) { return id.startsWith(UNIT_SEARCH_PREFIX); }
+function extractUnitId(id: string) { return id.slice(UNIT_SEARCH_PREFIX.length); }
+
+/**
+ * Build an ordered list of unitIds for all edits of the given tool type, in document order.
+ * Each Cut field maps to the tool that created it:
+ *   cut:       cutMap, lineCutMap, speechEdits[ops→cut]
+ *   insert:    insertions, speechEdits[ops→insert]
+ *   edit-sds:  insertedSDs (afterUnitId), stageDirectionEdits, sdTextEdits, deliveryNoteEdits
+ *   reassign:  speechReassignments
+ *   split:     speechSplits, partIndentOverrides
+ *   song-dance: sdFlagOverrides, lineSongOverrides
+ *   restore:   union of all the above
+ */
+function buildEditIndex(play: Play, cut: Cut, activeTool: EditTool): string[] {
+  if (activeTool === "none") return [];
+
+  const lineToUnit = new Map<string, string>();
+  const unitOrder: string[] = [];
+  for (const act of play.acts) {
+    for (const scene of act.scenes) {
+      for (const unit of scene.units) {
+        unitOrder.push(unit.id);
+        if (unit.type === "speech") {
+          for (const line of unit.lines) lineToUnit.set(line.id, unit.id);
+        }
+      }
+    }
+  }
+
+  const cutUnitIds = new Set<string>();
+  const insertIds = new Set<string>();
+  const editSdIds = new Set<string>();
+  const reassignIds = new Set<string>();
+  const splitIds = new Set<string>();
+  const songDanceIds = new Set<string>();
+
+  // cut: speech-level cuts, line-level cuts, and word-level cuts (drag-select)
+  for (const [id, status] of Object.entries(cut.cutMap ?? {})) {
+    if (status === "cut") cutUnitIds.add(id);
+  }
+  for (const [lineId, status] of Object.entries(cut.lineCutMap ?? {})) {
+    if (status === "cut") { const uid = lineToUnit.get(lineId); if (uid) cutUnitIds.add(uid); }
+  }
+  for (const [unitId, edit] of Object.entries(cut.speechEdits ?? {})) {
+    if (edit.ops.some((op) => op.type === "cut")) cutUnitIds.add(unitId);
+  }
+
+  // insert: inserted speech blocks + in-line word inserts
+  for (const ins of Object.values(cut.insertions ?? {})) insertIds.add(ins.afterUnitId);
+  for (const [unitId, edit] of Object.entries(cut.speechEdits ?? {})) {
+    if (edit.ops.some((op) => op.type === "insert")) insertIds.add(unitId);
+  }
+
+  // edit-sds: inserted SDs (navigate to anchor), character list edits, SD text edits, delivery note edits
+  for (const sd of Object.values(cut.insertedSDs ?? {})) editSdIds.add(sd.afterUnitId);
+  for (const id of Object.keys(cut.stageDirectionEdits ?? {})) editSdIds.add(id);
+  for (const id of Object.keys(cut.sdTextEdits ?? {})) editSdIds.add(id);
+  for (const id of Object.keys(cut.deliveryNoteEdits ?? {})) editSdIds.add(id);
+
+  // reassign
+  for (const id of Object.keys(cut.speechReassignments ?? {})) reassignIds.add(id);
+
+  // split/indent: speech splits (both clean line-boundary and in-line word splits) + indent overrides
+  for (const id of Object.keys(cut.speechSplits ?? {})) splitIds.add(id);
+  for (const lineId of Object.keys(cut.partIndentOverrides ?? {})) {
+    const uid = lineToUnit.get(lineId); if (uid) splitIds.add(uid);
+  }
+
+  // song/dance: SD flag overrides + per-line song overrides
+  for (const id of Object.keys(cut.sdFlagOverrides ?? {})) songDanceIds.add(id);
+  for (const lineId of Object.keys(cut.lineSongOverrides ?? {})) {
+    const uid = lineToUnit.get(lineId); if (uid) songDanceIds.add(uid);
+  }
+
+  let targetIds: Set<string>;
+  if (activeTool === "cut") targetIds = cutUnitIds;
+  else if (activeTool === "insert") targetIds = insertIds;
+  else if (activeTool === "edit-sds") targetIds = editSdIds;
+  else if (activeTool === "reassign") targetIds = reassignIds;
+  else if (activeTool === "split") targetIds = splitIds;
+  else if (activeTool === "song-dance") targetIds = songDanceIds;
+  else if (activeTool === "restore") {
+    targetIds = new Set([...cutUnitIds, ...insertIds, ...editSdIds, ...reassignIds, ...splitIds, ...songDanceIds]);
+  } else return [];
+
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const uid of unitOrder) {
+    if (targetIds.has(uid) && !seen.has(uid)) { seen.add(uid); result.push(uid); }
+  }
+  return result;
+}
+
 interface Props {
   playId: string;
 }
@@ -150,6 +250,7 @@ export default function ScriptEditor({ playId }: Props) {
   const [diffRightId, setDiffRightId] = useState<string | null>(null);
   const { scenes, setScenes, activeSceneId, setActiveSceneId, jumpToScene, jumpingRef, focusedSceneId, setFocusedSceneId, hiddenSceneIds, setHiddenSceneIds } = useSceneJump();
   const { activeTool, setActiveTool } = useEditMode();
+  const { setEditIndex, editIndex, editIndexIdx, editNavGeneration } = useEditNav();
   const { viewMode } = useViewMode();
   const { setWpm } = useMetric();
   const { searchOpen, setSearchOpen } = useSearch();
@@ -161,6 +262,7 @@ export default function ScriptEditor({ playId }: Props) {
   const [collapsedActs, setCollapsedActs] = useState<Set<string>>(new Set());
   const [collapsedScenes, setCollapsedScenes] = useState<Set<string>>(new Set());
   const pendingScrollRef = useRef<string | null>(null);
+  const pendingEditScrollRef = useRef<string | null>(null);
   const [scenePickerOpen, setScenePickerOpen] = useState(false);
 
   // Keep MetricContext WPM in sync with project settings
@@ -191,7 +293,9 @@ export default function ScriptEditor({ playId }: Props) {
     const prev = scriptColRef.current?.querySelector("[data-search-current]");
     if (prev) prev.removeAttribute("data-search-current");
     if (!searchHighlightId) return;
-    const el = scriptColRef.current?.querySelector(`[data-line-id="${searchHighlightId}"]`);
+    const isUnitEntry = isUnitSearchId(searchHighlightId);
+    const attr = isUnitEntry ? `[data-unit-id="${extractUnitId(searchHighlightId)}"]` : `[data-line-id="${searchHighlightId}"]`;
+    const el = scriptColRef.current?.querySelector(attr);
     if (el) el.setAttribute("data-search-current", "true");
   }, [searchHighlightId]);
 
@@ -208,10 +312,23 @@ export default function ScriptEditor({ playId }: Props) {
   // After expanding a collapsed act/scene, scroll to the pending search match
   useEffect(() => {
     if (!pendingScrollRef.current) return;
-    const el = scriptColRef.current?.querySelector(`[data-line-id="${pendingScrollRef.current}"]`);
+    const pending = pendingScrollRef.current;
+    const isUnit = isUnitSearchId(pending);
+    const attr = isUnit ? `[data-unit-id="${extractUnitId(pending)}"]` : `[data-line-id="${pending}"]`;
+    const el = scriptColRef.current?.querySelector(attr);
     if (el) {
       el.scrollIntoView({ block: "center", behavior: "smooth" });
       pendingScrollRef.current = null;
+    }
+  }, [collapsedActs, collapsedScenes]);
+
+  // After expanding a collapsed act/scene, scroll to the pending edit navigation target
+  useEffect(() => {
+    if (!pendingEditScrollRef.current) return;
+    const el = scriptColRef.current?.querySelector(`[data-unit-id="${pendingEditScrollRef.current}"]`);
+    if (el) {
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      pendingEditScrollRef.current = null;
     }
   }, [collapsedActs, collapsedScenes]);
 
@@ -243,6 +360,50 @@ export default function ScriptEditor({ playId }: Props) {
       setSearchHighlightId(null);
     }
   }, [searchOpen]);
+
+  // Sync edit index to context whenever the active tool or cut changes
+  useEffect(() => {
+    if (!play || !activeCut) { setEditIndex([]); return; }
+    setEditIndex(buildEditIndex(play, activeCut, activeTool));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [play, activeCut, activeTool]);
+
+  // Scroll to the current edit when the user navigates (editNavGeneration increments on navigate)
+  useEffect(() => {
+    if (editNavGeneration === 0 || !play) return;
+    const unitId = editIndex[editIndexIdx];
+    if (!unitId) return;
+
+    // Find location for expand / jump
+    let sceneId: string | null = null;
+    let actId: string | null = null;
+    outer: for (const act of play.acts) {
+      for (const scene of act.scenes) {
+        for (const unit of scene.units) {
+          if (unit.id === unitId) { sceneId = scene.id; actId = act.id; break outer; }
+        }
+      }
+    }
+
+    let needsExpand = false;
+    if (actId && collapsedActs.has(actId)) {
+      setCollapsedActs((prev) => { const next = new Set(prev); next.delete(actId!); return next; });
+      needsExpand = true;
+    }
+    if (sceneId && collapsedScenes.has(sceneId)) {
+      setCollapsedScenes((prev) => { const next = new Set(prev); next.delete(sceneId!); return next; });
+      needsExpand = true;
+    }
+    if (sceneId) jumpToScene(sceneId);
+
+    if (needsExpand) {
+      pendingEditScrollRef.current = unitId;
+    } else {
+      const el = scriptColRef.current?.querySelector(`[data-unit-id="${unitId}"]`);
+      if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editNavGeneration]);
 
   useEffect(() => {
     setLoading(true);
@@ -353,11 +514,12 @@ export default function ScriptEditor({ playId }: Props) {
   }
   if (!project || !activeCut) return null;
 
-  // Map lineId → { sceneId, actId } for search auto-expand
+  // Map lineId / unitId → { sceneId, actId } for search auto-expand and edit nav
   const lineToLocation = new Map<string, { sceneId: string; actId: string }>();
   for (const act of play.acts) {
     for (const scene of act.scenes) {
       for (const unit of scene.units) {
+        lineToLocation.set(unit.id, { sceneId: scene.id, actId: act.id });
         if (unit.type === "speech") {
           for (const line of unit.lines) {
             lineToLocation.set(line.id, { sceneId: scene.id, actId: act.id });
@@ -365,6 +527,11 @@ export default function ScriptEditor({ playId }: Props) {
         }
       }
     }
+  }
+  // Inserted SDs: map their id → location of their afterUnitId (same scene)
+  for (const isd of Object.values(activeCut.insertedSDs ?? {})) {
+    const loc = lineToLocation.get(isd.afterUnitId);
+    if (loc) lineToLocation.set(isd.id, loc);
   }
 
   // Map sceneId → { actTitle, sceneTitle } for context strip
@@ -413,37 +580,59 @@ export default function ScriptEditor({ playId }: Props) {
   const diffRightSpeechEdits = rightDiffCut?.speechEdits;
 
   // Build flat search index. Scope depends on view mode:
-  //   standard — all speeches including cut ones
-  //   clean    — only kept speeches and kept individual lines
-  //   diff     — left column (all) + right column (all), deduplicated by lineId
+  //   standard — all speeches + SDs + inserted SDs + delivery notes (including cut items)
+  //   clean    — only kept speeches/SDs/lines
+  //   diff     — left column + right column speeches, deduplicated by lineId; SDs from left only
+  // Unit-level entries (SDs, delivery notes) use makeUnitSearchId(unitId) so scroll logic can distinguish them.
   type SearchEntry = { lineId: string; text: string };
   const searchIndex: SearchEntry[] = [];
 
   if (viewMode === "clean") {
     for (const units of unitsByScene.values()) {
       for (const { unit, status, lineStatuses } of units) {
-        if (status === "cut" || unit.type !== "speech") continue;
-        if (unit.lines.length > 0) searchIndex.push({ lineId: unit.lines[0].id, text: unit.characterName });
-        const lineStatusMap = new Map((lineStatuses ?? []).map((ls) => [ls.lineId, ls.status]));
-        for (const line of unit.lines) {
-          if ((lineStatusMap.get(line.id) ?? "kept") !== "cut") {
-            searchIndex.push({ lineId: line.id, text: line.text });
+        if (status === "cut") continue;
+        if (unit.type === "speech") {
+          if (unit.lines.length > 0) searchIndex.push({ lineId: unit.lines[0].id, text: unit.characterName });
+          if (unit.deliveryNote) searchIndex.push({ lineId: makeUnitSearchId(unit.id), text: unit.deliveryNote });
+          const lineStatusMap = new Map((lineStatuses ?? []).map((ls) => [ls.lineId, ls.status]));
+          for (const line of unit.lines) {
+            if ((lineStatusMap.get(line.id) ?? "kept") !== "cut") {
+              searchIndex.push({ lineId: line.id, text: line.text });
+            }
           }
+        } else if (unit.type === "stage") {
+          const effectiveText = activeCut.sdTextEdits?.[unit.id] ?? unit.text;
+          searchIndex.push({ lineId: makeUnitSearchId(unit.id), text: effectiveText });
         }
+      }
+    }
+    // Inserted SDs in clean mode (only kept ones — they're never in unitsByScene so add separately)
+    for (const isd of Object.values(activeCut.insertedSDs ?? {})) {
+      if ((activeCut.cutMap[isd.id] ?? "kept") !== "cut") {
+        searchIndex.push({ lineId: makeUnitSearchId(isd.id), text: isd.text });
       }
     }
   } else {
     // standard or diff: include all speeches (cut or kept) from the left/main column
     for (const units of unitsByScene.values()) {
       for (const { unit } of units) {
-        if (unit.type !== "speech") continue;
-        if (unit.lines.length > 0) searchIndex.push({ lineId: unit.lines[0].id, text: unit.characterName });
-        for (const line of unit.lines) {
-          searchIndex.push({ lineId: line.id, text: line.text });
+        if (unit.type === "speech") {
+          if (unit.lines.length > 0) searchIndex.push({ lineId: unit.lines[0].id, text: unit.characterName });
+          if (unit.deliveryNote) searchIndex.push({ lineId: makeUnitSearchId(unit.id), text: unit.deliveryNote });
+          for (const line of unit.lines) {
+            searchIndex.push({ lineId: line.id, text: line.text });
+          }
+        } else if (unit.type === "stage") {
+          const effectiveText = activeCut.sdTextEdits?.[unit.id] ?? unit.text;
+          searchIndex.push({ lineId: makeUnitSearchId(unit.id), text: effectiveText });
         }
       }
     }
-    // diff: also search right column, deduplicated
+    // Inserted SDs (all, including cut ones in standard mode)
+    for (const isd of Object.values(activeCut.insertedSDs ?? {})) {
+      searchIndex.push({ lineId: makeUnitSearchId(isd.id), text: isd.text });
+    }
+    // diff: also search right column speeches, deduplicated
     if (viewMode === "diff") {
       const seen = new Set(searchIndex.map((e) => e.lineId));
       const rightSrc = diffRightUnits ?? origUnitsByScene;
@@ -525,7 +714,9 @@ export default function ScriptEditor({ playId }: Props) {
     const match = matches[idx % matches.length];
     if (!match) return;
     setSearchHighlightId(match.lineId);
-    const loc = lineToLocation.get(match.lineId);
+    const isUnit = isUnitSearchId(match.lineId);
+    const lookupId = isUnit ? extractUnitId(match.lineId) : match.lineId;
+    const loc = lineToLocation.get(lookupId);
     let needsExpand = false;
     if (loc) {
       if (collapsedActs.has(loc.actId)) {
@@ -540,7 +731,8 @@ export default function ScriptEditor({ playId }: Props) {
     if (needsExpand) {
       pendingScrollRef.current = match.lineId;
     } else {
-      const el = scriptColRef.current?.querySelector(`[data-line-id="${match.lineId}"]`);
+      const attr = isUnit ? `[data-unit-id="${lookupId}"]` : `[data-line-id="${lookupId}"]`;
+      const el = scriptColRef.current?.querySelector(attr);
       if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
     }
   }

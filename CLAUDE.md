@@ -29,6 +29,13 @@ If you ever see all routes returning 404 with a redirect loop to `/login`, check
 
 **Disabling auth** (`AUTH_DISABLED=true` in `.env`): the middleware returns `NextResponse.next()` immediately; the `/api/auth/me` and `/api/auth/login` routes return `{ isLoggedIn: true }` / `{ ok: true }` without touching iron-session. `app/login/page.tsx` is a **server component** that calls `redirect("/")` when the flag is set — the client form lives in `app/login/LoginForm.tsx`. Do not add `"use client"` to `page.tsx`; it must stay a server component to read the env var at render time.
 
+## Gotchas
+
+`gotchas.md` at the project root is a **persistent, append-only error log**.
+
+- **When to add**: Any time a mistake is made during a session — wrong assumption, broken convention, silent failure, etc. — add a one-line summary to `gotchas.md`. Never delete entries.
+- **When to review**: At the start of every session, when auditing code, when verifying/finishing a feature group, and when troubleshooting unexpected behaviour.
+
 ## Updating Play Texts
 
 **DraCor plays (37 of 38)**: Pull the submodule.
@@ -71,6 +78,7 @@ Both updates should be done together.
 | `app/api/play/[playId]/route.ts` | GET: fetch + parse + cache a play |
 | `app/api/plays/route.ts` | GET: returns `PLAYS` listing |
 | `lib/ui/SearchContext.tsx` | React context sharing `searchOpen`/`setSearchOpen` between nav `NavSearchButton` and `ScriptEditor` |
+| `lib/ui/EditNavContext.tsx` | React context for edit navigation: ordered `editIndex` (unitIds per active tool's edits), `editIndexIdx`, `editNavGeneration` (increments on navigate to trigger scroll), `setEditIndex`, `navigateEdit` |
 
 **Critical conventions in key files:**
 - `projectIO.ts`: When adding a new field to `Cut` in `types/project.ts`, also add it to `CutSchema` — fields not in the schema are silently stripped on import.

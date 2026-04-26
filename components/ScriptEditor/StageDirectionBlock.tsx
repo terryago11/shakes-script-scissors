@@ -189,7 +189,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
 
   return (
     <>
-      <div className={`group flex items-start gap-3 py-1.5 px-2 rounded ${showEditedStyle ? "border-l-2 border-green-400 dark:border-green-600 bg-green-50/50 dark:bg-green-950/20" : ""}`}>
+      <div data-unit-id={stage.id} className={`group flex items-start gap-3 py-1.5 px-2 rounded ${showEditedStyle ? "border-l-2 border-green-400 dark:border-green-600 bg-green-50/50 dark:bg-green-950/20" : ""}`}>
         <div className="w-1 shrink-0" />
         <div className="flex-1 min-w-0">
           {showEditedStyle && (

@@ -45,7 +45,7 @@ The script editor is the main working view. It shows the full play divided by ac
 
 **Finding text**
 - Press **Cmd+F** (Mac) or **Ctrl+F** (Windows/Linux), or click the **🔍 magnifying glass** button in the nav bar, to open the floating search bar.
-- Type any text to search dialogue and character names across all kept lines.
+- Type any text to search dialogue, character names, stage directions, delivery notes, and inserted stage directions. In Clean mode, cut content is excluded from results.
 - Use the **↑ ↓** buttons or **Enter / Shift+Enter** to step through matches. The current match is highlighted and scrolled into view.
 - Press **Esc** or click **×** to close.
 
@@ -69,6 +69,8 @@ The toolbar shows the active tool. Switch tools using the buttons:
 - **✕ Done** (or press Esc) — exit edit mode
 
 **Undo/Redo**: the toolbar includes ↩ ↪ buttons (up to 20 steps).
+
+**Edit navigation**: when a tool is active and you have made edits, a **← N / total edits →** counter appears in the toolbar. Click the arrows to jump between edits in document order — the script scrolls to each one and expands any collapsed act or scene automatically. The count and pool update as you make or restore edits. The counter is hidden in **none** / **Done** mode.
 
 **Help**: click **?** in the toolbar for tool-specific instructions. The Cut tool `?` also shows a "How to cut a play" guide.
 

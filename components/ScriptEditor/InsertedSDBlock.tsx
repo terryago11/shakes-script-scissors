@@ -48,7 +48,7 @@ export default function InsertedSDBlock({
       ? <><span className="text-violet-600 dark:text-violet-400 not-italic">♪</span><span className="text-cyan-600 dark:text-cyan-400 not-italic">⊛</span>{" "}</>
       : isSong ? "♪ " : isDance ? "⊛ " : "";
     return (
-      <div className="flex items-start gap-3 py-1.5 px-2 rounded">
+      <div data-unit-id={sd.id} className="flex items-start gap-3 py-1.5 px-2 rounded">
         <div className="w-1 shrink-0" />
         <div className={`flex-1 text-sm italic ${sdTextColor}`}>{prefix}{sd.text}</div>
       </div>
@@ -70,7 +70,7 @@ export default function InsertedSDBlock({
 
   return (
     <>
-      <div className={`group flex items-start gap-3 py-1.5 px-2 rounded border-l-2 border-green-400 dark:border-green-600 bg-green-50/50 dark:bg-green-950/20 ${isCut ? "opacity-50" : ""}`}>
+      <div data-unit-id={sd.id} className={`group flex items-start gap-3 py-1.5 px-2 rounded border-l-2 border-green-400 dark:border-green-600 bg-green-50/50 dark:bg-green-950/20 ${isCut ? "opacity-50" : ""}`}>
         <div className="w-1 shrink-0" />
         <div className="flex-1 min-w-0">
           {/* Header row with badge + edit/remove controls */}
