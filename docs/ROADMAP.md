@@ -6,16 +6,23 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature gro
 
 ---
 
-## Upcoming — Group 25 — Suggest Cast: Desired Actor Count — [implementation plan](./group-25-plan.md) *(temp — summarize in CHANGELOG.md and delete after implementation)*
+## Upcoming — Group 25 — Script Polish, Count Audit, Audition Mode & Exports — [implementation plan](./group-25-plan.md)
 
-Add a "Desired # of actors" number input (min 4, max 20) to the Suggest Cast flow.
+**25A ✓ Done** — see CHANGELOG for details.
 
-- **Natural minimum pre-computed** (`CastingManager.tsx`): computed on mount and whenever `activeCut`/`play` changes via `useEffect`; shown as the default value in the input so the director always sees an up-to-date recommendation before clicking Suggest.
-- **Too few actors — forced merges** (`CastingUtils.ts`): if the target is below the algorithm's natural minimum, a post-colouring merge phase greedily merges actor groups by lowest shared stage time (new `computePairwiseSharedMinutes` helper in `StageTimeEngine.ts`). Forced conflicts reported back to UI.
-- **Too many actors — splits** (`CastingUtils.ts`): if the target exceeds the natural minimum, characters are split off from crowded groups into solo slots (always legal). If the target exceeds the total number of parts in the play, an amber warning flags that some actors will be unassigned.
-- **New return type** (`SuggestResult`): `{ assignments, forcedConflicts, naturalMinimum }` — replaces the previous bare array return.
-- **Preview panel**: amber warning banner lists forced conflicts (character names + shared minutes) when count is below minimum; unassigned-actors banner when count exceeds total parts.
-- **Help text update**: new "Desired actor count" subsection in the `?` panel explaining all three cases.
+**25B — Matrix/Character Count Audit & Fix**
+- Root cause: `buildCharSceneMatrix` in `SceneDashboard.tsx` recomputes counts independently from CutEngine and does not apply word-level edits (`speechEdits`). Character cells in the Matrix over-count when word edits are present.
+- Fix: add `byCharacterByScene: Record<charId, Record<sceneId, { lines: Counts; words: Counts }>>` to `LineCounts` in `CutEngine.ts`; pass into `DashboardMatrix`; remove independent recomputation.
+- Integrity check: 6-pass test (no cuts → speech cuts → line cuts → word edits → reassignments → combined) asserting exact per-character word count equality.
+- **Use Opus model for this sub-group.**
+
+**25C — Audition Mode + Suggest Cast Actor Count**
+- Named casting snapshots (`CastingSnapshot` type, `castingSnapshots?: CastingSnapshot[]` on `Project`); snapshot bar in Casting page with Save / Switch / Apply / Rename / Delete; "Audition Mode" toggle; persistent "changes won't affect your project until you Apply" banner.
+- Desired actor count input in Suggest flow; post-colouring merge (below minimum) and split (above minimum) phases; forced-conflict preview panel.
+
+**25D — Exports: Casting Grid & Line Buddy**
+- Printable casting grid HTML (character + actor cards, `@media print`, cut-line borders) triggered from Audition Mode.
+- Line Buddy interactive HTML export (per-actor cue-card drill: cue → reveal → advance; Space/arrow key nav; progress bar; shuffle mode; mobile-friendly); ZIP delivery from Cue Scripts tab.
 
 ---
 
@@ -32,3 +39,4 @@ Add a "Desired # of actors" number input (min 4, max 20) to the Suggest Cast flo
 ## Deferred / N/A
 - Google Drive backup integration
 - **#31 Tableau-style visualization** — character presence / stage time chart using D3 or Recharts
+- **`buildEditIndex` traversal** (`components/ScriptEditor/ScriptEditor.tsx`): currently walks all play acts/scenes/units to build `lineToUnit` and `unitOrder` — duplicates the traversal that `computeCuts` already does. The `useEffect` that calls it must run before `unitsByScene` is computed (React hooks must precede conditional returns), so the obvious fix of passing `unitsByScene` is blocked by hook ordering. Deferred: evaluate whether memoizing `computeCuts` before the early-returns or storing `unitsByScene` in a ref is worth the restructuring cost.

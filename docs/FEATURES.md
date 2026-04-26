@@ -48,6 +48,7 @@ A complete list of capabilities for power users. For a full walkthrough, see the
 | **SD text rewrite** | Edit SDs tool: click ✎ on any stage direction to rewrite its prose text; edited SDs show a green left border and "edited" badge in Standard/Diff views, plain in Clean; restore original wording via the Restore tool; propagated to cue scripts and HTML/Word exports |
 | **Restore** | Restore individual speeches, stage directions, stage direction text edits, or all cuts in a scene |
 | **Undo/Redo** | 20-step undo/redo history within an edit session |
+| **Edit navigation** | ← N / total edits → counter in the edit toolbar; click arrows to jump between edits in document order; auto-expands collapsed acts/scenes; pool is per active tool (cut tool shows all cut speeches, insert shows insertions, etc.); Restore tool shows all edits combined |
 
 ---
 
@@ -160,7 +161,7 @@ All three modes are available in the script editor and in the exported HTML file
 | Feature | Details |
 |---------|---------|
 | **Find in script** | **Cmd+F** (Mac) / **Ctrl+F** (Windows/Linux) or the 🔍 button in the nav bar opens a floating search bar |
-| **Scope** | Searches all kept dialogue lines and character names across the entire script |
+| **Scope** | Searches dialogue, character names, stage directions (including SD text rewrites), delivery notes, and inserted stage directions; in Clean mode, cut content is excluded |
 | **Navigation** | ↑ ↓ buttons (or Enter / Shift+Enter) step through matches; current match is outlined and scrolled into view |
 | **Close** | Esc or × button |
 

@@ -11,6 +11,7 @@ import SettingsModal from "@/components/SettingsModal/SettingsModal";
 import ShakespeareAnimation from "@/components/EasterEgg/ShakespeareAnimation";
 import { SceneJumpProvider, useSceneJump } from "@/lib/ui/SceneJumpContext";
 import { EditModeProvider, useEditMode, type EditTool } from "@/lib/ui/EditModeContext";
+import { EditNavProvider, useEditNav } from "@/lib/ui/EditNavContext";
 import { MetricProvider } from "@/lib/ui/MetricContext";
 import { ViewModeProvider, useViewMode, type ViewMode } from "@/lib/ui/ViewModeContext";
 import { SearchProvider, useSearch } from "@/lib/ui/SearchContext";
@@ -103,6 +104,7 @@ export default function ProjectLayout({
   return (
     <SceneJumpProvider>
       <EditModeProvider>
+        <EditNavProvider>
         <MetricProvider>
           <ViewModeProvider>
             <SearchProvider>
@@ -119,6 +121,7 @@ export default function ProjectLayout({
             </SearchProvider>
           </ViewModeProvider>
         </MetricProvider>
+        </EditNavProvider>
       </EditModeProvider>
     </SceneJumpProvider>
   );
@@ -582,9 +585,11 @@ const TOOL_CONFIG: Record<Exclude<EditTool, "none">, { icon: string; label: stri
 
 function EditToolbar({ activeTool, setActiveTool }: { activeTool: EditTool; setActiveTool: (t: EditTool) => void }) {
   const { dispatch, canUndo, canRedo } = useProject();
+  const { editIndex, editIndexIdx, navigateEdit } = useEditNav();
   const [showHelp, setShowHelp] = useState(false);
   const tools = Object.entries(TOOL_CONFIG) as [Exclude<EditTool, "none">, typeof TOOL_CONFIG[Exclude<EditTool, "none">]][];
   const activeConfig = activeTool !== "none" ? TOOL_CONFIG[activeTool] : null;
+  const editTotal = editIndex.length;
 
   function handleSetTool(tool: Exclude<EditTool, "none">) {
     setActiveTool(tool);
@@ -633,6 +638,28 @@ function EditToolbar({ activeTool, setActiveTool }: { activeTool: EditTool; setA
                 {activeConfig.guide}
               </div>
             )}
+          </div>
+        )}
+
+        {editTotal > 0 && (
+          <div className="flex items-center gap-1 shrink-0 ml-2 border-l border-red-600 dark:border-red-800 pl-2">
+            <button
+              onClick={() => navigateEdit(-1)}
+              className="text-red-200 hover:text-white hover:bg-red-600 dark:hover:bg-red-800 rounded p-0.5 transition-colors"
+              title="Previous edit"
+            >
+              <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 2L3 6l4 4"/></svg>
+            </button>
+            <span className="text-xs text-red-200 tabular-nums min-w-[4rem] text-center">
+              {editIndexIdx + 1} / {editTotal} edits
+            </span>
+            <button
+              onClick={() => navigateEdit(1)}
+              className="text-red-200 hover:text-white hover:bg-red-600 dark:hover:bg-red-800 rounded p-0.5 transition-colors"
+              title="Next edit"
+            >
+              <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 2l4 4-4 4"/></svg>
+            </button>
           </div>
         )}
 

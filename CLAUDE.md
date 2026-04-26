@@ -71,6 +71,7 @@ Both updates should be done together.
 | `app/api/play/[playId]/route.ts` | GET: fetch + parse + cache a play |
 | `app/api/plays/route.ts` | GET: returns `PLAYS` listing |
 | `lib/ui/SearchContext.tsx` | React context sharing `searchOpen`/`setSearchOpen` between nav `NavSearchButton` and `ScriptEditor` |
+| `lib/ui/EditNavContext.tsx` | React context for edit navigation: ordered `editIndex` (unitIds per active tool's edits), `editIndexIdx`, `editNavGeneration` (increments on navigate to trigger scroll), `setEditIndex`, `navigateEdit` |
 
 **Critical conventions in key files:**
 - `projectIO.ts`: When adding a new field to `Cut` in `types/project.ts`, also add it to `CutSchema` — fields not in the schema are silently stripped on import.
