@@ -2,38 +2,36 @@
 
 ## Done ✓
 
-See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature groups (Groups 1–24C + Electron packaging).
+See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature groups (Groups 1–24D, Electron packaging, and auto-updates).
 
 ---
 
-## Electron desktop app — remaining steps
+## Upcoming — Group 25 — Script Polish, Count Audit, Audition Mode & Exports — [implementation plan](./group-25-plan.md)
 
-The packaging pipeline is working (`.app` verified on Mac arm64). What's left before distributing to users:
+**25A ✓ Done** — see CHANGELOG for details.
 
-- **App icon** — need `electron/assets/icon.icns` (Mac) and `electron/assets/icon.ico` (Windows); currently uses the default Electron blue-ball icon
-- **Windows build** — `.exe` (NSIS) config is written but untested; needs a Windows machine or GitHub Actions `windows-latest` runner
-- **GitHub Release** ⚠️ untested — the full release pipeline (version bump → build → publish → auto-update on a user machine) has not been run end-to-end yet; do a dry run before distributing to real users. Steps to ship:
-  1. Bump the version and create a git tag: `npm version patch` (or `minor` / `major`)
-  2. Push the tag: `git push --follow-tags`
-  3. Build and publish from Mac: `GH_TOKEN=<token> npm run electron:release` → uploads `.dmg` + `latest-mac.yml`
-  4. Build and publish from Windows: same command on a Windows machine → uploads `.exe` + `latest.yml`
-  - `GH_TOKEN` needs `repo` scope (or use `GITHUB_TOKEN` in GitHub Actions)
-  - electron-builder creates the GitHub Release automatically if it doesn't exist; subsequent runs for other platforms add their artifacts to the same release
-  - After the first release, `electron-updater` on installed copies will detect `latest-mac.yml` / `latest.yml` and prompt users to update
-- **Auto-updates** ✓ — `electron-updater` integrated; uses esbuild to bundle into main.js; prompts "Restart / Later" on update-downloaded; publish config points to GitHub Releases
+**25B — Matrix/Character Count Audit & Fix**
+- Root cause: `buildCharSceneMatrix` in `SceneDashboard.tsx` recomputes counts independently from CutEngine and does not apply word-level edits (`speechEdits`). Character cells in the Matrix over-count when word edits are present.
+- Fix: add `byCharacterByScene: Record<charId, Record<sceneId, { lines: Counts; words: Counts }>>` to `LineCounts` in `CutEngine.ts`; pass into `DashboardMatrix`; remove independent recomputation.
+- Integrity check: 6-pass test (no cuts → speech cuts → line cuts → word edits → reassignments → combined) asserting exact per-character word count equality.
+- **Use Opus model for this sub-group.**
+
+**25C — Audition Mode + Suggest Cast Actor Count**
+- Named casting snapshots (`CastingSnapshot` type, `castingSnapshots?: CastingSnapshot[]` on `Project`); snapshot bar in Casting page with Save / Switch / Apply / Rename / Delete; "Audition Mode" toggle; persistent "changes won't affect your project until you Apply" banner.
+- Desired actor count input in Suggest flow; post-colouring merge (below minimum) and split (above minimum) phases; forced-conflict preview panel.
+
+**25D — Exports: Casting Grid & Line Buddy**
+- Printable casting grid HTML (character + actor cards, `@media print`, cut-line borders) triggered from Audition Mode.
+- Line Buddy interactive HTML export (per-actor cue-card drill: cue → reveal → advance; Space/arrow key nav; progress bar; shuffle mode; mobile-friendly); ZIP delivery from Cue Scripts tab.
 
 ---
 
-See [CHANGELOG.md](./CHANGELOG.md) for Groups 24B and 24C (completed).
-
-## Done ✓ — Group 24D — Installer & Update UX
-- **Installer experience** (`electron-builder.yml`): Windows NSIS `oneClick: false`, desktop + start menu shortcuts, file association for `.sss.json` (double-click opens app).
-- **Update UX** (`electron/main.ts`): release notes shown in update dialogs (Mac + Windows); Windows download progress reflected in title bar; `checking-for-update` / `update-not-available` log entries.
-
-## Upcoming — Group 25 — Electron Native File I/O
+## Upcoming — Group 26 — Electron Native File I/O
 - **Native open/save** (`electron/main.ts`, `electron/preload.ts`, `ProjectStore.tsx`, `SettingsModal.tsx`): replace web-style import/export with native `dialog.showOpenDialog` / `showSaveDialog` IPC in Electron. Projects open/save like Word documents. Web app keeps existing download/upload flow. Cmd+S saves without dialog once a path is known.
 
-### Group 24E — Help System (design-first, deferred)
+---
+
+## Upcoming — Group 27 — Help System
 - Consolidate scattered `?` buttons into a shared `HelpPopover` component. Add a Help nav entry linking to a topic index modal. Optionally: first-time onboarding highlights on first project load (hand-rolled, no library dependency). Design discussion required before implementation.
 
 ---
@@ -41,3 +39,4 @@ See [CHANGELOG.md](./CHANGELOG.md) for Groups 24B and 24C (completed).
 ## Deferred / N/A
 - Google Drive backup integration
 - **#31 Tableau-style visualization** — character presence / stage time chart using D3 or Recharts
+- **`buildEditIndex` traversal** (`components/ScriptEditor/ScriptEditor.tsx`): currently walks all play acts/scenes/units to build `lineToUnit` and `unitOrder` — duplicates the traversal that `computeCuts` already does. The `useEffect` that calls it must run before `unitsByScene` is computed (React hooks must precede conditional returns), so the obvious fix of passing `unitsByScene` is blocked by hook ordering. Deferred: evaluate whether memoizing `computeCuts` before the early-returns or storing `unitsByScene` in a ref is worth the restructuring cost.
