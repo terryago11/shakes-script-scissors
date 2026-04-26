@@ -25,7 +25,7 @@ Collect everything needed to write accurate docs.
 
 1. **Plan file**: find the most recently modified `.md` in `/Users/terryago/.claude/plans/` and read it. This describes what was intended.
 2. **Git diff**: run `git diff --name-only origin/main` to see exactly which files changed. Then run `git diff origin/main -- <key changed files>` to understand the substance of the changes.
-3. **Existing docs**: read all of these files in full:
+3. **Existing docs**: read all of these files in full — always read `CLAUDE.md` first before editing any file, as it contains critical conventions:
    - `CLAUDE.md`
    - `README.md`
    - `docs/CHANGELOG.md`
@@ -124,12 +124,18 @@ Be thorough — every changed behaviour should appear here. This is the permanen
 
 ## Step 8 — Commit and create PR
 
+**Important**: `main` is branch-protected — direct pushes are rejected. Always work on a feature branch.
+
 ```bash
 export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:$PATH"
 export PATH="/opt/homebrew/bin:$PATH"
 
+# Create a feature branch for the docs PR (from current HEAD, which is already on a feature branch or main)
+git checkout -b docs/group-N-<short-title>
+
 git add CLAUDE.md README.md docs/
 git commit -m "docs: update CLAUDE.md, docs, CHANGELOG, ROADMAP for Group N"
+git push -u origin docs/group-N-<short-title>
 
 gh pr create \
   --title "docs: Group N — <short title> documentation" \
@@ -148,7 +154,7 @@ EOF
 )"
 ```
 
-Report the PR URL to the user.
+Report the PR URL to the user. **Do not switch back to `main` after pushing** — leave the working directory on the docs branch so the user can inspect or amend before the PR is merged.
 
 ---
 
