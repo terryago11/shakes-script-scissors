@@ -27,6 +27,7 @@ Collect everything needed to write accurate docs.
 2. **Git diff**: run `git diff --name-only origin/main` to see exactly which files changed. Then run `git diff origin/main -- <key changed files>` to understand the substance of the changes.
 3. **Existing docs**: read all of these files in full — always read `CLAUDE.md` first before editing any file, as it contains critical conventions:
    - `CLAUDE.md`
+   - `gotchas.md` — review for mistakes made this session that should be logged; also note any pre-existing entries relevant to the work
    - `README.md`
    - `docs/CHANGELOG.md`
    - `docs/ROADMAP.md`
@@ -51,6 +52,22 @@ Rules for categorisation:
 - **docs-worthy**: any user-facing feature, new UI, new workflow, new export, new dashboard tab, new setting
 - **CHANGELOG**: everything
 - **ROADMAP done**: any group or deferred item that was completed
+
+---
+
+## Step 2B — Update gotchas.md
+
+**Rules — append-only, never delete entries.**
+
+Add a one-line entry for any mistake made during this session:
+- Wrong assumption that caused a broken build or silent failure
+- Forgotten convention that had to be corrected mid-session
+- Technical constraint that tripped up an otherwise-correct plan (e.g. Rules of Hooks blocking memoization)
+- Anything that wasted time or would waste time again next session
+
+Format: `- **GroupN**: one sentence describing the mistake and the correct behaviour.`
+
+Also include gotchas.md in the git add in Step 8 even if you add no new entries (the file should always be staged to catch any entries added earlier in the session).
 
 ---
 
@@ -133,7 +150,7 @@ export PATH="/opt/homebrew/bin:$PATH"
 # Create a feature branch for the docs PR (from current HEAD, which is already on a feature branch or main)
 git checkout -b docs/group-N-<short-title>
 
-git add CLAUDE.md README.md docs/
+git add CLAUDE.md README.md gotchas.md docs/
 git commit -m "docs: update CLAUDE.md, docs, CHANGELOG, ROADMAP for Group N"
 git push -u origin docs/group-N-<short-title>
 
