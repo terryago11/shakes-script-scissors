@@ -32,6 +32,12 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature gro
 
 ---
 
+## Known Issues / Tech Debt
+
+- **React key warning in `CastingManager`** — "Each child in a list should have a unique 'key' prop. Check the render method of `CastingManager`." Reproducible by editing a character-card alias and then switching to a different cast option. All explicit `.map()` calls in `CastingManager.tsx`, `CharacterCard.tsx`, and `CompareCastOptions.tsx` have been audited and carry `key` props; root cause not yet located. Needs browser DevTools inspection with the full component stack to pinpoint the offending list.
+
+---
+
 ## Deferred / N/A
 - Google Drive backup integration
 - **#31 Tableau-style visualization** — character presence / stage time chart using D3 or Recharts

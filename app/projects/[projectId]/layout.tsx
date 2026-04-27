@@ -181,12 +181,10 @@ function ProjectNav({
       // Allow navigation to the casting page itself
       if (href === `/projects/${projectId}/casting`) return;
       if (audition.dirty) {
-        const name = audition.draft?.name ?? "the current draft";
-        if (!confirm(`Exit Audition Mode? Unapplied changes to "${name}" will be lost.`)) {
-          e.preventDefault();
-          e.stopPropagation();
-          return;
-        }
+        e.preventDefault();
+        e.stopPropagation();
+        audition.setPendingExitHref(href);
+        return;
       }
       audition.setOn(false);
       audition.setDraft(null);
@@ -504,23 +502,52 @@ function ProjectNav({
               {audition.draft.order} · {audition.draft.name}
             </span>
           )}
-          <span className="text-blue-200 text-xs flex-1 whitespace-nowrap">
-            Changes only affect this option until you choose it.
-          </span>
-          <button
-            onClick={() => {
-              if (audition.dirty) {
-                const name = audition.draft?.name ?? "the current draft";
-                if (!confirm(`Exit Auditions? Unapplied changes to "${name}" will be lost.`)) return;
-              }
-              audition.setOn(false);
-              audition.setDraft(null);
-              audition.setDirty(false);
-            }}
-            className="text-xs px-2.5 py-1 rounded border border-blue-400 bg-blue-500 hover:bg-blue-400 transition-colors shrink-0 text-white"
-          >
-            Exit Auditions ×
-          </button>
+          {audition.pendingExitHref !== null ? (
+            <>
+              <span className="text-white text-xs flex-1 whitespace-nowrap">
+                Lose unsaved changes to &ldquo;{audition.draft?.name}&rdquo;?
+              </span>
+              <button
+                onClick={() => {
+                  const href = audition.pendingExitHref!;
+                  audition.setOn(false);
+                  audition.setDraft(null);
+                  audition.setDirty(false);
+                  audition.setPendingExitHref(null);
+                  if (href) router.push(href);
+                }}
+                className="text-xs px-2.5 py-1 rounded border border-red-400 bg-red-500 hover:bg-red-400 transition-colors shrink-0 text-white"
+              >
+                Yes, exit
+              </button>
+              <button
+                onClick={() => audition.setPendingExitHref(null)}
+                className="text-xs px-2.5 py-1 rounded border border-blue-300 bg-blue-500 hover:bg-blue-400 transition-colors shrink-0 text-white"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="text-blue-200 text-xs flex-1 whitespace-nowrap">
+                Use &ldquo;Update Option&rdquo; to save casting changes to this option.
+              </span>
+              <button
+                onClick={() => {
+                  if (audition.dirty) {
+                    audition.setPendingExitHref("");
+                    return;
+                  }
+                  audition.setOn(false);
+                  audition.setDraft(null);
+                  audition.setDirty(false);
+                }}
+                className="text-xs px-2.5 py-1 rounded border border-blue-400 bg-blue-500 hover:bg-blue-400 transition-colors shrink-0 text-white"
+              >
+                Exit Auditions ×
+              </button>
+            </>
+          )}
         </div>
       )}
 

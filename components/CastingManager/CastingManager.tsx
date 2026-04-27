@@ -97,6 +97,9 @@ export default function CastingManager({ playId }: Props) {
   const [renamingOptionId, setRenamingOptionId] = useState<string | null>(null);
   const [renamingOptionValue, setRenamingOptionValue] = useState("");
   const [compareOpen, setCompareOpen] = useState(false);
+  const [showNewOptionInput, setShowNewOptionInput] = useState(false);
+  const [newOptionName, setNewOptionName] = useState("");
+  const [pendingConfirm, setPendingConfirm] = useState<{ message: string; onConfirm: () => void } | null>(null);
 
   // Reset audition mode when leaving the casting page
   useEffect(() => {
@@ -190,7 +193,7 @@ export default function CastingManager({ playId }: Props) {
   const effectiveActors: Actor[] = project.actors;
   const effectiveAssignments: ActorAssignment[] =
     isAudition && draft ? draft.assignments : project.assignments;
-  const isReadOnly = !isAudition;
+  const isReadOnly = false;
   const castOptions = project.castOptions ?? [];
   const activeOption = project.activeCastOptionId
     ? castOptions.find((o) => o.id === project.activeCastOptionId) ?? null
@@ -256,12 +259,7 @@ export default function CastingManager({ playId }: Props) {
   }
   // Suggest results: actors always go into the global pool; assignments go into draft when in audition.
   function applyBulkSetCast(actors: Actor[], assignments: ActorAssignment[]) {
-    if (isAudition && draft) {
-      dispatch({ type: "BULK_SET_CAST", actors, assignments: project!.assignments });
-      setDraftAssignments(assignments);
-    } else {
-      dispatch({ type: "BULK_SET_CAST", actors, assignments });
-    }
+    dispatch({ type: "BULK_SET_CAST", actors, assignments });
   }
   function applyExtendCast(actors: Actor[], assignments: ActorAssignment[]) {
     if (isAudition && draft) {
@@ -392,12 +390,41 @@ export default function CastingManager({ playId }: Props) {
 
     if (mode === "replace") {
       const replacePad = (n: number) => String(n).padStart(Math.max(2, String(groups.length).length), "0");
-      const replaceActors: Actor[] = groups.map((g, i) => ({
-        id: newActors[i].id,
-        name: `Actor ${replacePad(g.actorIndex + 1)}`,
-        color: defaultColors[i % defaultColors.length],
-      }));
-      applyBulkSetCast(replaceActors, newAssignments);
+      if (isAudition && draft) {
+        // Audition mode replace: reuse existing global actor slots to avoid
+        // polluting the pool with duplicates (which would corrupt other options' cards).
+        // Map actorIndex → existing actor by position; only add extras if needed.
+        const draftAssignments: ActorAssignment[] = [];
+        const actorsToAdd: Actor[] = [];
+        for (let i = 0; i < groups.length; i++) {
+          let actorId: string;
+          if (i < effectiveActors.length) {
+            actorId = effectiveActors[i].id;
+          } else {
+            const extra: Actor = {
+              id: generateId(),
+              name: `Actor ${replacePad(i + 1)}`,
+              color: defaultColors[i % defaultColors.length],
+            };
+            actorId = extra.id;
+            actorsToAdd.push(extra);
+          }
+          for (const charId of groups[i].charIds) {
+            draftAssignments.push({ characterId: charId, actorId });
+          }
+        }
+        if (actorsToAdd.length > 0) {
+          dispatch({ type: "EXTEND_CAST", actors: actorsToAdd, assignments: [] });
+        }
+        setDraftAssignments(draftAssignments);
+      } else {
+        const replaceActors: Actor[] = groups.map((g, i) => ({
+          id: newActors[i].id,
+          name: `Actor ${replacePad(g.actorIndex + 1)}`,
+          color: defaultColors[i % defaultColors.length],
+        }));
+        applyBulkSetCast(replaceActors, newAssignments);
+      }
     } else {
       applyExtendCast(newActors, newAssignments);
     }
@@ -682,9 +709,7 @@ export default function CastingManager({ playId }: Props) {
         </span>
       </div>
       <p className="text-stone-500 dark:text-stone-400 text-sm mb-6">
-        {isReadOnly
-          ? "Read-only — turn on Auditions (top bar) to edit casting."
-          : "Assign actors to characters. One actor can play multiple characters (double-casting)."}
+        Assign actors to characters. One actor can play multiple characters (double-casting).
       </p>
 
       {/* ── Auditions option chip bar ──────────────────────────────────────── */}
@@ -727,7 +752,14 @@ export default function CastingManager({ playId }: Props) {
                     onClick={() => {
                       if (isSelected) return;
                       if (audition.dirty) {
-                        if (!confirm(`Switch to "${opt.order} · ${opt.name}"? Unsaved changes to "${draft?.name}" will be lost.`)) return;
+                        setPendingConfirm({
+                          message: `Switch to "${opt.order} · ${opt.name}"? Unsaved changes to "${draft?.name}" will be lost.`,
+                          onConfirm: () => {
+                            audition.setDraft({ ...opt, assignments: opt.assignments.map((a) => ({ ...a })) });
+                            audition.setDirty(false);
+                          },
+                        });
+                        return;
                       }
                       audition.setDraft({ ...opt, assignments: opt.assignments.map((a) => ({ ...a })) });
                       audition.setDirty(false);
@@ -750,17 +782,21 @@ export default function CastingManager({ playId }: Props) {
                   {castOptions.length > 1 && (
                     <button
                       onClick={() => {
-                        if (!confirm(`Delete option "${opt.order} · ${opt.name}"?`)) return;
-                        dispatch({ type: "DELETE_CAST_OPTION", optionId: opt.id });
-                        if (draft?.id === opt.id) {
-                          const remaining = castOptions.filter((o) => o.id !== opt.id);
-                          if (remaining.length > 0) {
-                            audition.setDraft({ ...remaining[0], assignments: remaining[0].assignments.map((a) => ({ ...a })) });
-                          } else {
-                            audition.setDraft(null);
-                          }
-                          audition.setDirty(false);
-                        }
+                        setPendingConfirm({
+                          message: `Delete option "${opt.order} · ${opt.name}"?`,
+                          onConfirm: () => {
+                            dispatch({ type: "DELETE_CAST_OPTION", optionId: opt.id });
+                            if (draft?.id === opt.id) {
+                              const remaining = castOptions.filter((o) => o.id !== opt.id);
+                              if (remaining.length > 0) {
+                                audition.setDraft({ ...remaining[0], assignments: remaining[0].assignments.map((a) => ({ ...a })) });
+                              } else {
+                                audition.setDraft(null);
+                              }
+                              audition.setDirty(false);
+                            }
+                          },
+                        });
                       }}
                       className="text-blue-300 dark:text-blue-600 hover:text-red-500 dark:hover:text-red-400 text-xs"
                       title="Delete"
@@ -771,13 +807,29 @@ export default function CastingManager({ playId }: Props) {
             })}
           </div>
 
+          {/* Inline confirmation bar (replaces confirm() dialogs) */}
+          {pendingConfirm && (
+            <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 text-sm text-amber-900 dark:text-amber-100">
+              <span className="flex-1">{pendingConfirm.message}</span>
+              <button
+                onClick={() => { pendingConfirm.onConfirm(); setPendingConfirm(null); }}
+                className="px-2 py-0.5 rounded border border-red-400 bg-red-500 text-white text-xs hover:bg-red-600"
+              >Yes</button>
+              <button
+                onClick={() => setPendingConfirm(null)}
+                className="px-2 py-0.5 rounded border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 text-xs hover:bg-stone-100 dark:hover:bg-stone-800"
+              >Cancel</button>
+            </div>
+          )}
+
           {/* Action buttons row: Update Option | New Option | Compare */}
-          <div className="flex flex-wrap gap-2 mb-2">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
             {draft && (
               <button
                 onClick={() => {
                   dispatch({ type: "UPDATE_CAST_OPTION", optionId: draft.id, assignments: draft.assignments, desiredActorCount: draft.desiredActorCount ?? null, characterLinks: effectiveCharacterLinks.length > 0 ? effectiveCharacterLinks : null });
                   audition.setDirty(false);
+                  setPendingConfirm(null);
                 }}
                 disabled={!audition.dirty}
                 className="text-xs px-3 py-1.5 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -785,16 +837,52 @@ export default function CastingManager({ playId }: Props) {
                 Update Option
               </button>
             )}
-            <button
-              onClick={() => {
-                const name = prompt("Name for this new cast option:", `Option ${castOptions.length + 1}`);
-                if (!name?.trim()) return;
-                dispatch({ type: "SAVE_CAST_OPTION", name: name.trim(), assignments: effectiveAssignments, desiredActorCount: desiredCount ?? undefined, characterLinks: effectiveCharacterLinks.length > 0 ? effectiveCharacterLinks : undefined });
-              }}
-              className="text-xs px-3 py-1.5 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
-            >
-              + New Option
-            </button>
+            {showNewOptionInput ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const n = newOptionName.trim();
+                  if (!n) return;
+                  dispatch({ type: "SAVE_CAST_OPTION", name: n, assignments: effectiveAssignments, desiredActorCount: desiredCount ?? undefined, characterLinks: effectiveCharacterLinks.length > 0 ? effectiveCharacterLinks : undefined });
+                  setShowNewOptionInput(false);
+                  setNewOptionName("");
+                }}
+                className="flex items-center gap-1"
+              >
+                <input
+                  autoFocus
+                  value={newOptionName}
+                  onChange={(e) => setNewOptionName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Escape") { setShowNewOptionInput(false); setNewOptionName(""); } }}
+                  placeholder="Option name…"
+                  className="text-sm px-2 py-1 border border-blue-400 dark:border-blue-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200 w-36"
+                />
+                <button
+                  type="submit"
+                  disabled={!newOptionName.trim()}
+                  className="text-xs px-2 py-1 rounded-lg border border-blue-400 bg-blue-500 text-white hover:bg-blue-400 disabled:opacity-50"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowNewOptionInput(false); setNewOptionName(""); }}
+                  className="text-xs px-2 py-1 rounded-lg border border-stone-300 dark:border-stone-600 text-stone-500 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800"
+                >
+                  ✕
+                </button>
+              </form>
+            ) : (
+              <button
+                onClick={() => {
+                  setNewOptionName(`Option ${castOptions.length + 1}`);
+                  setShowNewOptionInput(true);
+                }}
+                className="text-xs px-3 py-1.5 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
+              >
+                + New Option
+              </button>
+            )}
             <button
               onClick={() => setCompareOpen(true)}
               className="text-xs px-3 py-1.5 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
@@ -876,7 +964,7 @@ export default function CastingManager({ playId }: Props) {
             onClick={handleSuggest}
             disabled={isReadOnly}
             className="px-4 py-2 text-sm border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title={isReadOnly ? "Turn on Audition Mode to use Suggest" : "Suggest the minimum number of actors needed (greedy doubling algorithm)"}
+            title="Suggest the minimum number of actors needed (greedy doubling algorithm)"
           >
             Suggest
           </button>
