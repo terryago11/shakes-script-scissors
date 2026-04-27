@@ -12,9 +12,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature gro
 
 **25B ✓ Done** — see CHANGELOG for details.
 
-**25C — Audition Mode + Suggest Cast Actor Count**
-- Named casting snapshots (`CastingSnapshot` type, `castingSnapshots?: CastingSnapshot[]` on `Project`); snapshot bar in Casting page with Save / Switch / Apply / Rename / Delete; "Audition Mode" toggle; persistent "changes won't affect your project until you Apply" banner.
-- Desired actor count input in Suggest flow; post-colouring merge (below minimum) and split (above minimum) phases; forced-conflict preview panel.
+**25C ✓ Done** — see CHANGELOG for details.
 
 **25D — Exports: Casting Grid & Line Buddy**
 - Printable casting grid HTML (character + actor cards, `@media print`, cut-line borders) triggered from Audition Mode.

@@ -219,12 +219,29 @@ Below the line-count area on each character card, sky-blue pills show characters
 
 ### Suggesting a minimum cast
 
-Click **Suggest minimum cast**. The tool uses graph colouring (Welsh–Powell algorithm) to find the minimum number of actors, respecting:
+Click **Suggest**. The tool uses graph colouring (Welsh–Powell algorithm) to find the minimum number of actors, respecting:
 - Simultaneous on-stage constraints (from entrance/exit SDs)
 - Quick-change timing (gaps below your threshold are forbidden pairs)
 - Character links (hard same-actor overrides)
 
+**Desired actor count**: before running, you can enter a target number of actors. The algorithm shows the natural minimum for reference. If your target is *below* the minimum, groups are merged (least shared stage-time first) and a forced-conflict panel lists the pairs that share an actor despite overlapping on stage. If your target is *above* the minimum, large groups are split into solos.
+
 A preview panel shows the suggested groupings. Click **Apply** to create the actors and assignments, or **Dismiss** to discard.
+
+### Audition Mode — comparing cast options
+
+**Audition Mode** lets you save and compare named casting configurations (e.g. "lean", "expanded", "star vehicle") without committing changes to your project.
+
+1. Click **Auditions** in the nav bar (visible when you are on the Casting page). The nav bar turns blue — you are now in Audition Mode.
+2. The chip bar shows all saved cast options. Click a chip to load that option's assignments into the editor. The current option is highlighted.
+3. Make assignment changes as normal — they go into the draft only, not into the project.
+4. Click **Update Option** (enabled when the draft has unsaved changes) to persist your edits back to that option.
+5. Click **+ New Option** to save the current draft state as a new named option.
+6. Click **Choose casting option: [name]** to apply the current draft to the project and exit Audition Mode.
+7. Click **Exit Auditions ×** (or navigate away) to exit without changing the project. If the draft has unsaved changes, an inline confirmation bar appears — click "Yes, exit" to discard or "Cancel" to stay.
+8. Click **Compare** to open a side-by-side modal comparing up to 3 options at once; switch between Words / Lines / Time metrics; click column headers to sort.
+
+> **Tip:** Actors are a global pool — all cast options share the same actor names and colours. Only assignments (and optional per-option must-double links) differ between options.
 
 ### Quick-change warnings
 
