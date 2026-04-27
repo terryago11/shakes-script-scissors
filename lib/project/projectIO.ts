@@ -16,6 +16,18 @@ const AssignmentSchema = z.object({
   actorId: z.string(),
 });
 
+const CastOptionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  order: z.number().int(),
+  // actors was removed in v2 — actors live in project.actors (global pool)
+  actors: z.array(ActorSchema).optional(),
+  assignments: z.array(AssignmentSchema),
+  desiredActorCount: z.number().int().positive().optional(),
+  characterLinks: z.array(z.tuple([z.string(), z.string()])).optional(),
+  createdAt: z.string(),
+}).transform(({ actors: _actors, ...rest }) => rest);
+
 const CutSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -83,6 +95,8 @@ const ProjectSchema = z.object({
   }).optional(),
   actors: z.array(ActorSchema),
   assignments: z.array(AssignmentSchema),
+  castOptions: z.array(CastOptionSchema).optional(),
+  activeCastOptionId: z.string().optional(),
   cuts: z.array(CutSchema).min(1),
   activeCutId: z.string().nullable(),
   actDescriptions: z.record(z.string(), z.string()).optional(),

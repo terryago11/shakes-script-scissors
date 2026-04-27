@@ -107,8 +107,13 @@ All three modes are available in the script editor and in the exported HTML file
 | **Must-double links** | Force two characters to share the same actor (sky-blue pills); feeds into Suggest; amber ⚠ badge when linked characters are assigned to different actors |
 | **Compatibility list** | After assigning an actor, expand "Actor can also play" on the card to see ✓ compatible and ⚠ conflicting (quick-change / simultaneous) unassigned characters |
 | **Minimum cast suggestion** | Welsh–Powell graph colouring; respects simultaneous constraints, quick-change forbidden pairs, and must-double links |
-| **Suggest Replace/Extend** | When actors already exist: Replace clears and re-suggests; Extend suggests only unassigned characters and appends to the existing cast |
+| **Desired actor count** | Set a target number of actors before running Suggest; algorithm shows natural minimum for reference. Targets below the minimum merge groups (least shared stage-time first) and report forced-conflict pairs; targets above split large groups solo |
+| **Forced-conflict preview** | When Suggest is run below the natural minimum, a warning panel lists every character pair sharing an actor despite being on stage together, with shared stage-time in minutes |
+| **Suggest Replace/Extend** | When actors already exist: Replace clears and re-suggests; Extend suggests only unassigned characters and appends to the existing cast (disabled when all characters are already assigned) |
 | **Apply suggestion** | Creates actors and assignments in one click |
+| **Cast options (Audition Mode)** | Save named casting configurations ("lean", "expanded", "Ira as Hamlet"); switch between them in Audition Mode without touching the applied cast; a "Default" option is auto-created from the current cast when actors exist |
+| **Audition Mode** | Toggle via the "Auditions" button in the nav when on the Casting page. The nav bar turns blue; all assignment changes go into the selected draft option only. "Update Option" saves changes; "Choose casting option" applies the draft to the project and exits. Inline confirmation replaces browser dialogs for unsaved-changes guards on navigation and option switching |
+| **Compare Cast Options** | Side-by-side modal comparing up to 3 cast options at once; metric toggle (Words / Lines / Time); sortable actor rows with proportional data bars per option |
 | **Cut counts on cards** | Each character card shows cut line/word/time counts inline |
 | **Full-cast banner** | Dismissible green banner appears once all speaking characters are assigned; links to Rehearsal tab |
 

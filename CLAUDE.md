@@ -67,9 +67,9 @@ Both updates should be done together.
 | `lib/folger/TeiParser.ts` | Parses TEI XML into `Play` domain objects |
 | `lib/folger/PlayCache.ts` | LRU in-memory cache for parsed plays (server-side) |
 | `lib/cuts/CutEngine.ts` | Pure fn: `(Play, Cut, assignments, actors)` → `LineCounts` + filtered units |
-| `lib/cuts/StageTimeEngine.ts` | Per-character on-stage time from entrance/exit SDs |
+| `lib/cuts/StageTimeEngine.ts` | Per-character on-stage time from entrance/exit SDs; `computePairwiseSharedMinutes` returns symmetric shared-time map for merge-phase doubling |
 | `lib/cuts/CueScriptBuilder.ts` | Builds per-actor cue scripts from cut play |
-| `lib/cuts/CastingUtils.ts` | `suggestMinimumCast` (Welsh–Powell graph colouring) + `buildForbiddenPairs` |
+| `lib/cuts/CastingUtils.ts` | `suggestMinimumCast` → `SuggestResult` (Welsh–Powell graph colouring; optional merge/split phases for `desiredActorCount`) + `buildForbiddenPairs` |
 | `lib/cuts/QuickChangeEngine.ts` | `computeQuickChanges` — actor quick-change warnings with act/scene/line locations |
 | `lib/cuts/PropsEngine.ts` | Scans stage directions and speech text for prop keywords; returns `PropReference[]` with `source`, `confidence`, and context fields |
 | `lib/cuts/countIntegrityCheck.ts` | `runCountIntegrityCheck(lineCounts)` — cross-checks `byCharacterByScene` + `byUnit` against canonical totals; called from `SceneDashboard` on every render; `console.error` on failure, never throws |
@@ -80,9 +80,11 @@ Both updates should be done together.
 | `app/api/plays/route.ts` | GET: returns `PLAYS` listing |
 | `lib/ui/SearchContext.tsx` | React context sharing `searchOpen`/`setSearchOpen` between nav `NavSearchButton` and `ScriptEditor` |
 | `lib/ui/EditNavContext.tsx` | React context for edit navigation: ordered `editIndex` (unitIds per active tool's edits), `editIndexIdx`, `editNavGeneration` (increments on navigate to trigger scroll), `setEditIndex`, `navigateEdit` |
+| `lib/ui/AuditionModeContext.tsx` | React context for audition mode: `on`, `draft` (in-progress `CastOption`), `dirty`, `pendingExitHref` (inline exit-confirm state) |
+| `components/CastingManager/CompareCastOptions.tsx` | Side-by-side cast-option comparison modal (up to 3 columns, words/lines/time metric, sortable actor rows, data bars) |
 
 **Critical conventions in key files:**
-- `projectIO.ts`: When adding a new field to `Cut` in `types/project.ts`, also add it to `CutSchema` — fields not in the schema are silently stripped on import.
+- `projectIO.ts`: When adding a new field to `Cut` in `types/project.ts`, also add it to `CutSchema` — fields not in the schema are silently stripped on import. Same rule for `CastOption` → `CastOptionSchema`.
 - `projectUtils.ts`: Always use `getEffectiveSceneOrder(play, cut)` instead of `cut.sceneOrder ?? defaultOrder` in engines — it appends any missing scenes.
 - `defaultColors` excludes reds and greens (reserved for cut/addition UI indicators).
 - `TeiParser.ts` `splitProseByLb`: `<q>/<lg>` nodes with `<l>` children inside `<p>` are now routed to `extractLgLines` (flush pending text first). The `<l>` child guard is precise — `type="letter"` bodies with `<lb>` not `<l>` are unaffected.
@@ -117,8 +119,10 @@ Both updates should be done together.
   - `insertedSDs?: Record<insertedSDId, InsertedSD>` — director-created SDs after any speech/inserted SD
   - `sdFlagOverrides?: Record<sdId, { isSong?: boolean; isDance?: boolean }>`
   - `sdTextEdits?: Record<sdId, string>` — cosmetic SD prose rewrites (display-only)
-- `actors[]`: name + color hex
-- `assignments[]`: `characterId` → `actorId`
+- `actors[]`: name + color hex (global pool — shared across all cast options)
+- `assignments[]`: `characterId` → `actorId` (the currently applied casting)
+- `castOptions?: CastOption[]` — named casting snapshots; each stores `assignments`, optional `characterLinks`, optional `desiredActorCount`
+- `activeCastOptionId?: string` — ID of the option currently applied to `actors`/`assignments`
 - `settings?: { wordsPerMinute: number; quickChangeThresholdMinutes?: number }`
 
 ## UI Conventions

@@ -10,6 +10,21 @@ export interface ProjectSettings {
   minActorStageTimeMinutes?: number;
 }
 
+export interface CastOption {
+  id: string;
+  /** Manual user-given name, e.g. "lean", "expanded", "Ira as Hamlet". */
+  name: string;
+  /** Stable ordinal shown alongside name as "1 - lean". Re-numbered on add only (gaps preserved on delete). */
+  order: number;
+  /** Actors live in project.actors (global pool). Cast options only vary assignments. */
+  assignments: ActorAssignment[];
+  /** Per-option desired actor count for Suggest. Absent = use naturalMinimum. */
+  desiredActorCount?: number;
+  /** Must-double character pairs for this option (IDs in lexicographic order). */
+  characterLinks?: Array<[string, string]>;
+  createdAt: string;
+}
+
 export interface Project {
   /** Schema version for future migrations */
   version: number;
@@ -22,6 +37,10 @@ export interface Project {
   actors: Actor[];
   /** Maps characterId → actorId (one actor per character) */
   assignments: ActorAssignment[];
+  /** Saved cast options (audition mode). The applied cast lives in actors/assignments. */
+  castOptions?: CastOption[];
+  /** ID of the cast option currently applied to project.actors/assignments. */
+  activeCastOptionId?: string;
   cuts: Cut[];
   activeCutId: string | null;
   /** Short production notes per act, keyed by act ID */
