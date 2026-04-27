@@ -46,6 +46,8 @@ interface Props {
   sdRemnantCount?: number;
   /** Project ID for the integrity link */
   projectId?: string;
+  /** When true, all editing controls (assign select, alias, links) are disabled */
+  readOnly?: boolean;
 }
 
 function fmtMins(m: number): string {
@@ -74,6 +76,7 @@ export default function CharacterCard({
   hasLinkViolation,
   sdRemnantCount,
   projectId,
+  readOnly,
 }: Props) {
   const [editingAlias, setEditingAlias] = useState(false);
   const [aliasInput, setAliasInput] = useState("");
@@ -340,7 +343,8 @@ export default function CharacterCard({
       <select
         value={assignedActorId || ""}
         onChange={(e) => onAssign(e.target.value || null)}
-        disabled={isFullyCut}
+        disabled={isFullyCut || readOnly}
+        title={readOnly && !isFullyCut ? "Turn on Audition Mode to edit casting" : undefined}
         className={`text-xs border rounded px-2 py-1 bg-white dark:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:cursor-not-allowed shrink-0 ${
           assignmentConflicts
             ? "border-amber-400 text-amber-700 dark:text-amber-400"

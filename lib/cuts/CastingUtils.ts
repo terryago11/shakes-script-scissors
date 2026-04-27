@@ -5,6 +5,14 @@ import { getEffectiveSceneOrder } from "@/lib/project/projectUtils";
 const AVG_WORDS_PER_LINE = 8;
 const DEFAULT_WPM = 135;
 
+export interface SuggestResult {
+  assignments: Array<{ charId: string; actorIndex: number }>;
+  /** Pairs forced onto the same actor because desiredActorCount < naturalMinimum. */
+  forcedConflicts: Array<{ charA: string; charB: string; sharedMinutes: number }>;
+  /** The minimum number of actors the algorithm would need without a desiredActorCount. */
+  naturalMinimum: number;
+}
+
 /**
  * Options for the minimum-cast suggestion algorithm.
  */
@@ -29,6 +37,14 @@ export interface SuggestOptions {
    * normalise to the same display name.
    */
   sameActorPairs?: Array<[string, string]>;
+  /**
+   * When set, adjust the result to use exactly this many actors.
+   * If below naturalMinimum, groups are merged (recording forcedConflicts).
+   * If above naturalMinimum, groups are split (large→solo) until count = target.
+   */
+  desiredActorCount?: number;
+  /** Pairwise shared stage-time map, used by the merge phase to pick lowest-conflict merges. */
+  sharedMinutes?: Map<string, Map<string, number>>;
 }
 
 /**
@@ -159,13 +175,17 @@ export function suggestMinimumCast(
   speakingCharIds: string[],
   simultaneousMap: Map<string, Set<string>>,
   options?: SuggestOptions,
-): Array<{ charId: string; actorIndex: number }> {
-  if (speakingCharIds.length === 0) return [];
+): SuggestResult {
+  if (speakingCharIds.length === 0) {
+    return { assignments: [], forcedConflicts: [], naturalMinimum: 0 };
+  }
 
   const {
     lineCounts = {},
     forbiddenPairs = [],
     sameActorPairs = [],
+    desiredActorCount,
+    sharedMinutes,
   } = options ?? {};
 
   // ── Step 1: Union-Find for sameActorPairs ──────────────────────────────
@@ -268,14 +288,117 @@ export function suggestMinimumCast(
     slotRemap[slot] = idx;
   });
 
-  // ── Step 8: Map reps back to all their charIds ─────────────────────────
+  // ── Step 8: Build mutable groups for merge/split ─────────────────────
+  const naturalMinimum = sortedSlots.length;
+  // groups: slotIndex → set of repIds
+  const groups = new Map<number, Set<string>>();
+  for (const [rep, slotAfterRemap] of Object.entries(assignment)) {
+    const mapped = slotRemap[slotAfterRemap];
+    if (!groups.has(mapped)) groups.set(mapped, new Set());
+    groups.get(mapped)!.add(rep);
+  }
+
+  const forcedConflicts: Array<{ charA: string; charB: string; sharedMinutes: number }> = [];
+
+  if (desiredActorCount !== undefined && desiredActorCount < naturalMinimum) {
+    // ── Merge phase: repeatedly merge the pair of groups with least shared time ──
+    function sumShared(gA: Set<string>, gB: Set<string>): number {
+      let total = 0;
+      for (const ra of gA) {
+        for (const rb of gB) {
+          // Sum pairwise shared minutes across all chars in each rep group
+          for (const ca of (repToChars.get(ra) ?? [])) {
+            for (const cb of (repToChars.get(rb) ?? [])) {
+              const [lo, hi] = ca < cb ? [ca, cb] : [cb, ca];
+              total += sharedMinutes?.get(lo)?.get(hi) ?? 0;
+            }
+          }
+        }
+      }
+      return total;
+    }
+    function worstPair(gA: Set<string>, gB: Set<string>): { charA: string; charB: string; sharedMinutes: number } | null {
+      let best: { charA: string; charB: string; sharedMinutes: number } | null = null;
+      for (const ra of gA) {
+        for (const rb of gB) {
+          for (const ca of (repToChars.get(ra) ?? [])) {
+            for (const cb of (repToChars.get(rb) ?? [])) {
+              const [lo, hi] = ca < cb ? [ca, cb] : [cb, ca];
+              const mins = sharedMinutes?.get(lo)?.get(hi) ?? 0;
+              if (!best || mins > best.sharedMinutes) {
+                best = { charA: ca, charB: cb, sharedMinutes: mins };
+              }
+            }
+          }
+        }
+      }
+      return best;
+    }
+
+    while (groups.size > desiredActorCount) {
+      const keys = Array.from(groups.keys());
+      let bestI = -1, bestJ = -1, bestShared = Infinity;
+      for (let i = 0; i < keys.length; i++) {
+        for (let j = i + 1; j < keys.length; j++) {
+          const s = sumShared(groups.get(keys[i])!, groups.get(keys[j])!);
+          if (s < bestShared) { bestShared = s; bestI = keys[i]; bestJ = keys[j]; }
+        }
+      }
+      if (bestI === -1) break;
+      // Record worst conflict pair from this merge
+      const wp = worstPair(groups.get(bestI)!, groups.get(bestJ)!);
+      if (wp) forcedConflicts.push(wp);
+      // Merge bestJ into bestI
+      for (const rep of groups.get(bestJ)!) {
+        groups.get(bestI)!.add(rep);
+        assignment[rep] = bestI;
+      }
+      groups.delete(bestJ);
+    }
+  } else if (desiredActorCount !== undefined && desiredActorCount > naturalMinimum) {
+    // ── Split phase: move lowest-line char from largest group to solo ──────
+    let nextIdx = Math.max(...Array.from(groups.keys())) + 1;
+    while (groups.size < desiredActorCount) {
+      // Find the largest group (by total lines)
+      let largestKey = -1, largestLines = -1;
+      for (const [k, reps] of groups) {
+        const lines = Array.from(reps).reduce((s, r) =>
+          s + (repToChars.get(r) ?? []).reduce((ss, c) => ss + (lineCounts[c] ?? 0), 0), 0);
+        if (lines > largestLines) { largestLines = lines; largestKey = k; }
+      }
+      if (largestKey === -1 || groups.get(largestKey)!.size <= 1) break;
+      // Move the lowest-line rep to a new solo group
+      const reps = Array.from(groups.get(largestKey)!);
+      let minRep = reps[0], minLines = Infinity;
+      for (const r of reps) {
+        const l = (repToChars.get(r) ?? []).reduce((s, c) => s + (lineCounts[c] ?? 0), 0);
+        if (l < minLines) { minLines = l; minRep = r; }
+      }
+      groups.get(largestKey)!.delete(minRep);
+      groups.set(nextIdx, new Set([minRep]));
+      assignment[minRep] = nextIdx;
+      nextIdx++;
+    }
+  }
+
+  // ── Renumber groups so 0 has the most lines ───────────────────────────
+  const groupLinesBySlot = new Map<number, number>();
+  for (const [k, reps] of groups) {
+    groupLinesBySlot.set(k, Array.from(reps).reduce<number>((s, r) =>
+      s + (repToChars.get(r) ?? []).reduce<number>((ss, c) => ss + (lineCounts[c] ?? 0), 0), 0));
+  }
+  const finalSlots = Array.from(groups.keys()).sort((a, b) => (groupLinesBySlot.get(b) ?? 0) - (groupLinesBySlot.get(a) ?? 0));
+  const finalRemap: Record<number, number> = {};
+  finalSlots.forEach((slot, idx) => { finalRemap[slot] = idx; });
+
+  // ── Final mapping: rep → charIds ───────────────────────────────────────
   const result: Array<{ charId: string; actorIndex: number }> = [];
   for (const [rep, chars] of repToChars) {
-    const actorIndex = slotRemap[assignment[rep]];
+    const actorIndex = finalRemap[assignment[rep]];
     for (const charId of chars) {
       result.push({ charId, actorIndex });
     }
   }
 
-  return result;
+  return { assignments: result, forcedConflicts, naturalMinimum };
 }

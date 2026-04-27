@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from "react";
-import type { Project, Actor, ActorAssignment, Cut, ProjectSettings } from "@/types/project";
+import type { Project, Actor, ActorAssignment, CastOption, Cut, ProjectSettings } from "@/types/project";
 import type { SpeechEdit, EditOp } from "@/types/edit";
 import type { Insertion, InsertedLine } from "@/types/insertion";
 import type { InsertedSD } from "@/types/insertedsd";
@@ -57,6 +57,11 @@ type ProjectAction =
   | { type: "TOGGLE_CHARACTER_LINK"; charIdA: string; charIdB: string }
   | { type: "BULK_SET_CAST"; actors: Actor[]; assignments: ActorAssignment[] }
   | { type: "EXTEND_CAST"; actors: Actor[]; assignments: ActorAssignment[] }
+  | { type: "SAVE_CAST_OPTION"; name: string; assignments?: ActorAssignment[]; desiredActorCount?: number; characterLinks?: Array<[string, string]> }
+  | { type: "APPLY_CAST_OPTION"; optionId: string }
+  | { type: "RENAME_CAST_OPTION"; optionId: string; name: string }
+  | { type: "DELETE_CAST_OPTION"; optionId: string }
+  | { type: "UPDATE_CAST_OPTION"; optionId: string; assignments?: ActorAssignment[]; desiredActorCount?: number | null; characterLinks?: Array<[string, string]> | null }
   | { type: "SPLIT_SPEECH"; unitId: string; splitAtLineIndex: number; splitAtWordOffset?: number; newCharacterId?: string }
   | { type: "MERGE_SPEECH"; unitId: string; part2LineIds: string[] }
   | { type: "ADD_INSERTION"; insertion: Insertion }
@@ -485,6 +490,90 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
           updatedAt: now(),
         },
       };
+    }
+
+    case "SAVE_CAST_OPTION": {
+      const p = state.project!;
+      const existing = p.castOptions ?? [];
+      const nextOrder = existing.length === 0
+        ? 1
+        : Math.max(...existing.map((o) => o.order)) + 1;
+      const opt: CastOption = {
+        id: generateId(),
+        name: action.name,
+        order: nextOrder,
+        assignments: action.assignments ? action.assignments.map((a) => ({ ...a })) : p.assignments.map((a) => ({ ...a })),
+        ...(action.desiredActorCount !== undefined ? { desiredActorCount: action.desiredActorCount } : {}),
+        ...(action.characterLinks !== undefined ? { characterLinks: action.characterLinks.map(([a, b]) => [a, b] as [string, string]) } : {}),
+        createdAt: now(),
+      };
+      return {
+        ...state,
+        project: {
+          ...p,
+          castOptions: [...existing, opt],
+          updatedAt: now(),
+        },
+      };
+    }
+
+    case "APPLY_CAST_OPTION": {
+      const p = state.project!;
+      const opt = (p.castOptions ?? []).find((o) => o.id === action.optionId);
+      if (!opt) return state;
+      return {
+        ...state,
+        project: {
+          ...p,
+          assignments: opt.assignments.map((a) => ({ ...a })),
+          activeCastOptionId: opt.id,
+          updatedAt: now(),
+        },
+      };
+    }
+
+    case "RENAME_CAST_OPTION": {
+      const p = state.project!;
+      const opts = (p.castOptions ?? []).map((o) =>
+        o.id === action.optionId ? { ...o, name: action.name } : o,
+      );
+      return { ...state, project: { ...p, castOptions: opts, updatedAt: now() } };
+    }
+
+    case "DELETE_CAST_OPTION": {
+      const p = state.project!;
+      const opts = (p.castOptions ?? []).filter((o) => o.id !== action.optionId);
+      const wasActive = p.activeCastOptionId === action.optionId;
+      return {
+        ...state,
+        project: {
+          ...p,
+          castOptions: opts,
+          ...(wasActive ? { activeCastOptionId: undefined } : {}),
+          updatedAt: now(),
+        },
+      };
+    }
+
+    case "UPDATE_CAST_OPTION": {
+      const p = state.project!;
+      const opts = (p.castOptions ?? []).map((o) => {
+        if (o.id !== action.optionId) return o;
+        const next = { ...o };
+        if (action.assignments) next.assignments = action.assignments.map((a) => ({ ...a }));
+        if (action.desiredActorCount === null) {
+          delete next.desiredActorCount;
+        } else if (action.desiredActorCount !== undefined) {
+          next.desiredActorCount = action.desiredActorCount;
+        }
+        if (action.characterLinks === null) {
+          delete next.characterLinks;
+        } else if (action.characterLinks !== undefined) {
+          next.characterLinks = action.characterLinks.map(([a, b]) => [a, b] as [string, string]);
+        }
+        return next;
+      });
+      return { ...state, project: { ...p, castOptions: opts, updatedAt: now() } };
     }
 
     case "SPLIT_SPEECH": {

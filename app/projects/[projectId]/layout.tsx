@@ -15,6 +15,7 @@ import { EditNavProvider, useEditNav } from "@/lib/ui/EditNavContext";
 import { MetricProvider } from "@/lib/ui/MetricContext";
 import { ViewModeProvider, useViewMode, type ViewMode } from "@/lib/ui/ViewModeContext";
 import { SearchProvider, useSearch } from "@/lib/ui/SearchContext";
+import { AuditionModeProvider, useAuditionMode } from "@/lib/ui/AuditionModeContext";
 
 // ─── Nav icons ────────────────────────────────────────────────────────────────
 
@@ -100,6 +101,7 @@ export default function ProjectLayout({
   }
 
   const isScriptPage = pathname === `/projects/${projectId}`;
+  const isCastingPage = pathname === `/projects/${projectId}/casting`;
 
   return (
     <SceneJumpProvider>
@@ -108,16 +110,19 @@ export default function ProjectLayout({
         <MetricProvider>
           <ViewModeProvider>
             <SearchProvider>
-              <ProjectNav
-                project={project}
-                activeCut={activeCut}
-                projectId={projectId}
-                isScriptPage={isScriptPage}
-                router={router}
-                pathname={pathname}
-                dispatch={dispatch}
-              />
-              <div className="flex-1">{children}</div>
+              <AuditionModeProvider>
+                <ProjectNav
+                  project={project}
+                  activeCut={activeCut}
+                  projectId={projectId}
+                  isScriptPage={isScriptPage}
+                  isCastingPage={isCastingPage}
+                  router={router}
+                  pathname={pathname}
+                  dispatch={dispatch}
+                />
+                <div className="flex-1">{children}</div>
+              </AuditionModeProvider>
             </SearchProvider>
           </ViewModeProvider>
         </MetricProvider>
@@ -142,6 +147,7 @@ function ProjectNav({
   activeCut,
   projectId,
   isScriptPage,
+  isCastingPage,
   router,
   pathname,
   dispatch,
@@ -151,6 +157,7 @@ function ProjectNav({
   activeCut: Cut | null;
   projectId: string;
   isScriptPage: boolean;
+  isCastingPage: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   router: any;
   pathname: string;
@@ -158,7 +165,36 @@ function ProjectNav({
   dispatch: React.Dispatch<any>;
 }) {
   const { activeTool, setActiveTool } = useEditMode();
+  const audition = useAuditionMode();
   const isDashboard = pathname.startsWith(`/projects/${projectId}/dashboard`);
+
+  // Audition Mode nav guard: when on, intercept clicks on nav <a> tags and confirm if dirty.
+  useEffect(() => {
+    if (!audition.on) return;
+    function handleClick(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const link = target.closest("a[href]");
+      if (!link) return;
+      const href = link.getAttribute("href") ?? "";
+      if (!href.startsWith(`/projects/${projectId}`) && href !== "/") return;
+      // Allow navigation to the casting page itself
+      if (href === `/projects/${projectId}/casting`) return;
+      if (audition.dirty) {
+        const name = audition.draft?.name ?? "the current draft";
+        if (!confirm(`Exit Audition Mode? Unapplied changes to "${name}" will be lost.`)) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+      }
+      audition.setOn(false);
+      audition.setDraft(null);
+      audition.setDirty(false);
+    }
+    document.addEventListener("click", handleClick, true);
+    return () => document.removeEventListener("click", handleClick, true);
+  }, [audition, projectId]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exportingHtml, setExportingHtml] = useState(false);
   const [exportingDocx, setExportingDocx] = useState(false);
@@ -270,8 +306,8 @@ function ProjectNav({
   ];
 
   return (
-    <header className="no-print border-b border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-50">
-      <div className="max-w-screen-xl mx-auto px-4 h-14 flex items-center gap-3">
+    <header className="no-print border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-0 z-50 relative">
+      <div className="max-w-screen-xl mx-auto px-4 h-14 flex items-center gap-3 border-b border-stone-200 dark:border-stone-800">
 
         {/* Logo — scissors by default, Shakespeare head on hover with wiggle */}
         <Link
@@ -402,6 +438,13 @@ function ProjectNav({
                       </div>
         )}
 
+        {/* Casting-page Audition Mode toggle */}
+        {isCastingPage && (
+          <div className="flex items-center gap-1">
+            <NavAuditionModeButton />
+          </div>
+        )}
+
         {/* Hamburger — tablet/mobile, script page only */}
         {isScriptPage && (
           <div ref={hamburgerRef} className="relative lg:hidden">
@@ -450,6 +493,35 @@ function ProjectNav({
       {/* Edit mode toolbar — shown whenever a tool is active */}
       {activeTool !== "none" && (
         <EditToolbar activeTool={activeTool} setActiveTool={setActiveTool} />
+      )}
+
+      {/* Auditions overlay — covers entire header when auditions are on (casting page only) */}
+      {isCastingPage && audition.on && (
+        <div className="absolute inset-0 bg-blue-600 dark:bg-blue-800 border-b border-blue-700 dark:border-blue-900 z-10 flex items-center gap-3 px-4 overflow-x-auto">
+          <span className="font-semibold text-white shrink-0 text-sm">Auditions</span>
+          {audition.draft && (
+            <span className="text-blue-200 text-xs shrink-0">
+              {audition.draft.order} · {audition.draft.name}
+            </span>
+          )}
+          <span className="text-blue-200 text-xs flex-1 whitespace-nowrap">
+            Changes only affect this option until you choose it.
+          </span>
+          <button
+            onClick={() => {
+              if (audition.dirty) {
+                const name = audition.draft?.name ?? "the current draft";
+                if (!confirm(`Exit Auditions? Unapplied changes to "${name}" will be lost.`)) return;
+              }
+              audition.setOn(false);
+              audition.setDraft(null);
+              audition.setDirty(false);
+            }}
+            className="text-xs px-2.5 py-1 rounded border border-blue-400 bg-blue-500 hover:bg-blue-400 transition-colors shrink-0 text-white"
+          >
+            Exit Auditions ×
+          </button>
+        </div>
       )}
 
       {/* Easter egg — fires when cut mode exits */}
@@ -537,6 +609,35 @@ function NavScriptMenu({ projectId, isActive, Icon }: { projectId: string; isAct
         </div>
       )}
     </div>
+  );
+}
+
+function NavAuditionModeButton() {
+  const { on, setOn, setDraft, setDirty } = useAuditionMode();
+  const { project } = useProject();
+
+  // When auditions are on the overlay (absolute inset-0) covers the header — this button is hidden.
+  if (on) return null;
+
+  return (
+    <button
+      onClick={() => {
+        setOn(true);
+        // Auto-select active option (or first) when entering auditions
+        const options = project?.castOptions ?? [];
+        if (options.length > 0) {
+          const activeOpt = project?.activeCastOptionId
+            ? options.find((o) => o.id === project.activeCastOptionId) ?? options[0]
+            : options[0];
+          setDraft({ ...activeOpt, assignments: activeOpt.assignments.map((a) => ({ ...a })) });
+        }
+        setDirty(false);
+      }}
+      className="text-xs px-3 py-1.5 rounded border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-500 dark:text-stone-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 hover:border-blue-300 dark:hover:border-blue-800 hover:text-blue-700 dark:hover:text-blue-400 transition-colors shrink-0"
+      title="Auditions — compare and manage cast options"
+    >
+      Auditions
+    </button>
   );
 }
 

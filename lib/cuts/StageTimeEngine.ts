@@ -372,3 +372,75 @@ export function computeStageTime(
 
   return { byCharacter, totalMinutes, originalTotalMinutes, pauseMinutes, warnings };
 }
+
+/**
+ * Returns a symmetric map of pairwise shared on-stage minutes:
+ * for each pair of characters (a, b) that are ever simultaneously on stage
+ * during a kept speech, accumulates the duration of that speech.
+ * Keys are stored with min(a,b) as outer key for consistency.
+ * Use getSharedMinutes(map, a, b) for direction-independent lookup.
+ */
+export function computePairwiseSharedMinutes(
+  play: Play,
+  cut: Cut,
+  settings?: ProjectSettings,
+): Map<string, Map<string, number>> {
+  const wpm = settings?.wordsPerMinute ?? DEFAULT_WPM;
+  const edits = cut.stageDirectionEdits;
+  const shared = new Map<string, Map<string, number>>();
+
+  function addShared(a: string, b: string, minutes: number) {
+    const [lo, hi] = a < b ? [a, b] : [b, a];
+    if (!shared.has(lo)) shared.set(lo, new Map());
+    const inner = shared.get(lo)!;
+    inner.set(hi, (inner.get(hi) ?? 0) + minutes);
+  }
+
+  const sceneById = new Map<string, (typeof play.acts)[0]["scenes"][0]>();
+  for (const act of play.acts) {
+    for (const scene of act.scenes) sceneById.set(scene.id, scene);
+  }
+
+  for (const sceneId of getEffectiveSceneOrder(play, cut)) {
+    const scene = sceneById.get(sceneId);
+    if (!scene) continue;
+    const onStage = new Set<string>();
+
+    for (const unit of scene.units) {
+      if (unit.type === "stage") {
+        if (unit.stageType === "entrance") {
+          for (const c of getEffectiveCharacters(unit, edits)) onStage.add(c);
+        } else if (unit.stageType === "exit") {
+          for (const c of getEffectiveCharacters(unit, edits)) onStage.delete(c);
+        }
+      } else if (unit.type === "speech") {
+        const isKept = (cut.cutMap[unit.id] ?? "kept") === "kept";
+        if (!isKept) continue;
+        let keptLines = unit.lineCount;
+        if (cut.lineCutMap) {
+          const cut_ = unit.lines.filter((l) => cut.lineCutMap![l.id] === "cut").length;
+          keptLines = Math.max(0, unit.lineCount - cut_);
+        }
+        const minutes = (keptLines * AVG_WORDS_PER_LINE) / wpm;
+        if (minutes <= 0) continue;
+        const list = Array.from(onStage);
+        for (let i = 0; i < list.length; i++) {
+          for (let j = i + 1; j < list.length; j++) {
+            addShared(list[i], list[j], minutes);
+          }
+        }
+      }
+    }
+  }
+
+  return shared;
+}
+
+export function getSharedMinutes(
+  map: Map<string, Map<string, number>>,
+  a: string,
+  b: string,
+): number {
+  const [lo, hi] = a < b ? [a, b] : [b, a];
+  return map.get(lo)?.get(hi) ?? 0;
+}
