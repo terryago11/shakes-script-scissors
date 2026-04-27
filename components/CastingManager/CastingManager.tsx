@@ -174,8 +174,7 @@ export default function CastingManager({ playId }: Props) {
   // Pairwise shared stage time — must be declared before any early returns (Rules of Hooks)
   const pairwiseSharedMinutes = useMemo(
     () => (activeCut && play ? computePairwiseSharedMinutes(play, activeCut, project?.settings) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeCut?.id, play, project?.settings]
+    [activeCut, play, project?.settings]
   );
 
   if (playLoadError) {
@@ -193,7 +192,6 @@ export default function CastingManager({ playId }: Props) {
   const effectiveActors: Actor[] = project.actors;
   const effectiveAssignments: ActorAssignment[] =
     isAudition && draft ? draft.assignments : project.assignments;
-  const isReadOnly = false;
   const castOptions = project.castOptions ?? [];
   const activeOption = project.activeCastOptionId
     ? castOptions.find((o) => o.id === project.activeCastOptionId) ?? null
@@ -657,14 +655,17 @@ export default function CastingManager({ playId }: Props) {
 
   const desiredCount = draft?.desiredActorCount ?? null;
 
-  // Natural minimum — computed with the same sameActorPairs logic as runSuggest to stay in sync.
+  const unassignedCount = speakingChars.filter(
+    (c) => !fullyCutCharIds.has(c.id) && !charToActor[c.id]
+  ).length;
+
+  // Note: cannot be useMemo — depends on values computed after the early returns above.
   const naturalMinimum = (() => {
     if (!activeCut) return null;
     const activeCharsForMin = speakingChars.filter((c) => !fullyCutCharIds.has(c.id));
     const activeCharIdsForMin = activeCharsForMin.map((c) => c.id);
     if (activeCharIdsForMin.length === 0) return null;
 
-    // Build name-match pairs (same as runSuggest)
     const nameGroupsForMin = new Map<string, string[]>();
     for (const c of activeCharsForMin) {
       const n = activeCut.characterAliases?.[c.id] ?? c.name;
@@ -943,7 +944,7 @@ export default function CastingManager({ playId }: Props) {
           )}
         </div>
 
-        <div className={`flex gap-2 mb-3 ${isReadOnly ? "opacity-50 pointer-events-none" : ""}`}>
+        <div className="flex gap-2 mb-3">
           <input
             type="text"
             placeholder="Actor name…"
@@ -962,8 +963,7 @@ export default function CastingManager({ playId }: Props) {
           </button>
           <button
             onClick={handleSuggest}
-            disabled={isReadOnly}
-            className="px-4 py-2 text-sm border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 rounded-lg hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
             title="Suggest the minimum number of actors needed (greedy doubling algorithm)"
           >
             Suggest
@@ -1075,18 +1075,10 @@ export default function CastingManager({ playId }: Props) {
                     <span className="block text-xs opacity-70 font-normal mt-0.5">Clear existing cast and suggest from scratch</span>
                   </button>
                   <button
-                    onClick={() => {
-                      const unassigned = speakingChars.filter(
-                        (c) => !fullyCutCharIds.has(c.id) && !charToActor[c.id]
-                      );
-                      if (unassigned.length === 0) {
-                        setSuggestState({ phase: "idle" });
-                        alert("All characters are already assigned.");
-                        return;
-                      }
-                      runSuggest("extend", desiredCount ?? undefined);
-                    }}
-                    className="flex-1 text-sm px-3 py-2 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-950/60 transition-colors"
+                    onClick={() => runSuggest("extend", desiredCount ?? undefined)}
+                    disabled={unassignedCount === 0}
+                    title={unassignedCount === 0 ? "All characters are already assigned" : undefined}
+                    className="flex-1 text-sm px-3 py-2 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-950/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="font-medium">Extend</span>
                     <span className="block text-xs opacity-70 font-normal mt-0.5">Add actors only for unassigned characters</span>
@@ -1259,14 +1251,13 @@ export default function CastingManager({ playId }: Props) {
                   }`}
                 >
                   <label
-                    className={`w-3 h-3 rounded-full shrink-0 mt-0.5 transition-shadow ${isReadOnly ? "cursor-default" : "cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-stone-400"}`}
+                    className="w-3 h-3 rounded-full cursor-pointer shrink-0 mt-0.5 transition-shadow hover:ring-2 hover:ring-offset-1 hover:ring-stone-400"
                     style={{ backgroundColor: actor.color }}
-                    title={isReadOnly ? undefined : "Click to change color"}
+                    title="Click to change color"
                   >
                     <input
                       type="color"
                       value={actor.color}
-                      disabled={isReadOnly}
                       onChange={(e) => applyUpdateActor(actor.id, actor.name, e.target.value)}
                       className="sr-only"
                     />
@@ -1297,10 +1288,9 @@ export default function CastingManager({ playId }: Props) {
                         />
                       ) : (
                         <span
-                          className={`group/name flex items-center gap-1 ${isReadOnly ? "" : "cursor-text"}`}
-                          title={isReadOnly ? undefined : "Click to rename"}
+                          className="group/name flex items-center gap-1 cursor-text"
+                          title="Click to rename"
                           onClick={() => {
-                            if (isReadOnly) return;
                             setEditingActorId(actor.id);
                             setEditingActorName(actor.name);
                           }}
@@ -1314,14 +1304,13 @@ export default function CastingManager({ playId }: Props) {
                       )}
                       <button
                         onClick={() => {
-                          if (isReadOnly) return;
                           if (assignedCount > 0) {
                             setConfirmDeleteActorId(actor.id);
                           } else {
                             applyDeleteActor(actor.id);
                           }
                         }}
-                        className={`ml-1 text-xs ${isReadOnly ? "hidden" : "text-stone-300 dark:text-stone-600 hover:text-red-400 dark:hover:text-red-500"}`}
+                        className="ml-1 text-xs text-stone-300 dark:text-stone-600 hover:text-red-400 dark:hover:text-red-500"
                         title="Remove actor"
                       >
                         ✕
@@ -1480,7 +1469,6 @@ export default function CastingManager({ playId }: Props) {
             hasLinkViolation={hasLinkViolationMap.get(char.id) ?? false}
             sdRemnantCount={sdRemnantCountMap.get(char.id)}
             projectId={projectId}
-            readOnly={isReadOnly}
           />
         ))}
       </div>

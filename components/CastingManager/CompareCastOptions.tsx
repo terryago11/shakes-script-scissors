@@ -4,6 +4,8 @@ import { useState, useMemo } from "react";
 import type { Project, CastOption } from "@/types/project";
 import type { Play } from "@/types/play";
 import type { Cut } from "@/types/project";
+import type { LineCounts } from "@/types/cut";
+import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import { characterIdToName } from "@/lib/folger/TeiParser";
 
 type Metric = "words" | "lines" | "time";
@@ -12,8 +14,8 @@ interface Props {
   project: Project;
   play: Play;
   activeCut: Cut | null;
-  lineCounts: unknown;
-  stageTime: unknown;
+  lineCounts: LineCounts | null;
+  stageTime: StageTimeResult | null;
   onClose: () => void;
 }
 
@@ -25,30 +27,17 @@ interface ActorRow {
   cols: Array<{ chars: string[]; value: number } | null>;
 }
 
-interface LCShape {
-  byCharacter: Record<string, { afterCut: number }>;
-  words?: { byCharacter: Record<string, { afterCut: number }> };
-}
-interface STShape {
-  byCharacter: Record<string, { minutes: number }>;
-}
-
 function getActorStats(
   option: CastOption,
-  actorName: string,
-  allActors: import("@/types/project").Actor[],
+  actorId: string,
   metric: Metric,
-  lineCounts: unknown,
-  stageTime: unknown,
+  lineCounts: LineCounts | null,
+  stageTime: StageTimeResult | null,
   activeCut: Cut | null,
   play: Play,
 ): { chars: string[]; value: number } | null {
-  const actor = allActors.find(
-    (a) => a.name.trim().toLowerCase() === actorName.trim().toLowerCase()
-  );
-  if (!actor) return null;
   const charIds = (option.assignments ?? [])
-    .filter((a) => a.actorId === actor.id)
+    .filter((a) => a.actorId === actorId)
     .map((a) => a.characterId);
   if (charIds.length === 0) return null;
   const chars = [
@@ -62,15 +51,13 @@ function getActorStats(
     ),
   ];
   let value = 0;
-  const lc = lineCounts as LCShape | null;
-  const st = stageTime as STShape | null;
   for (const id of charIds) {
     if (metric === "words") {
-      value += lc?.words?.byCharacter[id]?.afterCut ?? 0;
+      value += lineCounts?.words?.byCharacter[id]?.afterCut ?? 0;
     } else if (metric === "lines") {
-      value += lc?.byCharacter[id]?.afterCut ?? 0;
+      value += lineCounts?.byCharacter[id]?.afterCut ?? 0;
     } else {
-      value += st?.byCharacter[id]?.minutes ?? 0;
+      value += stageTime?.byCharacter[id]?.minutes ?? 0;
     }
   }
   return { chars, value };
@@ -105,18 +92,11 @@ export default function CompareCastOptions({ project, play, activeCut, lineCount
   );
   const activeCols = selectedOptions.filter(Boolean) as CastOption[];
 
-  // Actors are global — build name map from project.actors (all assigned actors across all options).
-  const actorNameMap = new Map<string, string>();
-  for (const a of project.actors) {
-    const lower = a.name.trim().toLowerCase();
-    if (!actorNameMap.has(lower)) actorNameMap.set(lower, a.name.trim());
-  }
-
-  const rows: ActorRow[] = Array.from(actorNameMap.entries()).map(([lower, display]) => ({
-    name: display,
+  const rows: ActorRow[] = project.actors.map((actor) => ({
+    name: actor.name,
     cols: selectedOptions.map((opt) => {
       if (!opt) return null;
-      return getActorStats(opt, lower, project.actors, metric, lineCounts, stageTime, activeCut, play);
+      return getActorStats(opt, actor.id, metric, lineCounts, stageTime, activeCut, play);
     }),
   }));
 

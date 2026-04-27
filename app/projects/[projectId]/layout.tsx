@@ -166,11 +166,13 @@ function ProjectNav({
 }) {
   const { activeTool, setActiveTool } = useEditMode();
   const audition = useAuditionMode();
+  // Destructure stable setter refs so the nav-guard effect dep array stays narrow.
+  const { on: auditionOn, dirty: auditionDirty, setOn, setDraft, setDirty, setPendingExitHref } = audition;
   const isDashboard = pathname.startsWith(`/projects/${projectId}/dashboard`);
 
   // Audition Mode nav guard: when on, intercept clicks on nav <a> tags and confirm if dirty.
   useEffect(() => {
-    if (!audition.on) return;
+    if (!auditionOn) return;
     function handleClick(e: MouseEvent) {
       const target = e.target as HTMLElement | null;
       if (!target) return;
@@ -180,19 +182,19 @@ function ProjectNav({
       if (!href.startsWith(`/projects/${projectId}`) && href !== "/") return;
       // Allow navigation to the casting page itself
       if (href === `/projects/${projectId}/casting`) return;
-      if (audition.dirty) {
+      if (auditionDirty) {
         e.preventDefault();
         e.stopPropagation();
-        audition.setPendingExitHref(href);
+        setPendingExitHref(href);
         return;
       }
-      audition.setOn(false);
-      audition.setDraft(null);
-      audition.setDirty(false);
+      setOn(false);
+      setDraft(null);
+      setDirty(false);
     }
     document.addEventListener("click", handleClick, true);
     return () => document.removeEventListener("click", handleClick, true);
-  }, [audition, projectId]);
+  }, [auditionOn, auditionDirty, projectId, setOn, setDraft, setDirty, setPendingExitHref]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exportingHtml, setExportingHtml] = useState(false);
   const [exportingDocx, setExportingDocx] = useState(false);
