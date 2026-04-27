@@ -226,20 +226,31 @@ Also recommend a version bump: patch for bug fixes / small features; minor for a
 export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:$PATH"
 export PATH="/opt/homebrew/bin:$PATH"
 
-# Bump version in package.json and create git tag
+# Bump version in package.json and create git tag locally
 npm version patch   # or minor / major per recommendation
+# NOTE: do NOT git push directly — main is branch-protected.
+# Route the version bump through a PR instead:
+git checkout -b chore/bump-vX.Y.Z
+git push -u origin chore/bump-vX.Y.Z
+gh pr create --title "chore: bump version to vX.Y.Z" --body "Version bump for Group N release."
+gh pr merge --squash --auto
 
-# Push the tag
-git push --follow-tags
+# After the PR merges, reset local main and retag the squash commit:
+git checkout main && git reset --hard origin/main
+git tag -f vX.Y.Z   # retag to the squash commit SHA
+git push origin vX.Y.Z
 
-# Write release notes to temp file and publish
+# Write release notes to temp file and create draft release
 cat > /tmp/release-notes.md << 'NOTES'
 <confirmed release notes here>
 NOTES
 
 gh release create vX.Y.Z \
   --title "vX.Y.Z" \
-  --notes-file /tmp/release-notes.md
+  --notes-file /tmp/release-notes.md \
+  --draft
 ```
 
-Report the release URL to the user.
+**Always create releases as drafts.** The Electron CI workflow attaches the installer files (DMG, EXE, AppImage) to the draft after CI runs. Publishing before the installers are attached leaves the release incomplete. The user will publish manually once the assets appear.
+
+Report the draft release URL to the user.
