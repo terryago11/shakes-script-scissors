@@ -14,9 +14,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature gro
 
 **25C ✓ Done** — see CHANGELOG for details.
 
-**25D — Exports: Casting Grid & Line Buddy**
-- Printable casting grid HTML (character + actor cards, `@media print`, cut-line borders) triggered from Audition Mode.
-- Line Buddy interactive HTML export (per-actor cue-card drill: cue → reveal → advance; Space/arrow key nav; progress bar; shuffle mode; mobile-friendly); ZIP delivery from Cue Scripts tab.
+**25D ✓ Done** — see CHANGELOG for details.
 
 ---
 
