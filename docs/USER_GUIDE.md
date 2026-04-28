@@ -209,6 +209,8 @@ Each character card shows the character name and their cut line/word/time counts
 
 Actors appear in the left column. Click **+ Add actor** to add one. Click an actor's name to rename it inline. Click the **×** button (with confirmation) to delete an actor and remove all their assignments.
 
+Click **Unassign all** to clear every character-to-actor assignment at once. An inline confirmation bar appears before the action executes. In Audition Mode, this clears assignments in the current draft only without affecting the saved cast option.
+
 ### Character aliases
 
 Hover a character name on a card to reveal a pencil icon. Click it to open an inline input — type a new display name and press Enter. The alias applies to this cut only. The original TEI name appears in muted text below when an alias is active.
@@ -242,6 +244,14 @@ A preview panel shows the suggested groupings. Click **Apply** to create the act
 8. Click **Compare** to open a side-by-side modal comparing up to 3 options at once; switch between Words / Lines / Time metrics; click column headers to sort.
 
 > **Tip:** Actors are a global pool — all cast options share the same actor names and colours. Only assignments (and optional per-option must-double links) differ between options.
+
+### Print Casting Sheet
+
+In Audition Mode, click **Print Casting Sheet** to open a printable blank casting worksheet in a new tab. The sheet shows:
+- **Characters section**: one card per character with line/word/time stats and a blank underline for handwriting in the actor's name.
+- **Actors section**: one card per actor with their name and colour swatch, plus blank ruled rows for writing in character assignments.
+
+Click **Print / Save PDF** in the new tab (or use your browser's print function) to save a PDF copy for rehearsal distribution. Because the sheet is always blank, it is safe to print at any point in the casting process without revealing current draft assignments.
 
 ### Quick-change warnings
 
@@ -378,6 +388,7 @@ From the nav bar → **Cue Scripts** page:
 1. Select an actor from the dropdown to preview their cue script.
 2. Click **Print / Save PDF** to print or save that actor's script from the app.
 3. Click **Download All as ZIP** to generate server-side PDFs for every actor at once and download them as a single ZIP file.
+4. Click **Line Buddy (HTML)** to download a ZIP of interactive HTML cue-card files — one per actor.
 
 Each actor's cue script shows:
 - Their character(s) at the top
@@ -386,6 +397,20 @@ Each actor's cue script shows:
 - Non-entrance/exit stage directions that fall within their on-stage blocks
 
 Print settings: `@page` headers (play title and cut name top-left, actor name top-right), footer (page number, timestamp, tool attribution).
+
+### Line Buddy — interactive cue-card drill
+
+**Line Buddy** is a self-contained HTML flashcard app for memorising lines. Each card shows the cue (the last few words of the preceding speech), and the actor taps or presses a key to reveal their response.
+
+**Download**: Cue Scripts page → **Line Buddy (HTML)** button downloads a ZIP containing one HTML file per actor. Open any file in a browser — no internet connection needed.
+
+**Controls**:
+- **Space** or **→** — reveal lines / advance to next card
+- **←** — go back to the previous card (shown fully revealed)
+- **S** — toggle shuffle mode (randomises card order)
+- **Reset** button — restart from the first card in current order
+
+A progress bar tracks how far through the deck the actor is. Cards without a preceding speech (e.g. the opening line of a scene) show "— Beginning —" as the cue. Mobile-friendly with large tap targets (minimum 44 px).
 
 ---
 
