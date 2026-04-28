@@ -30,8 +30,9 @@ export function exportCastingGrid(params: {
   characterLinks: Array<[string, string]>;
   projectName?: string;
   optionName?: string;
+  printableBlank?: boolean;
 }): string {
-  const { play, cut, actors, assignments, lineCounts, stageTime, characterLinks, projectName, optionName } = params;
+  const { play, cut, actors, assignments, lineCounts, stageTime, characterLinks, projectName, optionName, printableBlank } = params;
 
   const charToActor = new Map<string, Actor>();
   for (const a of assignments) {
@@ -55,22 +56,15 @@ export function exportCastingGrid(params: {
     mustDouble.get(b)!.push(a);
   }
 
-  // Speaking chars that have at least some kept lines or a stage appearance
   const speakingCharIds = new Set<string>();
-  for (const act of play.acts) {
-    for (const scene of act.scenes) {
-      for (const unit of scene.units) {
-        if (unit.type === "speech") speakingCharIds.add(unit.characterId);
-      }
-    }
-  }
-
-  // Filter fully-cut characters
   const allSpeeches: Array<{ id: string; characterId: string }> = [];
   for (const act of play.acts) {
     for (const scene of act.scenes) {
       for (const unit of scene.units) {
-        if (unit.type === "speech") allSpeeches.push({ id: unit.id, characterId: unit.characterId });
+        if (unit.type === "speech") {
+          speakingCharIds.add(unit.characterId);
+          allSpeeches.push({ id: unit.id, characterId: unit.characterId });
+        }
       }
     }
   }
@@ -102,9 +96,11 @@ export function exportCastingGrid(params: {
       .map((id) => resolveCharacterName(id, cut.characterAliases, play.castList))
       .join(", ");
 
-    const actorBlock = actor
-      ? `<div class="actor-swatch" style="background:${esc(actor.color)};display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;"></div><strong>${esc(actor.name)}</strong>`
-      : `<span class="uncast">Uncast</span>`;
+    const actorBlock = printableBlank
+      ? `<span class="blank-field">&nbsp;</span>`
+      : actor
+        ? `<div class="actor-swatch" style="background:${esc(actor.color)};display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;"></div><strong>${esc(actor.name)}</strong>`
+        : `<span class="uncast">Uncast</span>`;
 
     return `<div class="card">
   <div class="card-title">${esc(displayName)}</div>
@@ -123,30 +119,32 @@ export function exportCastingGrid(params: {
     const charIds = actorToChars.get(actor.id) ?? [];
     const activeCharIds = charIds.filter((id) => !fullyCutCharIds.has(id));
 
-    const totalLines = activeCharIds.reduce((s, id) => s + (lineCounts.byCharacter[id]?.afterCut ?? 0), 0);
-    const totalWords = activeCharIds.reduce((s, id) => s + (lineCounts.words?.byCharacter[id]?.afterCut ?? 0), 0);
-    const totalTime = activeCharIds.reduce((s, id) => s + (stageTime?.byCharacter[id]?.minutes ?? 0), 0);
-
-    const rows = activeCharIds.map((id) => {
-      const name = resolveCharacterName(id, cut.characterAliases, play.castList);
-      const l = lineCounts.byCharacter[id]?.afterCut ?? 0;
-      const w = lineCounts.words?.byCharacter[id]?.afterCut ?? 0;
-      const t = stageTime?.byCharacter[id]?.minutes ?? 0;
-      return `<tr><td>${esc(name)}</td><td>${l}</td><td>${w}</td><td>${fmtMins(t)}</td></tr>`;
-    }).join("\n");
+    let totalLines = 0, totalWords = 0, totalTime = 0;
+    const rows = printableBlank
+      ? Array.from({ length: 4 }, () => `<tr><td class="blank-row">&nbsp;</td></tr>`).join("\n")
+      : activeCharIds.map((id) => {
+          const name = resolveCharacterName(id, cut.characterAliases, play.castList);
+          const l = lineCounts.byCharacter[id]?.afterCut ?? 0;
+          const w = lineCounts.words?.byCharacter[id]?.afterCut ?? 0;
+          const t = stageTime?.byCharacter[id]?.minutes ?? 0;
+          totalLines += l; totalWords += w; totalTime += t;
+          return `<tr><td>${esc(name)}</td><td>${l}</td><td>${w}</td><td>${fmtMins(t)}</td></tr>`;
+        }).join("\n");
 
     return `<div class="card">
   <div class="card-title">
     <span class="actor-swatch" style="background:${esc(actor.color)};display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:middle;"></span>${esc(actor.name)}
   </div>
   <table class="actor-table">
-    <thead><tr><th>Character</th><th>Lines</th><th>Words</th><th>Time</th></tr></thead>
+    ${printableBlank
+      ? `<thead><tr><th>Characters</th></tr></thead>`
+      : `<thead><tr><th>Character</th><th>Lines</th><th>Words</th><th>Time</th></tr></thead>`}
     <tbody>
-      ${rows || "<tr><td colspan='4' style='color:#888;font-style:italic'>No characters assigned</td></tr>"}
+      ${rows || (printableBlank ? "" : "<tr><td colspan='4' style='color:#888;font-style:italic'>No characters assigned</td></tr>")}
     </tbody>
-    <tfoot>
+    ${printableBlank ? "" : `<tfoot>
       <tr class="totals-row"><td><strong>Total</strong></td><td><strong>${totalLines}</strong></td><td><strong>${totalWords}</strong></td><td><strong>${fmtMins(totalTime)}</strong></td></tr>
-    </tfoot>
+    </tfoot>`}
   </table>
 </div>`;
   }).join("\n");
@@ -185,6 +183,8 @@ export function exportCastingGrid(params: {
   .actor-table td { padding: 2px 4px; border-bottom: 1px solid #f0f0f0; }
   .actor-table tfoot td { border-top: 1px solid #ccc; border-bottom: none; padding-top: 4px; }
   .totals-row td { font-weight: bold; }
+  .blank-field { display: inline-block; width: 120px; border-bottom: 1px solid #666; }
+  .blank-row { border-bottom: 1px dashed #bbb !important; height: 22px; }
   @media print {
     body { padding: 8px; font-size: 12px; }
     h2 { margin-top: 14px; }

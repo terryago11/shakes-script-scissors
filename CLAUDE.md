@@ -70,6 +70,8 @@ Both updates should be done together.
 | `lib/cuts/StageTimeEngine.ts` | Per-character on-stage time from entrance/exit SDs; `computePairwiseSharedMinutes` returns symmetric shared-time map for merge-phase doubling |
 | `lib/cuts/CueScriptBuilder.ts` | Builds per-actor cue scripts from cut play |
 | `lib/cuts/CastingUtils.ts` | `suggestMinimumCast` → `SuggestResult` (Welsh–Powell graph colouring; optional merge/split phases for `desiredActorCount`) + `buildForbiddenPairs` |
+| `lib/cuts/CastingGridExporter.ts` | `exportCastingGrid` — printable casting-sheet HTML (character cards + actor cards); always rendered `printableBlank: true` from the UI (blank worksheet for handwriting) |
+| `lib/cuts/LineBuddyExporter.ts` | `exportLineBuddy` — per-actor interactive cue-card drill HTML (cue → reveal → advance; shuffle; keyboard nav); ZIP delivery via `app/api/export/line-buddy-zip/route.ts` |
 | `lib/cuts/QuickChangeEngine.ts` | `computeQuickChanges` — actor quick-change warnings with act/scene/line locations |
 | `lib/cuts/PropsEngine.ts` | Scans stage directions and speech text for prop keywords; returns `PropReference[]` with `source`, `confidence`, and context fields |
 | `lib/cuts/countIntegrityCheck.ts` | `runCountIntegrityCheck(lineCounts)` — cross-checks `byCharacterByScene` + `byUnit` against canonical totals; called from `SceneDashboard` on every render; `console.error` on failure, never throws |

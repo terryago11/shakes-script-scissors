@@ -137,7 +137,7 @@ export default function CastingManager({ playId }: Props) {
     const activeOpt = project?.activeCastOptionId
       ? options.find((o) => o.id === project.activeCastOptionId) ?? options[0]
       : options[0];
-    audition.setDraft({ ...activeOpt, assignments: activeOpt.assignments.map((a) => ({ ...a })) });
+    audition.setDraft({ ...activeOpt, assignments: (project?.assignments ?? []).map((a) => ({ ...a })) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audition.on]);
 
@@ -295,6 +295,7 @@ export default function CastingManager({ playId }: Props) {
       characterLinks: effectiveCharacterLinks,
       projectName: project?.name,
       optionName: draft?.name,
+      printableBlank: true,
     });
     const w = window.open("about:blank", "_blank");
     w?.document.write(html);
