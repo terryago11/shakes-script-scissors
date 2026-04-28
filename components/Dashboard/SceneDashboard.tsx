@@ -148,7 +148,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
     console.error("[CountIntegrity]", integrityReport);
   }
   const stageTime = computeStageTime(play, activeCut, project.settings);
-  const charSceneMatrix = buildCharSceneMatrix(lineCounts.byUnit, columnEntries);
+  const cellMatrix = buildCharSceneMatrix(lineCounts.byUnit, columnEntries);
   const actorSceneMatrix = buildActorSceneMatrix(stageTime, project.actors, project.assignments);
 
   // Actual scene durations (words / wpm) — includes virtual sub-scene IDs when subdivided
@@ -393,7 +393,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           characters={play.castList}
           actors={project.actors}
           assignments={project.assignments}
-          charSceneMatrix={charSceneMatrix}
+          cellMatrix={cellMatrix}
           stageTimeByChar={stageTime.byCharacter}
           pauses={activeCut.pauses}
           metric={metric}
@@ -437,7 +437,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
               characters={play.castList}
               actors={project.actors}
               assignments={project.assignments}
-              charSceneMatrix={charSceneMatrix}
+              cellMatrix={cellMatrix}
               stageTimeByChar={stageTime.byCharacter}
               pauses={activeCut.pauses}
               metric={metric}
@@ -477,7 +477,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           sceneActMap={sceneActMap}
           actors={project.actors}
           assignments={project.assignments}
-          charSceneMatrix={charSceneMatrix}
+          cellMatrix={cellMatrix}
           stageTimeByChar={stageTime.byCharacter}
           lineCounts={lineCounts}
           metric={metric}

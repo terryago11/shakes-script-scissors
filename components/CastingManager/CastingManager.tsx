@@ -15,6 +15,7 @@ import { defaultColors, generateId } from "@/lib/project/projectUtils";
 import type { Actor, ActorAssignment, CastOption } from "@/types/project";
 import CharacterCard, { type CompatEntry } from "./CharacterCard";
 import CompareCastOptions from "./CompareCastOptions";
+import { exportCastingGrid } from "@/lib/cuts/CastingGridExporter";
 
 interface Props {
   playId: string;
@@ -100,6 +101,7 @@ export default function CastingManager({ playId }: Props) {
   const [showNewOptionInput, setShowNewOptionInput] = useState(false);
   const [newOptionName, setNewOptionName] = useState("");
   const [pendingConfirm, setPendingConfirm] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [showUnassignConfirm, setShowUnassignConfirm] = useState(false);
 
   // Reset audition mode when leaving the casting page
   useEffect(() => {
@@ -279,6 +281,24 @@ export default function CastingManager({ playId }: Props) {
     if (!activeCut) return;
     // Always show the choosing panel — it doubles as the desired-count picker.
     setSuggestState({ phase: "choosing" });
+  }
+
+  function handlePrintCastingSheet() {
+    if (!play || !activeCut) return;
+    const html = exportCastingGrid({
+      play,
+      cut: activeCut,
+      actors: effectiveActors,
+      assignments: effectiveAssignments,
+      lineCounts,
+      stageTime,
+      characterLinks: effectiveCharacterLinks,
+      projectName: project?.name,
+      optionName: draft?.name,
+    });
+    const w = window.open("about:blank", "_blank");
+    w?.document.write(html);
+    w?.document.close();
   }
 
   function runSuggest(mode: "replace" | "extend", desiredActorCount?: number) {
@@ -890,6 +910,13 @@ export default function CastingManager({ playId }: Props) {
             >
               Compare
             </button>
+            <button
+              onClick={handlePrintCastingSheet}
+              disabled={!play || !activeCut}
+              className="text-xs px-3 py-1.5 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
+            >
+              Print Casting Sheet
+            </button>
           </div>
 
           {/* Choose casting option row — applies selected option to the project */}
@@ -969,6 +996,14 @@ export default function CastingManager({ playId }: Props) {
             Suggest
           </button>
           <button
+            onClick={() => setShowUnassignConfirm(true)}
+            disabled={effectiveAssignments.length === 0}
+            className="px-4 py-2 text-sm border border-stone-300 dark:border-stone-600 text-stone-500 dark:text-stone-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-800 hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-stone-300 disabled:hover:text-stone-500"
+            title="Remove all character-to-actor assignments"
+          >
+            Unassign all
+          </button>
+          <button
             onClick={() => setShowHelp((v) => !v)}
             className={`px-2 py-2 text-sm rounded-lg border transition-colors ${
               showHelp
@@ -981,6 +1016,32 @@ export default function CastingManager({ playId }: Props) {
             ?
           </button>
         </div>
+
+        {/* Unassign all inline confirmation */}
+        {showUnassignConfirm && (
+          <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-sm text-red-800 dark:text-red-200">
+            <span className="flex-1">Remove all character assignments? This cannot be undone.</span>
+            <button
+              onClick={() => {
+                if (isAudition && draft) {
+                  setDraftAssignments([]);
+                } else {
+                  dispatch({ type: "BULK_SET_CAST", actors: effectiveActors, assignments: [] });
+                }
+                setShowUnassignConfirm(false);
+              }}
+              className="px-3 py-1 rounded border border-red-400 bg-red-500 text-white text-xs hover:bg-red-600 shrink-0"
+            >
+              Unassign all
+            </button>
+            <button
+              onClick={() => setShowUnassignConfirm(false)}
+              className="px-3 py-1 rounded border border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300 text-xs hover:bg-stone-100 dark:hover:bg-stone-800 shrink-0"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
 
         {/* Algorithm help text */}
         {showHelp && (

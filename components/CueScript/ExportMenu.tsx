@@ -27,6 +27,7 @@ function triggerDownload(blob: Blob, filename: string) {
 export default function ExportMenu({ play, cut, actors, assignments }: Props) {
   const [selectedActorId, setSelectedActorId] = useState<string>(actors[0]?.id || "");
   const [zipLoading, setZipLoading] = useState(false);
+  const [lineBuddyLoading, setLineBuddyLoading] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
   const selectedActor = actors.find((a) => a.id === selectedActorId) || null;
@@ -62,6 +63,28 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
       setExportError(e instanceof Error ? e.message : "Download failed");
     } finally {
       setZipLoading(false);
+    }
+  }
+
+  async function handleLineBuddyDownload() {
+    setExportError(null);
+    setLineBuddyLoading(true);
+    try {
+      const res = await fetch("/api/export/line-buddy-zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ play, cut, actors, assignments }),
+      });
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^;"'\n]+)/i);
+      const filename = match ? decodeURIComponent(match[1]) : "line_buddy.zip";
+      triggerDownload(blob, filename);
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : "Download failed");
+    } finally {
+      setLineBuddyLoading(false);
     }
   }
 
@@ -113,6 +136,13 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
             className="px-3 py-1.5 text-xs rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {zipLoading ? "Generating…" : "Download All as ZIP"}
+          </button>
+          <button
+            onClick={handleLineBuddyDownload}
+            disabled={lineBuddyLoading}
+            className="px-3 py-1.5 text-xs rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {lineBuddyLoading ? "Generating…" : "Line Buddy (HTML)"}
           </button>
           <span className="text-xs text-stone-400 dark:text-stone-500 ml-auto">
             Export full script as Word: open ⚙ Settings

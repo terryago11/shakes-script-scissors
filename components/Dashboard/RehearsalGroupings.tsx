@@ -17,7 +17,7 @@ interface Props {
   sceneActMap: Map<string, Act>;
   actors: Actor[];
   assignments: ActorAssignment[];
-  charSceneMatrix: Map<string, Map<string, CharSceneData>>;
+  cellMatrix: Map<string, Map<string, CharSceneData>>;
   stageTimeByChar: Record<string, CharacterStageTime>;
   lineCounts: LineCounts;
   metric: "lines" | "words" | "time";
@@ -139,7 +139,7 @@ export default function RehearsalGroupings({
   sceneActMap,
   actors,
   assignments,
-  charSceneMatrix,
+  cellMatrix,
   stageTimeByChar,
   lineCounts,
   metric,
@@ -202,7 +202,7 @@ export default function RehearsalGroupings({
         if (metric === "time") {
           value += stageTimeByChar[charId]?.scenes.find((s) => s.sceneId === sceneId)?.minutes ?? 0;
         } else {
-          const data = charSceneMatrix.get(charId)?.get(sceneId);
+          const data = cellMatrix.get(charId)?.get(sceneId);
           if (data) value += metric === "words" ? data.wordsAfterCut : data.linesAfterCut;
         }
       }
@@ -222,7 +222,7 @@ export default function RehearsalGroupings({
     for (const sceneId of effectiveSceneOrder) {
       const mins = (lineCounts.byScene[sceneId]?.words.afterCut ?? 0) / wpm;
       let charCount = 0;
-      for (const [, sceneMap] of charSceneMatrix) {
+      for (const [, sceneMap] of cellMatrix) {
         if ((sceneMap.get(sceneId)?.linesAfterCut ?? 0) > 0) charCount++;
       }
       sceneCounts.set(sceneId, { chars: charCount, mins });
@@ -385,7 +385,7 @@ export default function RehearsalGroupings({
   for (const bigId of effectiveSceneOrder.filter((id) => bigSceneIds.has(id))) {
     const bigMins = (lineCounts.byScene[bigId]?.words.afterCut ?? 0) / wpm;
     const bigCharSet = new Set<string>();
-    for (const [cid, sceneMap] of charSceneMatrix) {
+    for (const [cid, sceneMap] of cellMatrix) {
       if ((sceneMap.get(bigId)?.linesAfterCut ?? 0) > 0) bigCharSet.add(cid);
     }
     const bigSub: SubScene = {

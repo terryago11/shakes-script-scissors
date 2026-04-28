@@ -23,7 +23,7 @@ interface Props {
   actors: Actor[];
   assignments: ActorAssignment[];
   /** Character × scene line/word data */
-  charSceneMatrix: Map<string, Map<string, CharSceneData>>;
+  cellMatrix: Map<string, Map<string, CharSceneData>>;
   /** Per-character stage-time data (for Time metric) */
   stageTimeByChar: Record<string, CharacterStageTime>;
   pauses?: Record<string, { name: string; minutes: number }>;
@@ -61,7 +61,7 @@ export default function DashboardMatrix({
   characters,
   actors,
   assignments,
-  charSceneMatrix,
+  cellMatrix,
   stageTimeByChar,
   pauses,
   metric,
@@ -99,7 +99,7 @@ export default function DashboardMatrix({
 
   // Determine which characters appear in at least one scene
   const activeCharIds = new Set<string>();
-  for (const [charId, sceneMap] of charSceneMatrix) {
+  for (const [charId, sceneMap] of cellMatrix) {
     for (const data of sceneMap.values()) {
       if (data.linesOrig > 0) {
         activeCharIds.add(charId);
@@ -139,7 +139,7 @@ export default function DashboardMatrix({
       const entry = stageTimeByChar[charId];
       return (entry?.scenes.find((s) => s.sceneId === sceneId)?.minutes ?? 0) > 0;
     }
-    const data = charSceneMatrix.get(charId)?.get(sceneId);
+    const data = cellMatrix.get(charId)?.get(sceneId);
     if (!data) return false;
     return metric === "words" ? data.wordsAfterCut > 0 : data.linesAfterCut > 0;
   }
@@ -149,7 +149,7 @@ export default function DashboardMatrix({
       const entry = stageTimeByChar[charId];
       return entry?.scenes.find((s) => s.sceneId === sceneId)?.minutes ?? 0;
     }
-    const data = charSceneMatrix.get(charId)?.get(sceneId);
+    const data = cellMatrix.get(charId)?.get(sceneId);
     if (!data) return 0;
     return metric === "words" ? data.wordsAfterCut : data.linesAfterCut;
   }
