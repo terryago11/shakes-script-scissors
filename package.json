@@ -20,7 +20,7 @@
   },
   "private": true,
   "dependencies": {
-    "@tailwindcss/postcss": "^4.2.2",
+    "@tailwindcss/postcss": "^4.2.4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
@@ -30,17 +30,17 @@
     "docx": "^9.6.1",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.8.3",
-    "fast-xml-parser": "^5.7.0",
+    "fast-xml-parser": "^5.7.2",
     "iron-session": "^8.0.4",
     "jszip": "^3.10.1",
-    "lru-cache": "^11.2.6",
+    "lru-cache": "^11.3.5",
     "next": "^16.2.4",
     "pdfkit": "^0.18.0",
-    "postcss": "^8.5.10",
+    "postcss": "^8.5.12",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tailwindcss": "^4.2.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -49,7 +49,7 @@
     "electron-builder": "^26.8.1",
     "esbuild": "^0.28.0",
     "eslint": "^9.39.2",
-    "eslint-config-next": "^16.1.6"
+    "eslint-config-next": "^16.2.4"
   },
   "license": "CC-BY-NC-SA-4.0"
 }
