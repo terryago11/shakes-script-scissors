@@ -205,17 +205,9 @@ gh repo view --json autoMergeAllowed
 - Feature 1: one-line description
 - Feature 2: one-line description
 - Bug fix: description
-
-### Installation
-Download the latest release from the [releases page](https://github.com/terryago11/shakes-script-scissors/releases/latest).
-
-| Platform | File |
-|----------|------|
-| macOS (Apple Silicon) | `ShakesScriptScissors-X.Y.Z-arm64.dmg` |
-| macOS (Intel) | `ShakesScriptScissors-X.Y.Z-x64.dmg` |
-| Windows | `ShakesScriptScissors Setup X.Y.Z.exe` |
-| Linux | `ShakesScriptScissors-X.Y.Z.AppImage` |
 ```
+
+The CI workflow (`release-notes` job) will automatically prepend a download table above this text — do not include an Installation section in the draft notes.
 
 Also recommend a version bump: patch for bug fixes / small features; minor for a named feature group; major for breaking changes or a milestone release.
 
@@ -237,20 +229,33 @@ gh pr merge --squash --auto
 
 # After the PR merges, reset local main and retag the squash commit:
 git checkout main && git reset --hard origin/main
-git tag -f vX.Y.Z   # retag to the squash commit SHA
+git tag vX.Y.Z
 git push origin vX.Y.Z
+```
 
-# Write release notes to temp file and create draft release
+**STOP after pushing the tag.** Do NOT run `gh release create` manually.
+
+`.github/workflows/release.yml` fires on every `v*` tag push and:
+1. Creates the draft release automatically (`create-release` job)
+2. Builds and attaches the macOS DMG and Windows EXE installers (`release` job)
+3. Prepends the download table to the release body (`release-notes` job)
+
+After the tag is pushed, write the release notes to `/tmp/release-notes.md` and apply them to the **workflow-created** draft (never create a second one):
+
+```bash
+# Find the workflow-created draft (it will have an empty body)
+RELEASE_ID=$(gh api repos/terryago11/shakes-script-scissors/releases \
+  --jq '[.[] | select(.draft==true and .tag_name=="vX.Y.Z")] | sort_by(.id) | first | .id')
+
 cat > /tmp/release-notes.md << 'NOTES'
 <confirmed release notes here>
 NOTES
 
-gh release create vX.Y.Z \
-  --title "vX.Y.Z" \
-  --notes-file /tmp/release-notes.md \
-  --draft
+gh api repos/terryago11/shakes-script-scissors/releases/$RELEASE_ID \
+  --method PATCH \
+  --field "body=$(cat /tmp/release-notes.md)"
 ```
 
-**Always create releases as drafts.** The Electron CI workflow attaches the installer files (DMG, EXE, AppImage) to the draft after CI runs. Publishing before the installers are attached leaves the release incomplete. The user will publish manually once the assets appear.
+Then report the draft release URL (`https://github.com/terryago11/shakes-script-scissors/releases/tag/vX.Y.Z`) to the user. The user will publish manually once the CI-attached installer assets appear.
 
-Report the draft release URL to the user.
+**Never** call `gh release create` after pushing a tag — it creates a duplicate draft. If you accidentally do, immediately delete the duplicate (the one with your notes body) and patch your notes onto the workflow-created draft (the one with the empty body).
