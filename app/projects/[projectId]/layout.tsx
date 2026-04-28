@@ -658,7 +658,7 @@ function NavAuditionModeButton() {
           const activeOpt = project?.activeCastOptionId
             ? options.find((o) => o.id === project.activeCastOptionId) ?? options[0]
             : options[0];
-          setDraft({ ...activeOpt, assignments: activeOpt.assignments.map((a) => ({ ...a })) });
+          setDraft({ ...activeOpt, assignments: (project?.assignments ?? []).map((a) => ({ ...a })) });
         }
         setDirty(false);
       }}
