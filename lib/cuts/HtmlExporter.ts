@@ -2,7 +2,7 @@ import type { Play, Speech, StageDirection } from "@/types/play";
 import type { Cut, Actor, ActorAssignment } from "@/types/project";
 import { applyEditsToLine, segmentsToText } from "./applyEdits";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
-import { expandSplits, expandInsertions } from "./expandUtils";
+import { expandSplits, expandInsertions, expandStageNotes, expandInsertedSDs } from "./expandUtils";
 import { PART_LABELS } from "./SceneSubdivisionUtils";
 
 // ---------------------------------------------------------------------------
@@ -22,6 +22,8 @@ interface UnitData {
   originalLines: string[];
   /** True when this SD's text has been overridden via sdTextEdits */
   isEdited?: boolean;
+  /** True when this is a director-created SD from cut.insertedSDs */
+  isInserted?: boolean;
   /** Part label for subdivider units (e.g. "B", "C") */
   subdividerLabel?: string;
 }
@@ -114,11 +116,16 @@ function buildScriptData(
 
     const units: UnitData[] = [];
 
-    // Expand splits and insertions so they render correctly in the HTML export
-    const expandedUnits = expandInsertions(
-      expandSplits(info.units, cut.speechSplits),
-      cut.insertions,
-      play.castList
+    // Expand splits, insertions, inline stage notes, and inserted SDs for HTML export
+    const expandedUnits = expandInsertedSDs(
+      expandStageNotes(
+        expandInsertions(
+          expandSplits(info.units, cut.speechSplits),
+          cut.insertions,
+          play.castList
+        )
+      ),
+      cut.insertedSDs
     );
 
     // Build the set of split boundary unit IDs for this scene (empty if not subdivided)
@@ -181,6 +188,7 @@ function buildScriptData(
         const stage = rawUnit as StageDirection;
         const text = cut.sdTextEdits?.[stage.id] ?? stage.text;
         const isEdited = !!(cut.sdTextEdits?.[stage.id]);
+        const isInserted = !!(cut.insertedSDs?.[stage.id]);
         units.push({
           id: rawUnit.id,
           type: "stage",
@@ -190,6 +198,7 @@ function buildScriptData(
           keptLines: status === "cut" ? [] : [text],
           originalLines: [stage.text],
           isEdited,
+          isInserted,
         });
       }
 
@@ -419,6 +428,9 @@ function renderUnit(u){
       return '<div class="stage-dir" style="text-decoration:line-through;opacity:.5">['+esc(u.originalLines[0]||'')+']</div>';
     }
     if(mode==='clean')return '<div class="stage-dir">['+esc(u.keptLines[0]||'')+']</div>';
+    if(u.isInserted&&mode==='standard'){
+      return '<div class="stage-dir stage-dir-edited"><span style="font-size:9px;color:#16a34a;background:#dcfce7;border-radius:2px;padding:0 3px;margin-right:6px;font-style:normal;vertical-align:middle">inserted</span>['+esc(u.keptLines[0]||'')+']</div>';
+    }
     if(u.isEdited&&mode==='diff'){
       var left='<div class="diff-label">Modified</div><div class="stage-dir stage-dir-edited">['+esc(u.keptLines[0]||'')+']</div>';
       var right='<div class="diff-label">Original</div><div class="stage-dir">['+esc(u.originalLines[0]||'')+']</div>';

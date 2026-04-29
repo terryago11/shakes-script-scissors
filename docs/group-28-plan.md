@@ -6,17 +6,17 @@
 
 ## Confirmed Bugs
 
-| # | Bug | HTML | Word |
-|---|-----|------|------|
-| 1 | Speech reassignments ignored | Character name always from original | Partially wired; clean mode shows wrong speaker |
-| 2 | Delivery notes uppercase | N/A (not rendered) | `renderScriptDocx.ts` lines 138/152/155 call `.toUpperCase()` |
-| 3 | Consecutive SDs not exported | Likely filter/skip bug | Expansion produces wrong type |
-| 4 | Character header repeated in continuous speech | No continuation detection | No continuation detection |
-| 5 | Song/dance indicators absent | Not rendered | Not rendered |
-| 6 | Inserted SDs not distinguished | No green indicator | Renders as speech-like block |
-| 7 | Edited SD badge missing in clean | Suppression incomplete | (correct — no badge in clean) |
-| 8 | Sub-scene divisions absent | Rendered (sub-divider div) | Not implemented |
-| 9 | Character list missing from Word | N/A | Not implemented |
+| # | Bug | HTML | Word | Status |
+|---|-----|------|------|--------|
+| 1 | Speech reassignments ignored | Character name always from original | Partially wired; clean mode shows wrong speaker | Session 3 |
+| 2 | Delivery notes uppercase | N/A (not rendered) | `.toUpperCase()` calls | ✅ Done (28C-1) |
+| 3 | Consecutive SDs not exported | Likely filter/skip bug | Expansion produces wrong type | Session 3 (diagnose after 28A) |
+| 4 | Character header repeated in continuous speech | No continuation detection | No continuation detection | Session 2 |
+| 5 | Song/dance indicators absent | Not rendered | Not rendered | Session 3 |
+| 6 | Inserted SDs not distinguished | No green indicator | Not in stream at all | ✅ Done (28C-6) |
+| 7 | Edited SD badge missing in clean | Suppression incomplete | (correct — no badge in clean) | Session 3 |
+| 8 | Sub-scene divisions absent | Rendered (sub-divider div) | Not implemented | ✅ Done (28C-7) |
+| 9 | Character list missing from Word | N/A | Not implemented | ✅ Done (28C-8) |
 
 ---
 
@@ -26,6 +26,7 @@
 |------|------|
 | `lib/cuts/HtmlExporter.ts` | HTML export — data building + embedded JS render engine |
 | `lib/export/renderScriptDocx.ts` | Word export — full-script DOCX renderer |
+| `lib/cuts/expandUtils.ts` | Shared expansion pipeline |
 
 Reference (ground truth — do not modify):
 - `components/ScriptEditor/SpeechBlock.tsx` — speech rendering
@@ -36,24 +37,29 @@ Reference (ground truth — do not modify):
 
 ## Sub-Groups
 
-### 28A — Baseline Audit
+### 28A — Baseline Audit ✅
 
-**Goal:** Establish that the exports are structurally correct before layering in any edits. Export a vanilla play with no cuts and no changes, then verify that every speech and stage direction appears in both exports exactly as the app renders them. Any discrepancy found here is a structural bug that will compound every other test — fix it before proceeding to 28B.
+**What was found and fixed:** `HtmlExporter.ts` was not calling `expandStageNotes`, so inline stageNote SDs (e.g. mid-speech `[aside]` blocks) were never emitted as separate SD units. Fixed by wrapping the expansion pipeline:
 
-**Steps:**
-1. Open Hamlet in the app. Create a new, empty cut with no changes applied.
-2. Export HTML (standard mode) and Word (standard mode).
-3. Compare to the app's standard view, scene by scene, act by act.
-4. Repeat for clean mode exports vs. the app's clean view.
-5. Document every discrepancy: missing units, wrong order, wrong text, wrong structure, wrong styling.
+```typescript
+const expandedUnits = expandInsertedSDs(
+  expandStageNotes(
+    expandInsertions(expandSplits(info.units, cut.speechSplits), cut.insertions, play.castList)
+  ),
+  cut.insertedSDs
+);
+```
 
-**Checklist:**
+The Word exporter already called `expandStageNotes` — no Word change needed for this.
+
+**Checklist (verify with vanilla Hamlet export):**
+- [x] `expandStageNotes` now in HTML pipeline
 - [ ] All acts/scenes present in correct order
 - [ ] Every speech present with correct speaker name
 - [ ] Every SD present with correct text and brackets
-- [ ] Inline stage notes (stageNote/stageNotePre) expanded correctly into their own SD blocks
-- [ ] No character header repeated within a continuous run of same-speaker speeches
-- [ ] Character list appears at top of Word document (all normal, no strikethrough, no color)
+- [ ] Inline stage notes expanded correctly into their own SD blocks
+- [ ] No character header repeated within a continuous run (requires 28C-2)
+- [ ] Character list appears at top of Word document (requires 28C-8 ✅)
 
 ---
 
@@ -124,69 +130,261 @@ Create one cut of Hamlet named **"Full Feature Test"** that applies the followin
 
 One commit per fix. Verify with test project from 28B before committing.
 
-#### 28C-1: Delivery note case (Word)
-- **File:** `lib/export/renderScriptDocx.ts` lines 138, 152, 155
-- **Fix:** Remove `.toUpperCase()`. Render text as-is from `cut.deliveryNoteEdits[id]` or `speech.deliveryNote`. Keep `italics: true`. No color override for normal speeches (app renders delivery notes in stone-400 ≈ #78716c italic).
-- **Verify:** Word export, speech with delivery note → lowercase italic in standard and clean.
+#### 28C-1: Delivery note case (Word) ✅
 
-#### 28C-2: Character header continuation suppression (Both)
-- **Reference algorithm:** `SceneBlock.tsx` lines 145–207
-- **Rules:**
-  - Track `lastKeptSpeakerId` across units in scene
-  - Only kept units count (cuts don't reset the tracker)
-  - Use effective speaker after reassignment
-  - ALL speeches break continuation
-  - Multi-speaker (`characterIds.length > 1`) breaks continuation
-  - Split `:s2` parts continue from their `:s1` parent
-- **HTML:** Tag each unit with `isContinuation: boolean` in `buildScriptData`. In `renderUnit`: suppress char-name div when `isContinuation && mode === 'clean'`; render italic `(cont.)` when `isContinuation && mode !== 'clean'`.
-- **Word:** Same detection in the scene loop in `renderScriptDocx.ts`. Replace speaker label paragraph with an italic `(cont.)` paragraph in standard; omit label entirely in clean.
-- **Split tool case:** Split `:s2` must inherit continuation from its `:s1` parent. The part-2 indent (from `partIndentChars`) must be preserved in both exports.
-- **Verify:** Normal continuation, continuation through a cut (must still continue), split-tool continuation with part indent, reassigned continuation, continuation broken by ALL.
+**Fix:** Removed `.toUpperCase()` from both delivery note `TextRun` objects in `renderScriptDocx.ts` (reassignment branch line ~138, normal branch line ~152). Kept `italics: true`.
 
-#### 28C-3: Speech reassignments in HTML (Standard mode)
-- **File:** `lib/cuts/HtmlExporter.ts`
-- **Issue:** `buildScriptData` resolves `effectiveSpeakers` from `speechReassignments` but `originalSpeakers` is not preserved separately in the data for the rendering engine to show the struck-through old name.
-- **Fix:** Emit both `originalSpeaker` and `effectiveSpeaker` (plus `hasReassignment: boolean`) on each speech unit. In `renderUnit` standard mode: output original speaker span with strikethrough red + new speaker span in green. In clean mode: output only effective speaker. Handle multi-speaker arrays and ALL correctly.
-- **Verify:** HTML standard shows old name struck + new name green. HTML clean shows new name only. Multi-speaker and ALL both correct.
+---
 
-#### 28C-4: Consecutive SDs (Both)
-- **Reproduce:** Find a location in Hamlet with two naturally adjacent SDs (exit + entrance at a scene transition). Export both formats. Identify exact failure mode.
-- **HTML diagnosis:** Add logging to `getUnitStatus` and `renderUnit` for each SD in sequence. Check if filter condition skips second SD or if there is an ID collision.
-- **Word diagnosis:** Log the expanded unit stream after `expandStageNotes`. Verify each SD unit has `type: "stage"` and a unique ID.
-- **Fix:** Patch whatever filter/condition causes the second SD to be dropped or mistyped.
-- **Verify:** Both SDs appear as separate correctly-styled blocks in all modes.
+#### 28C-2: Character header continuation suppression (Both) — **Session 2**
 
-#### 28C-5: Song/dance indicators (Both)
-- **Reference:** `StageDirectionBlock.tsx` lines 145–175, `SpeechBlock.tsx` lines 299–301
-- **Flag resolution:** `isSong = (cut.sdFlagOverrides?.[id]?.isSong ?? stage.isSong) === true` (same for isDance)
-- **HTML:** In `buildScriptData`, add `isSong`, `isDance` to each unit. In `renderUnit` for SDs: prefix bracketed text with `♪ ` (violet `#7c3aed`) or `⊛ ` (cyan `#0891b2`). For song speeches: add `♪` before speaker name, render lines in violet italic.
-- **Word:** For song SDs: add violet TextRun `♪ ` before the bracket. For dance SDs: add cyan `⊛ `. For song speeches: add violet `♪ ` TextRun before speaker label; apply italic to speech lines.
-- **Verify:** Song SD, dance SD, and song speech all render correctly in standard and clean for both formats.
+**Reference algorithm:** `SceneBlock.tsx` lines 145–207. Port exactly — do not rewrite.
 
-#### 28C-6: Inserted SDs (Both)
-- **Issue:** `expandInsertions` handles inserted speeches (via `cut.insertions`) but director-inserted stage directions (`cut.insertedSDs`) may follow a different code path. Verify both are included in the expanded unit stream with correct type.
-- **HTML fix:** Emit `isInserted: true` on inserted SD units. In `renderUnit`, apply a green left-border or indicator (matching the edited SD badge pattern) in standard mode. In clean mode, render without green indicator (it's a director addition, so it stays; just drop the "inserted" marker).
-- **Word fix:** Render inserted SDs as centered italic paragraphs in green (#1d6b38), not as speech blocks.
-- **Verify:** Inserted SD appears at correct position with green styling in standard; appears as a plain SD paragraph (gray, centered, italic) in clean.
+**Algorithm (simplified for exporters — no `showOriginal` mode):**
+```
+let lastSpeakerId = null
+for each rawUnit in expandedUnits (per scene):
+  if not a speech → skip (SDs don't affect continuation)
+  if id ends in ":s2" → skip main loop (handled in split block below)
+  if unit is a cut.insertions entry → skip (handled via insAfterCharMap)
 
-#### 28C-7: Sub-scene division in Word export
-- **Issue:** The HTML exporter already renders sub-dividers (`<div class="sub-divider">` with PART A / PART B labels). The Word exporter has no equivalent.
-- **File:** `lib/export/renderScriptDocx.ts`
-- **Fix:** After processing units, detect subdivision boundaries from `cut.sceneSubdivisions`. When a subdivision boundary is reached, insert a centered paragraph styled like a scene title that reads e.g. "— Part A —", "— Part B —" using the same PART_LABELS (`A`, `B`, `C`…) as the HTML exporter.
-- **Verify:** Sub-scene division appears in Word export at the correct position in both standard and clean modes.
+  isEffectivelyCut = cutMap[id] === "cut"
+  charId = speechReassignments[id]?.[0] ?? unit.characterId
+  isAll = speakerTag has ALL, or characterIds.length > 1, or reassigned.length > 1
 
-#### 28C-8: Character list at top of Word document
-- **New feature.** After the title block and before the first act, insert a cast list.
-- **File:** `lib/export/renderScriptDocx.ts`
-- **Source of truth:** `play.castList` (all characters in the play). Filter using `cut.cutMap`: a character is "fully cut" if every speech attributed to them (across all scenes) is cut. An alias exists when `cut.characterAliases[charId]` is set.
-- **Rendering:**
-  - Section heading: "Characters" (HeadingLevel.HEADING_2, or a plain bold paragraph)
-  - One paragraph per character, left-aligned, size 24 (12pt)
-  - Normal character: character name (or alias if set), black
-  - Aliased character: alias name in green (#1d6b38), original name in gray (#888888) in parentheses after — e.g. "Chancellor (Polonius)"
-  - Fully-cut character: name in gray (#aaaaaa) with strikethrough
-  - Order: follow `play.castList` order
-- **Verify:** Character list appears at top. Aliased chars show alias in green. Fully-cut chars are gray strikethrough. Normal chars are black.
+  if not cut:
+    if not isAll AND lastSpeakerId === charId → add id to continuationIds
+    lastSpeakerId = isAll ? null : charId
+
+  // Handle :s2 split part (inherits cut status from parent)
+  if speechSplits[id] exists AND not cut:
+    s2Id = id + ":s2"
+    s2charId = speechReassignments[s2Id]?.[0] ?? split.newCharacterId ?? unit.characterId
+    if lastSpeakerId === s2charId → add s2Id to continuationIds
+    lastSpeakerId = s2charId
+
+  // Handle inserted speeches following this unit
+  for ins in insAfterCharMap[unit.id]:
+    if lastSpeakerId === ins.characterId → add ins.id to continuationIds
+    lastSpeakerId = ins.characterId
+```
+
+**HTML changes (`lib/cuts/HtmlExporter.ts`):**
+- Add `isContinuation?: boolean` to `UnitData` interface
+- Run the detection pass after `expandedUnits` is set, before the main loop; build `insAfterCharMap` from `cut.insertions`
+- Add `isContinuation: continuationIds.has(rawUnit.id)` to each speech's `units.push`
+- In embedded JS `renderUnit`, replace `var name='<div class="char-name">'+esc(u.characterName)+'</div>';` with:
+  ```javascript
+  var name;
+  if(u.isContinuation){
+    if(mode==='clean'){name='';}
+    else{name='<div class="char-name" style="font-style:italic;font-weight:normal">(cont.)</div>';}
+  }else{
+    name='<div class="char-name">'+esc(u.characterName)+'</div>';
+  }
+  ```
+
+**Word changes (`lib/export/renderScriptDocx.ts`):**
+- Run same detection pass before `for (const unit of sceneUnits)`, using `isUnitCut` for cut status
+- Add `const isContinuation = continuationIds.has(speech.id)` in the speech block
+- Replace the `paragraphs.push(new Paragraph({ children: labelRuns ... }))` with:
+  ```typescript
+  if (isContinuation) {
+    if (viewMode === "standard") {
+      paragraphs.push(new Paragraph({
+        children: [new TextRun({ text: "(cont.)", italics: true, size: 18, color: "888888" })],
+        spacing: { before: 160, after: 0 },
+      }));
+    }
+    // clean mode: omit label entirely
+  } else {
+    paragraphs.push(new Paragraph({ children: labelRuns, spacing: { before: 160, after: 0 } }));
+  }
+  ```
+
+**Part-indent preservation (Word):** `expandSplits` puts `partIndent: true, partIndentChars: N` on `:s2` lines. The Word exporter currently ignores this. In the line loop, after computing `runs`:
+```typescript
+const partIndentTwips = line.partIndent && line.partIndentChars
+  ? Math.round(line.partIndentChars * 100)
+  : 0;
+paragraphs.push(new Paragraph({
+  children: runs,
+  spacing: { before: 0, after: 0 },
+  ...(partIndentTwips ? { indent: { left: partIndentTwips } } : {}),
+}));
+```
+
+**Part-indent preservation (HTML):** Add `lineIndents?: number[]` to `UnitData`, populated parallel to `keptLines` from `line.partIndentChars ?? 0`. In `renderUnit`, apply `style="padding-left:{n}ch"` on lines with non-zero indent.
+
+**Verify:** Normal continuation, continuation through a cut (must still continue), split-tool continuation with part indent, reassigned continuation, continuation broken by ALL.
+
+---
+
+#### 28C-3: Speech reassignments in HTML (Standard mode) — **Session 3**
+
+**File:** `lib/cuts/HtmlExporter.ts`
+
+**Issue:** `buildScriptData` computes the effective name from `speechReassignments` but doesn't preserve the original name for the rendered engine to strike through.
+
+**UnitData additions:**
+```typescript
+originalSpeaker?: string;   // pre-reassignment name (only set when hasReassignment)
+hasReassignment?: boolean;
+```
+
+**In `buildScriptData`**, after computing `charName` (effective name):
+```typescript
+const hasReassignment = !!(reassignments[speech.id]);
+const originalSpeaker: string | undefined = hasReassignment
+  ? (isAllSpeech
+      ? speech.speakerTag.trim()
+      : (speech.characterIds ?? [speech.characterId])
+          .map((id) => resolveCharacterName(id, aliases, play.castList))
+          .join(" & "))
+  : undefined;
+```
+Note: `charName` is already the effective (post-reassignment) name. `originalSpeaker` is the pre-reassignment name without applying the reassignment override.
+
+**In embedded JS `renderUnit`**, extend the `var name=...` block (after the `isContinuation` branch):
+```javascript
+}else if(u.hasReassignment&&mode==='standard'){
+  var origSpan='<span style="text-decoration:line-through;color:#b91c1c">'+esc(u.originalSpeaker||'')+'</span>';
+  var newSpan='<span style="color:#16a34a">'+esc(u.characterName)+'</span>';
+  name='<div class="char-name">'+origSpan+' '+newSpan+'</div>';
+}else{
+  name='<div class="char-name">'+esc(u.characterName)+'</div>';
+}
+```
+Clean mode: falls through to `else` — `characterName` is already the effective name, no change needed.
+
+**Verify:** HTML standard shows old name struck red + new name green. HTML clean shows new name only. Multi-speaker and ALL both correct.
+
+---
+
+#### 28C-4: Consecutive SDs (Both) — **Session 3**
+
+**Diagnose first before writing any code.** Find a Hamlet scene with two naturally adjacent SDs (exit + entrance, e.g. Act 1 Scene 4/5).
+
+**HTML diagnosis:** After 28A fix lands, run export and check:
+```javascript
+console.log(window.__SCRIPT__.scenes.find(s=>s.id.includes('1_5'))?.units)
+```
+Verify both adjacent SDs appear as separate `type: "stage"` entries in the units array.
+
+**Likely outcome:** 28A (adding `expandStageNotes` to HTML pipeline) may already fix this. If not, check for ID collisions — the synthetic SD from `expandStageNotes` uses `id: \`${stageLine.id}:sd\``. If a collision exists, fix by using `\`${speech.id}:sn${snIdx}:sd\`` instead.
+
+**Word diagnosis:** If two adjacent real SDs are still dropping, check `isUnitCut` regex at `renderScriptDocx.ts` line ~41:
+```typescript
+const snBase = unitId.match(/^(.+):sn\d+$/)?.[1];
+```
+A legitimate SD id shouldn't match `:sn\d+$`, but verify with actual Hamlet data.
+
+**Verify:** Both SDs appear as separate correctly-styled blocks in all four modes.
+
+---
+
+#### 28C-5: Song/dance indicators (Both) — **Session 3**
+
+**Flag resolution:**
+- SDs: `isSong = (cut.sdFlagOverrides?.[id]?.isSong ?? stage.isSong) === true` (same for `isDance`)
+- Speeches: `isSong` from TEI field on the `Speech` object, or override via `cut.sdFlagOverrides?.[id]?.isSong`
+
+**HTML changes (`lib/cuts/HtmlExporter.ts`):**
+
+Add to `UnitData`:
+```typescript
+isSong?: boolean;
+isDance?: boolean;
+```
+
+In `buildScriptData` — speech branch:
+```typescript
+const isSong = (speech as Speech & { isSong?: boolean }).isSong === true
+  || (cut.sdFlagOverrides?.[speech.id]?.isSong === true);
+units.push({ ..., isSong, isDance: false });
+```
+
+Stage branch:
+```typescript
+const isSong = (cut.sdFlagOverrides?.[stage.id]?.isSong ?? stage.isSong) === true;
+const isDance = (cut.sdFlagOverrides?.[stage.id]?.isDance ?? stage.isDance) === true;
+units.push({ ..., isSong, isDance });
+```
+
+In embedded JS `renderUnit` — SD rendering, add prefix before `[text]`:
+```javascript
+var sdPrefix='';
+if(u.isSong)sdPrefix+='<span style="color:#7c3aed">♪ </span>';
+if(u.isDance)sdPrefix+='<span style="color:#0891b2">⊛ </span>';
+// render: '<div class="'+sdCls+'">'+sdPrefix+'['+esc(text)+']</div>'
+```
+
+Song speech — in the `var name=...` block, prepend `♪` and use violet lines:
+```javascript
+var songPfx=(!u.isContinuation&&u.isSong)?'<span style="color:#7c3aed;font-size:11px">♪ </span>':'';
+// in name: name='<div class="char-name">'+songPfx+esc(u.characterName)+'</div>';
+// lines:
+lines=u.keptLines.map(function(l){
+  return u.isSong
+    ?'<div style="color:#7c3aed;font-style:italic">'+esc(l)+'</div>'
+    :'<div>'+esc(l)+'</div>';
+}).join('');
+```
+
+**Word changes (`lib/export/renderScriptDocx.ts`):**
+
+In the SD render block, detect flags and build a runs array:
+```typescript
+const isSong = (cut.sdFlagOverrides?.[stage.id]?.isSong ?? stage.isSong) === true;
+const isDance = (cut.sdFlagOverrides?.[stage.id]?.isDance ?? stage.isDance) === true;
+const sdRuns: TextRun[] = [];
+if (isSong) sdRuns.push(new TextRun({ text: "♪ ", color: "7c3aed", italics: true, size: 18 }));
+if (isDance) sdRuns.push(new TextRun({ text: "⊛ ", color: "0891b2", italics: true, size: 18 }));
+sdRuns.push(new TextRun({ text: `[${sdText}]`, italics: true, size: 18, /* existing color/strike logic */ }));
+// Replace children: [single TextRun] with children: sdRuns
+```
+
+For song speeches, in the `labelRuns` construction:
+```typescript
+const isSongSpeech = (speech as Speech & { isSong?: boolean }).isSong === true
+  || (cut.sdFlagOverrides?.[speech.id]?.isSong === true);
+if (isSongSpeech && !effectivelyCut) {
+  labelRuns.unshift(new TextRun({ text: "♪ ", color: "7c3aed", size: 18 }));
+}
+```
+
+In the line `TextRun`, add italic + violet for song lines (don't override existing strike/cut color):
+```typescript
+...(isSongSpeech && !baseStrike ? { italics: true, color: "7c3aed" } : {}),
+```
+
+**Verify:** Song SD `♪` violet, dance SD `⊛` cyan, song speech `♪` before name + lines violet italic. Both formats, both modes.
+
+---
+
+#### 28C-6: Inserted SDs ✅
+
+**What was done:**
+- Added `expandInsertedSDs` to `lib/cuts/expandUtils.ts` — mirrors `expandInsertions` but emits synthetic `StageDirection` objects from `cut.insertedSDs`
+- Wired into both exporters as the outermost expansion step
+- HTML: added `isInserted?: boolean` to `UnitData`; `renderUnit` shows green "inserted" badge in standard mode, plain SD in clean
+- Word: the existing `isInsertedSD` check (`cut.insertedSDs?.[stage.id]`) now correctly matches since inserted SDs flow through the stream
+
+---
+
+#### 28C-7: Sub-scene division in Word export ✅
+
+**What was done:** Added `PART_LABELS` import and subdivision tracking (`splitBoundaryIds`, `splitIdx`) to the scene loop in `renderScriptDocx.ts`. After each unit, injects a centered bold `— Part B —` paragraph when a boundary is crossed. Matches HTML exporter's logic exactly.
+
+---
+
+#### 28C-8: Character list at top of Word document ✅
+
+**What was done:** Inserted a Characters section after the title block in `renderScriptDocx.ts`, before the first act:
+- One paragraph per character from `play.castList` (in castList order)
+- Fully-cut: gray `#aaaaaa` strikethrough
+- Aliased: green alias + gray original in parentheses
+- Normal: black
 
 ---
 
@@ -195,19 +393,24 @@ One commit per fix. Verify with test project from 28B before committing.
 After all 28C fixes verified:
 1. Update `docs/CHANGELOG.md` with Group 28 entries.
 2. Mark Group 28 done in `docs/ROADMAP.md`.
-3. Ship PR.
+3. Ship PR via `/ship-docs`.
 
 ---
 
 ## Verification Protocol (Per Fix)
 
-1. `npm run dev` (via nvm node path)
+```bash
+export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:$PATH"
+npx tsc --noEmit
+npm run lint
+```
+
+Then:
+1. `npm run dev`
 2. Open test project → "Full Feature Test" cut (28B)
 3. Export HTML → open in browser → verify standard then clean
 4. Export Word → open in Word or LibreOffice → verify standard then clean
 5. Compare side by side with app screen
-6. `npx tsc --noEmit`
-7. `npm run lint`
 
 ---
 
@@ -218,7 +421,7 @@ After all 28C fixes verified:
 - **Word:** Add `console.error` before render in the route handler — verify cut data arriving correctly.
 
 ### Expansion issues (consecutive SDs, stageNotes)
-- Log the unit stream after each expansion step: `expandSplits` → `expandInsertions` → `expandStageNotes`.
+- Log the unit stream after each expansion step: `expandSplits` → `expandInsertions` → `expandStageNotes` → `expandInsertedSDs`.
 - Compare to `SceneBlock.tsx`'s `expandedUnits` computation.
 
 ### Continuation detection wrong
@@ -232,6 +435,6 @@ After all 28C fixes verified:
 - Italic/bold/strike: boolean flags on `TextRun`.
 
 ### HTML rendering reference
-- The render engine is an embedded JS template string in `HtmlExporter.ts` (~lines 367–529).
+- The render engine is an embedded JS template string in `HtmlExporter.ts` (~lines 367–540).
 - Fields added in `buildScriptData` must also be read in `renderUnit` — the template has no type checking.
 - When changing data shape, also update `window.__SCRIPT__` field in the client-side script block.

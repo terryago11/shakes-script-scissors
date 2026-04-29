@@ -14,8 +14,9 @@ import {
 } from "docx";
 import type { Play, Speech, StageDirection } from "@/types/play";
 import type { Cut } from "@/types/project";
-import { expandSplits, expandInsertions, expandStageNotes } from "@/lib/cuts/expandUtils";
+import { expandSplits, expandInsertions, expandStageNotes, expandInsertedSDs } from "@/lib/cuts/expandUtils";
 import { applyEditsToLine } from "@/lib/cuts/applyEdits";
+import { PART_LABELS } from "@/lib/cuts/SceneSubdivisionUtils";
 
 export type ScriptDocxViewMode = "clean" | "standard";
 
@@ -72,6 +73,60 @@ export async function renderScriptDocx(
     })
   );
 
+  // ── Character list ───────────────────────────────────────────────────────────
+  {
+    const allSpeeches = play.acts
+      .flatMap((a) => a.scenes.flatMap((s) => s.units))
+      .filter((u): u is Speech => u.type === "speech");
+
+    const speechesByChar = new Map<string, string[]>();
+    for (const speech of allSpeeches) {
+      const charIds: string[] = speech.characterIds ?? [speech.characterId];
+      for (const charId of charIds) {
+        const arr = speechesByChar.get(charId) ?? [];
+        arr.push(speech.id);
+        speechesByChar.set(charId, arr);
+      }
+    }
+
+    const aliases = cut.characterAliases ?? {};
+
+    paragraphs.push(
+      new Paragraph({
+        children: [new TextRun({ text: "Characters", bold: true, size: 24 })],
+        spacing: { before: 200, after: 100 },
+      })
+    );
+
+    for (const char of play.castList) {
+      const speechIds = speechesByChar.get(char.id) ?? [];
+      const fullyCut = speechIds.length > 0 && speechIds.every((id) => cut.cutMap[id] === "cut");
+      const alias = aliases[char.id];
+      const runs: TextRun[] = [];
+
+      if (fullyCut) {
+        runs.push(new TextRun({ text: char.name, size: 24, color: "aaaaaa", strike: true }));
+      } else if (alias) {
+        runs.push(new TextRun({ text: alias, size: 24, color: "1d6b38" }));
+        runs.push(new TextRun({ text: ` (${char.name})`, size: 24, color: "888888" }));
+      } else {
+        runs.push(new TextRun({ text: char.name, size: 24 }));
+      }
+
+      paragraphs.push(
+        new Paragraph({ children: runs, spacing: { before: 0, after: 40 } })
+      );
+    }
+
+    paragraphs.push(
+      new Paragraph({
+        border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "CCCCCC", space: 6 } },
+        text: "",
+        spacing: { after: 160 },
+      })
+    );
+  }
+
   // ── Walk acts → scenes → expanded units ─────────────────────────────────────
   let isFirstAct = true;
 
@@ -95,14 +150,22 @@ export async function renderScriptDocx(
         })
       );
 
-      // Expand stageNotes, splits, and insertions for this scene
-      const sceneUnits = expandStageNotes(
-        expandInsertions(
-          expandSplits(scene.units, cut.speechSplits),
-          cut.insertions,
-          play.castList
-        )
+      // Expand stageNotes, splits, insertions, and inserted SDs for this scene
+      const sceneUnits = expandInsertedSDs(
+        expandStageNotes(
+          expandInsertions(
+            expandSplits(scene.units, cut.speechSplits),
+            cut.insertions,
+            play.castList
+          )
+        ),
+        cut.insertedSDs
       );
+
+      // Sub-scene division tracking
+      const sceneSplits = cut.sceneSubdivisions?.[scene.id] ?? [];
+      const splitBoundaryIds = new Set(sceneSplits.map((s) => s.afterUnitId));
+      let splitIdx = 0;
 
       for (const unit of sceneUnits) {
         const effectivelyCut = isUnitCut(unit.id, cut);
@@ -135,7 +198,7 @@ export async function renderScriptDocx(
             }));
             if (effectiveDeliveryNote) {
               labelRuns.push(new TextRun({
-                text: ` ${effectiveDeliveryNote.toUpperCase()}`,
+                text: ` ${effectiveDeliveryNote}`,
                 italics: true, bold: false, size: 18, color: "1d6b38",
               }));
             }
@@ -149,7 +212,7 @@ export async function renderScriptDocx(
             }));
             if (effectiveDeliveryNote) {
               labelRuns.push(new TextRun({
-                text: ` ${effectiveDeliveryNote.toUpperCase()}`,
+                text: ` ${effectiveDeliveryNote}`,
                 italics: true, bold: false, size: 18,
                 ...(effectivelyCut ? { strike: true, color: "999999" } : {}),
                 ...(isInsertion ? { color: "1d6b38" } : {}),
@@ -250,6 +313,19 @@ export async function renderScriptDocx(
               spacing: { before: 60, after: 60 },
             })
           );
+        }
+
+        // Inject sub-scene divider after a split boundary
+        if (splitBoundaryIds.has(unit.id)) {
+          const nextLabel = PART_LABELS[splitIdx + 1] ?? String(splitIdx + 2);
+          paragraphs.push(
+            new Paragraph({
+              children: [new TextRun({ text: `— Part ${nextLabel} —`, bold: true, size: 20 })],
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 200, after: 200 },
+            })
+          );
+          splitIdx++;
         }
       }
     }
