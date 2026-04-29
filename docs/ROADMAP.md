@@ -28,6 +28,17 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature gro
 
 ---
 
+## Upcoming — Group 28 — Export Fidelity Audit — [full spec](./group-28-plan.md)
+
+Deep audit and fix of HTML and Word exports to match the app's standard and clean rendering exactly. Confirmed bugs: speech reassignments ignored in HTML, delivery notes uppercase in Word, consecutive SDs missing, character headers repeated in continuous speech blocks, song/dance indicators absent, sub-scene divisions missing from Word, no character cast list at top of Word document. See the spec for the full feature matrix, fix plan, and verification protocol.
+
+- **28A** — Baseline audit (vanilla play, no edits)
+- **28B** — Feature matrix test project (exercises every feature including splits, ALL reassignments, sub-scene divisions)
+- **28C** — Bug fixes: delivery notes · continuation + split-tool suppression · reassignments · consecutive SDs · song/dance indicators · inserted SDs · sub-scene divisions in Word · character list at top of Word
+- **28D** — Documentation + PR
+
+---
+
 ## Known Issues / Tech Debt
 
 - **React key warning in `CastingManager`** — "Each child in a list should have a unique 'key' prop. Check the render method of `CastingManager`." Reproducible by editing a character-card alias and then switching to a different cast option. All explicit `.map()` calls in `CastingManager.tsx`, `CharacterCard.tsx`, and `CompareCastOptions.tsx` have been audited and carry `key` props; root cause not yet located. Needs browser DevTools inspection with the full component stack to pinpoint the offending list.
