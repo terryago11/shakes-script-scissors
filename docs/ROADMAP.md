@@ -6,15 +6,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature gro
 
 ---
 
-## Upcoming — Group 25 — Script Polish, Count Audit, Audition Mode & Exports — [implementation plan](./group-25-plan.md)
-
-**25A ✓ Done** — see CHANGELOG for details.
-
-**25B ✓ Done** — see CHANGELOG for details.
-
-**25C ✓ Done** — see CHANGELOG for details.
-
-**25D ✓ Done** — see CHANGELOG for details.
+**Group 25 ✓ Done** — Script Polish, Count Audit, Audition Mode & Exports — see CHANGELOG for details.
 
 ---
 
