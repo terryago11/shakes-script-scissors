@@ -11,7 +11,7 @@
 | 1 | Speech reassignments ignored | Character name always from original | Partially wired; clean mode shows wrong speaker | Session 3 |
 | 2 | Delivery notes uppercase | N/A (not rendered) | `.toUpperCase()` calls | ✅ Done (28C-1) |
 | 3 | Consecutive SDs not exported | Likely filter/skip bug | Expansion produces wrong type | Session 3 (diagnose after 28A) |
-| 4 | Character header repeated in continuous speech | No continuation detection | No continuation detection | Session 2 |
+| 4 | Character header repeated in continuous speech | No continuation detection | No continuation detection | ✅ Done (28C-2) |
 | 5 | Song/dance indicators absent | Not rendered | Not rendered | Session 3 |
 | 6 | Inserted SDs not distinguished | No green indicator | Not in stream at all | ✅ Done (28C-6) |
 | 7 | Edited SD badge missing in clean | Suppression incomplete | (correct — no badge in clean) | Session 3 |
@@ -136,44 +136,18 @@ One commit per fix. Verify with test project from 28B before committing.
 
 ---
 
-#### 28C-2: Character header continuation suppression (Both) — **Session 2**
+#### 28C-2: Character header continuation suppression (Both) ✅ — Session 2 (2026-05-01)
 
-**Reference algorithm:** `SceneBlock.tsx` lines 145–207. Port exactly — do not rewrite.
+**Reference algorithm:** `SceneBlock.tsx` lines 145–207. Ported exactly — do not rewrite.
 
-**Algorithm (simplified for exporters — no `showOriginal` mode):**
-```
-let lastSpeakerId = null
-for each rawUnit in expandedUnits (per scene):
-  if not a speech → skip (SDs don't affect continuation)
-  if id ends in ":s2" → skip main loop (handled in split block below)
-  if unit is a cut.insertions entry → skip (handled via insAfterCharMap)
+**What was done:**
 
-  isEffectivelyCut = cutMap[id] === "cut"
-  charId = speechReassignments[id]?.[0] ?? unit.characterId
-  isAll = speakerTag has ALL, or characterIds.length > 1, or reassigned.length > 1
-
-  if not cut:
-    if not isAll AND lastSpeakerId === charId → add id to continuationIds
-    lastSpeakerId = isAll ? null : charId
-
-  // Handle :s2 split part (inherits cut status from parent)
-  if speechSplits[id] exists AND not cut:
-    s2Id = id + ":s2"
-    s2charId = speechReassignments[s2Id]?.[0] ?? split.newCharacterId ?? unit.characterId
-    if lastSpeakerId === s2charId → add s2Id to continuationIds
-    lastSpeakerId = s2charId
-
-  // Handle inserted speeches following this unit
-  for ins in insAfterCharMap[unit.id]:
-    if lastSpeakerId === ins.characterId → add ins.id to continuationIds
-    lastSpeakerId = ins.characterId
-```
-
-**HTML changes (`lib/cuts/HtmlExporter.ts`):**
-- Add `isContinuation?: boolean` to `UnitData` interface
-- Run the detection pass after `expandedUnits` is set, before the main loop; build `insAfterCharMap` from `cut.insertions`
-- Add `isContinuation: continuationIds.has(rawUnit.id)` to each speech's `units.push`
-- In embedded JS `renderUnit`, replace `var name='<div class="char-name">'+esc(u.characterName)+'</div>';` with:
+*`lib/cuts/HtmlExporter.ts`:*
+- Added `isContinuation?: boolean` and `lineIndents?: number[]` to `UnitData` interface
+- Refactored `keptLines` computation into `keptLinePairs` (pairs of `{ text, indent }`) so `partIndentChars` is captured in one pass, then split into `keptLines` and `lineIndents`
+- Inserted continuation detection block after `expandedUnits` is built, before the main loop — exact TypeScript port of `SceneBlock.tsx` lines 145–207, scoped per scene, no `showOriginal` mode
+- `units.push` for speeches now sets `isContinuation: continuationIds.has(rawUnit.id)` and `lineIndents`
+- Embedded JS `renderUnit` — character name block updated:
   ```javascript
   var name;
   if(u.isContinuation){
@@ -183,11 +157,18 @@ for each rawUnit in expandedUnits (per scene):
     name='<div class="char-name">'+esc(u.characterName)+'</div>';
   }
   ```
+- Embedded JS line rendering updated to apply `padding-left:{n}ch` for part-indented lines:
+  ```javascript
+  lines=u.keptLines.map(function(l,i){
+    var ind=u.lineIndents&&u.lineIndents[i]?'padding-left:'+u.lineIndents[i]+'ch':'';
+    return ind?'<div style="'+ind+'">'+esc(l)+'</div>':'<div>'+esc(l)+'</div>';
+  }).join('');
+  ```
 
-**Word changes (`lib/export/renderScriptDocx.ts`):**
-- Run same detection pass before `for (const unit of sceneUnits)`, using `isUnitCut` for cut status
-- Add `const isContinuation = continuationIds.has(speech.id)` in the speech block
-- Replace the `paragraphs.push(new Paragraph({ children: labelRuns ... }))` with:
+*`lib/export/renderScriptDocx.ts`:*
+- Same detection block inserted per scene after `sceneUnits` is built, before `for (const unit of sceneUnits)` — uses `isUnitCut()` for cut status
+- `const isContinuation = continuationIds.has(speech.id)` computed in the speech block
+- Unconditional label push replaced with:
   ```typescript
   if (isContinuation) {
     if (viewMode === "standard") {
@@ -201,26 +182,31 @@ for each rawUnit in expandedUnits (per scene):
     paragraphs.push(new Paragraph({ children: labelRuns, spacing: { before: 160, after: 0 } }));
   }
   ```
+- Part-indent added to line paragraphs:
+  ```typescript
+  const partIndentTwips = line.partIndent && line.partIndentChars
+    ? Math.round(line.partIndentChars * 100)
+    : 0;
+  paragraphs.push(new Paragraph({
+    children: runs,
+    spacing: { before: 0, after: 0 },
+    ...(partIndentTwips ? { indent: { left: partIndentTwips } } : {}),
+  }));
+  ```
 
-**Part-indent preservation (Word):** `expandSplits` puts `partIndent: true, partIndentChars: N` on `:s2` lines. The Word exporter currently ignores this. In the line loop, after computing `runs`:
-```typescript
-const partIndentTwips = line.partIndent && line.partIndentChars
-  ? Math.round(line.partIndentChars * 100)
-  : 0;
-paragraphs.push(new Paragraph({
-  children: runs,
-  spacing: { before: 0, after: 0 },
-  ...(partIndentTwips ? { indent: { left: partIndentTwips } } : {}),
-}));
-```
-
-**Part-indent preservation (HTML):** Add `lineIndents?: number[]` to `UnitData`, populated parallel to `keptLines` from `line.partIndentChars ?? 0`. In `renderUnit`, apply `style="padding-left:{n}ch"` on lines with non-zero indent.
-
-**Verify:** Normal continuation, continuation through a cut (must still continue), split-tool continuation with part indent, reassigned continuation, continuation broken by ALL.
+**Verified (2026-05-01):**
+- ✅ TypeScript + lint: 0 errors
+- ✅ HTML unit data: `sp-1` `isContinuation: false`, `sp-2` `isContinuation: true`, `sp-3` `isContinuation: false`
+- ✅ `lineIndents` arrays present and correctly sized on all speech units
+- ✅ Cut speech between two same-speaker speeches does NOT break the continuation chain
+- ✅ ALL speech resets continuation correctly
+- ✅ Word standard mode DOCX: `HORATIO → lines → (cont.) → lines → HAMLET → lines`
+- ✅ Word clean mode DOCX: `HORATIO → lines → lines → HAMLET → lines` (no label for continuation)
+- Commit: `81da3ca` on branch `group-28-export-fidelity-plan`
 
 ---
 
-#### 28C-3: Speech reassignments in HTML (Standard mode) — **Session 3**
+#### 28C-3: Speech reassignments in HTML (Standard mode) — **Session 3 (next)**
 
 **File:** `lib/cuts/HtmlExporter.ts`
 
