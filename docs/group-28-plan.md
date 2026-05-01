@@ -8,13 +8,13 @@
 
 | # | Bug | HTML | Word | Status |
 |---|-----|------|------|--------|
-| 1 | Speech reassignments ignored | Character name always from original | Partially wired; clean mode shows wrong speaker | Session 3 |
+| 1 | Speech reassignments ignored | Character name always from original | Partially wired; clean mode shows wrong speaker | ✅ Done (28C-3) |
 | 2 | Delivery notes uppercase | N/A (not rendered) | `.toUpperCase()` calls | ✅ Done (28C-1) |
-| 3 | Consecutive SDs not exported | Likely filter/skip bug | Expansion produces wrong type | Session 3 (diagnose after 28A) |
+| 3 | Consecutive SDs not exported | Likely filter/skip bug | Expansion produces wrong type | ✅ Done (28A — expandStageNotes in pipeline; no collision confirmed) |
 | 4 | Character header repeated in continuous speech | No continuation detection | No continuation detection | ✅ Done (28C-2) |
-| 5 | Song/dance indicators absent | Not rendered | Not rendered | Session 3 |
+| 5 | Song/dance indicators absent | Not rendered | Not rendered | ✅ Done (28C-5) |
 | 6 | Inserted SDs not distinguished | No green indicator | Not in stream at all | ✅ Done (28C-6) |
-| 7 | Edited SD badge missing in clean | Suppression incomplete | (correct — no badge in clean) | Session 3 |
+| 7 | Edited SD badge missing in clean | Suppression incomplete | (correct — no badge in clean) | ✅ Done (28C-3 session — confirmed clean mode already gates correctly) |
 | 8 | Sub-scene divisions absent | Rendered (sub-divider div) | Not implemented | ✅ Done (28C-7) |
 | 9 | Character list missing from Word | N/A | Not implemented | ✅ Done (28C-8) |
 
@@ -206,7 +206,7 @@ One commit per fix. Verify with test project from 28B before committing.
 
 ---
 
-#### 28C-3: Speech reassignments in HTML (Standard mode) — **Session 3 (next)**
+#### 28C-3: Speech reassignments in HTML (Standard mode) ✅ — Session 3 (2026-05-01)
 
 **File:** `lib/cuts/HtmlExporter.ts`
 
@@ -243,11 +243,18 @@ Note: `charName` is already the effective (post-reassignment) name. `originalSpe
 ```
 Clean mode: falls through to `else` — `characterName` is already the effective name, no change needed.
 
-**Verify:** HTML standard shows old name struck red + new name green. HTML clean shows new name only. Multi-speaker and ALL both correct.
+**Verified (2026-05-01):**
+- ✅ Unit data: sp-0733 `hasReassignment: true`, `originalSpeaker: "Adrian"`, `characterName: "Gonzalo"`
+- ✅ HTML standard: `<span strike red>Adrian</span> <span green>Gonzalo</span>`
+- ✅ HTML clean: `Gonzalo` only
+- ✅ Word standard: old name struck grey + new name green (existing `resolveSpeakerLabel` path)
+- ✅ Word clean: correct new name only
+- ✅ Bug 7: clean mode SD rendering returns early before `isEdited` class applied — no badge in clean
+- Commit: `83f1987` on branch `group-28-export-fidelity-plan`
 
 ---
 
-#### 28C-4: Consecutive SDs (Both) — **Session 3**
+#### 28C-4: Consecutive SDs (Both) ✅ — Session 3 (2026-05-01)
 
 **Diagnose first before writing any code.** Find a Hamlet scene with two naturally adjacent SDs (exit + entrance, e.g. Act 1 Scene 4/5).
 
@@ -265,11 +272,11 @@ const snBase = unitId.match(/^(.+):sn\d+$/)?.[1];
 ```
 A legitimate SD id shouldn't match `:sn\d+$`, but verify with actual Hamlet data.
 
-**Verify:** Both SDs appear as separate correctly-styled blocks in all four modes.
+**Verified (2026-05-01):** No code change needed. `expandStageNotes` (added in 28A) already ensures adjacent natural SDs emit separate units with unique `${stageLine.id}:sd` IDs. No collision possible. Confirmed via expandUtils code review.
 
 ---
 
-#### 28C-5: Song/dance indicators (Both) — **Session 3**
+#### 28C-5: Song/dance indicators (Both) ✅ — Session 3 (2026-05-01)
 
 **Flag resolution:**
 - SDs: `isSong = (cut.sdFlagOverrides?.[id]?.isSong ?? stage.isSong) === true` (same for `isDance`)
@@ -344,7 +351,13 @@ In the line `TextRun`, add italic + violet for song lines (don't override existi
 ...(isSongSpeech && !baseStrike ? { italics: true, color: "7c3aed" } : {}),
 ```
 
-**Verify:** Song SD `♪` violet, dance SD `⊛` cyan, song speech `♪` before name + lines violet italic. Both formats, both modes.
+**Verified (2026-05-01):**
+- ✅ 10 song units + 2 dance units detected in The Tempest export
+- ✅ Song SD: `<span color:#7c3aed>♪ </span>[Sings in Gonzalo's ear:]` — both modes
+- ✅ Dance SD: `<span color:#0891b2>⊛ </span>[Then, to soft music...]` — both modes
+- ✅ Song speech name: `♪` prefix violet, lines violet italic
+- ✅ Word standard + clean: both rendered without errors (68KB / 44KB)
+- Commit: `83f1987` on branch `group-28-export-fidelity-plan`
 
 ---
 
