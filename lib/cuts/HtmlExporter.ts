@@ -26,6 +26,10 @@ interface UnitData {
   isInserted?: boolean;
   /** Part label for subdivider units (e.g. "B", "C") */
   subdividerLabel?: string;
+  /** True when same speaker continues from the immediately preceding kept speech */
+  isContinuation?: boolean;
+  /** Part-indent char widths, parallel to keptLines (0 = no indent) */
+  lineIndents?: number[];
 }
 
 interface SceneData {
@@ -128,6 +132,58 @@ function buildScriptData(
       cut.insertedSDs
     );
 
+    // Continuation detection — port of SceneBlock.tsx lines 145–207 (no showOriginal mode)
+    const continuationIds = new Set<string>();
+    {
+      let lastSpeakerId: string | null = null;
+      const insertionMap = cut.insertions ?? {};
+      const splits = cut.speechSplits ?? {};
+
+      const insAfterMap = new Map<string, Array<{ id: string; characterId: string }>>();
+      for (const ins of Object.values(insertionMap)) {
+        const arr = insAfterMap.get(ins.afterUnitId) ?? [];
+        arr.push(ins as { id: string; characterId: string });
+        insAfterMap.set(ins.afterUnitId, arr);
+      }
+
+      for (const rawUnit of expandedUnits) {
+        if (rawUnit.type === "speech") {
+          const unit = rawUnit as Speech;
+          const isS2 = unit.id.endsWith(":s2");
+          const isInsertionUnit = !!insertionMap[unit.id];
+
+          if (!isS2 && !isInsertionUnit) {
+            const reassigned = reassignments[unit.id];
+            const charId = reassigned ? reassigned[0] : unit.characterId;
+            const isAllSpeechUnit =
+              /\bALL\b/i.test(unit.speakerTag) ||
+              (unit.characterIds != null && unit.characterIds.length > 1) ||
+              (reassigned != null && reassigned.length > 1);
+            const isKept = cut.cutMap[unit.id] !== "cut";
+
+            if (isKept) {
+              if (!isAllSpeechUnit && lastSpeakerId === charId) continuationIds.add(unit.id);
+              lastSpeakerId = isAllSpeechUnit ? null : charId;
+            }
+
+            const split = splits[unit.id];
+            if (split && isKept) {
+              const s2Id = `${unit.id}:s2`;
+              const s2Reassigned = reassignments[s2Id];
+              const s2CharId = s2Reassigned ? s2Reassigned[0] : (split.newCharacterId ?? unit.characterId);
+              if (lastSpeakerId === s2CharId) continuationIds.add(s2Id);
+              lastSpeakerId = s2CharId;
+            }
+          }
+        }
+
+        for (const ins of insAfterMap.get(rawUnit.id) ?? []) {
+          if (lastSpeakerId === ins.characterId) continuationIds.add(ins.id);
+          lastSpeakerId = ins.characterId;
+        }
+      }
+    }
+
     // Build the set of split boundary unit IDs for this scene (empty if not subdivided)
     const sceneSplits = cut.sceneSubdivisions?.[sceneId] ?? [];
     const splitBoundaryIds = new Set(sceneSplits.map((s) => s.afterUnitId));
@@ -156,18 +212,20 @@ function buildScriptData(
         const isInsertion = !!(cut.insertions?.[speech.id]);
         const originalLines = isInsertion ? [] : speech.lines.map((l) => l.text);
 
-        const keptLines =
+        const keptLinePairs =
           status === "cut"
             ? []
             : speech.lines
                 .filter((l) => lineCutMap[l.id] !== "cut")
                 .map((l) => {
                   const lineOps = ops.filter((op) => op.lineId === l.id);
-                  if (lineOps.length === 0) return l.text;
+                  if (lineOps.length === 0) return { text: l.text, indent: l.partIndentChars ?? 0 };
                   const segments = applyEditsToLine(l.id, l.text, lineOps as Parameters<typeof applyEditsToLine>[2]);
-                  return segmentsToText(segments);
+                  return { text: segmentsToText(segments), indent: l.partIndentChars ?? 0 };
                 })
-                .filter((t) => t.trim().length > 0);
+                .filter(({ text }) => text.trim().length > 0);
+        const keptLines = keptLinePairs.map((p) => p.text);
+        const lineIndents = keptLinePairs.map((p) => p.indent);
 
         // Tally kept lines per effective speaker (each gets full count)
         for (const spkId of effectiveCharIds) {
@@ -183,6 +241,8 @@ function buildScriptData(
           status,
           keptLines,
           originalLines,
+          isContinuation: continuationIds.has(rawUnit.id),
+          lineIndents,
         });
       } else {
         const stage = rawUnit as StageDirection;
@@ -441,7 +501,13 @@ function renderUnit(u){
   }
   if(filterChar&&u.characterId!==filterChar)return null;
   if(mode==='clean'&&u.status==='cut')return null;
-  var name='<div class="char-name">'+esc(u.characterName)+'</div>';
+  var name;
+  if(u.isContinuation){
+    if(mode==='clean'){name='';}
+    else{name='<div class="char-name" style="font-style:italic;font-weight:normal">(cont.)</div>';}
+  }else{
+    name='<div class="char-name">'+esc(u.characterName)+'</div>';
+  }
   if(mode==='diff'){
     var leftLines=u.keptLines.map(function(l){return'<div>'+esc(l)+'</div>';}).join('');
     var rightLines=u.originalLines.map(function(l){
@@ -456,7 +522,10 @@ function renderUnit(u){
   if(mode==='standard'&&u.status==='cut'){
     lines=u.originalLines.map(function(l){return'<div class="line-cut">'+esc(l)+'</div>';}).join('');
   }else{
-    lines=u.keptLines.map(function(l){return'<div>'+esc(l)+'</div>';}).join('');
+    lines=u.keptLines.map(function(l,i){
+      var ind=u.lineIndents&&u.lineIndents[i]?'padding-left:'+u.lineIndents[i]+'ch':'';
+      return ind?'<div style="'+ind+'">'+esc(l)+'</div>':'<div>'+esc(l)+'</div>';
+    }).join('');
   }
   return'<div class="speech">'+name+lines+'</div>';
 }

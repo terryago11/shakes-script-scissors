@@ -162,6 +162,59 @@ export async function renderScriptDocx(
         cut.insertedSDs
       );
 
+      // Continuation detection — port of SceneBlock.tsx lines 145–207 (no showOriginal mode)
+      const continuationIds = new Set<string>();
+      {
+        let lastSpeakerId: string | null = null;
+        const insertionMap = cut.insertions ?? {};
+        const splits = cut.speechSplits ?? {};
+        const reassignments = cut.speechReassignments ?? {};
+
+        const insAfterMap = new Map<string, Array<{ id: string; characterId: string }>>();
+        for (const ins of Object.values(insertionMap)) {
+          const arr = insAfterMap.get(ins.afterUnitId) ?? [];
+          arr.push(ins as { id: string; characterId: string });
+          insAfterMap.set(ins.afterUnitId, arr);
+        }
+
+        for (const unit of sceneUnits) {
+          if (unit.type === "speech") {
+            const speech = unit as Speech;
+            const isS2 = unit.id.endsWith(":s2");
+            const isInsertionUnit = !!insertionMap[unit.id];
+
+            if (!isS2 && !isInsertionUnit) {
+              const reassigned = reassignments[speech.id];
+              const charId = reassigned ? reassigned[0] : speech.characterId;
+              const isAllSpeechUnit =
+                /\bALL\b/i.test(speech.speakerTag) ||
+                (speech.characterIds != null && speech.characterIds.length > 1) ||
+                (reassigned != null && reassigned.length > 1);
+              const isKept = !isUnitCut(unit.id, cut);
+
+              if (isKept) {
+                if (!isAllSpeechUnit && lastSpeakerId === charId) continuationIds.add(unit.id);
+                lastSpeakerId = isAllSpeechUnit ? null : charId;
+              }
+
+              const split = splits[unit.id];
+              if (split && isKept) {
+                const s2Id = `${unit.id}:s2`;
+                const s2Reassigned = reassignments[s2Id];
+                const s2CharId = s2Reassigned ? s2Reassigned[0] : (split.newCharacterId ?? speech.characterId);
+                if (lastSpeakerId === s2CharId) continuationIds.add(s2Id);
+                lastSpeakerId = s2CharId;
+              }
+            }
+          }
+
+          for (const ins of insAfterMap.get(unit.id) ?? []) {
+            if (lastSpeakerId === ins.characterId) continuationIds.add(ins.id);
+            lastSpeakerId = ins.characterId;
+          }
+        }
+      }
+
       // Sub-scene division tracking
       const sceneSplits = cut.sceneSubdivisions?.[scene.id] ?? [];
       const splitBoundaryIds = new Set(sceneSplits.map((s) => s.afterUnitId));
@@ -177,6 +230,7 @@ export async function renderScriptDocx(
           const speech = unit as Speech;
           const reassignment = cut.speechReassignments?.[speech.id];
           const isInsertion = !!(cut.insertions?.[speech.id]);
+          const isContinuation = continuationIds.has(speech.id);
           const effectiveDeliveryNote =
             cut.deliveryNoteEdits?.[speech.id] !== undefined
               ? cut.deliveryNoteEdits[speech.id] || undefined
@@ -220,12 +274,22 @@ export async function renderScriptDocx(
             }
           }
 
-          paragraphs.push(
-            new Paragraph({
-              children: labelRuns,
-              spacing: { before: 160, after: 0 },
-            })
-          );
+          if (isContinuation) {
+            if (viewMode === "standard") {
+              paragraphs.push(new Paragraph({
+                children: [new TextRun({ text: "(cont.)", italics: true, size: 18, color: "888888" })],
+                spacing: { before: 160, after: 0 },
+              }));
+            }
+            // clean mode: omit label entirely
+          } else {
+            paragraphs.push(
+              new Paragraph({
+                children: labelRuns,
+                spacing: { before: 160, after: 0 },
+              })
+            );
+          }
 
           // Lines — apply word-level edits and filter line cuts
           const edit = speechEdits[speech.id];
@@ -280,10 +344,14 @@ export async function renderScriptDocx(
 
             if (runs.length === 0) continue;
 
+            const partIndentTwips = line.partIndent && line.partIndentChars
+              ? Math.round(line.partIndentChars * 100)
+              : 0;
             paragraphs.push(
               new Paragraph({
                 children: runs,
                 spacing: { before: 0, after: 0 },
+                ...(partIndentTwips ? { indent: { left: partIndentTwips } } : {}),
               })
             );
           }
