@@ -36,7 +36,7 @@ export function buildDocxFileName(playTitle: string, cutName: string): string {
   return `${sanitizeName(playTitle)}_${sanitizeName(cutName)}_cue_scripts.docx`;
 }
 
-function pdfToBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
+export function pdfToBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     doc.on("data", (c: Buffer) => chunks.push(c));

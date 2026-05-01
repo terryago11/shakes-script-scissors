@@ -311,7 +311,7 @@ export default function CastingManager({ playId }: Props) {
       const safeName = (project?.name ?? play.title).replace(/[^A-Za-z0-9_-]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
       a.download = `${safeName}_casting_sheet.pdf`;
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     } finally {
       setCastingSheetDownloading(false);
     }

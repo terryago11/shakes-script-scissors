@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     actors,
     assignments,
     lineCounts,
-    stageTime: stageTime ?? null,
+    stageTime,
     characterLinks: characterLinks ?? [],
     projectName,
     optionName,
