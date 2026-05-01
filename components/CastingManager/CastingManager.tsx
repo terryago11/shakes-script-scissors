@@ -15,7 +15,6 @@ import { defaultColors, generateId } from "@/lib/project/projectUtils";
 import type { Actor, ActorAssignment, CastOption } from "@/types/project";
 import CharacterCard, { type CompatEntry } from "./CharacterCard";
 import CompareCastOptions from "./CompareCastOptions";
-import { exportCastingGrid } from "@/lib/cuts/CastingGridExporter";
 
 interface Props {
   playId: string;
@@ -283,23 +282,39 @@ export default function CastingManager({ playId }: Props) {
     setSuggestState({ phase: "choosing" });
   }
 
-  function handlePrintCastingSheet() {
+  const [castingSheetDownloading, setCastingSheetDownloading] = useState(false);
+
+  async function handlePrintCastingSheet() {
     if (!play || !activeCut) return;
-    const html = exportCastingGrid({
-      play,
-      cut: activeCut,
-      actors: effectiveActors,
-      assignments: effectiveAssignments,
-      lineCounts,
-      stageTime,
-      characterLinks: effectiveCharacterLinks,
-      projectName: project?.name,
-      optionName: draft?.name,
-      printableBlank: true,
-    });
-    const w = window.open("about:blank", "_blank");
-    w?.document.write(html);
-    w?.document.close();
+    setCastingSheetDownloading(true);
+    try {
+      const res = await fetch("/api/export/casting-grid-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          play,
+          cut: activeCut,
+          actors: effectiveActors,
+          assignments: effectiveAssignments,
+          lineCounts,
+          stageTime,
+          characterLinks: effectiveCharacterLinks,
+          projectName: project?.name,
+          optionName: draft?.name,
+        }),
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeName = (project?.name ?? play.title).replace(/[^A-Za-z0-9_-]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+      a.download = `${safeName}_casting_sheet.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setCastingSheetDownloading(false);
+    }
   }
 
   function runSuggest(mode: "replace" | "extend", desiredActorCount?: number) {
@@ -913,10 +928,10 @@ export default function CastingManager({ playId }: Props) {
             </button>
             <button
               onClick={handlePrintCastingSheet}
-              disabled={!play || !activeCut}
+              disabled={!play || !activeCut || castingSheetDownloading}
               className="text-xs px-3 py-1.5 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
             >
-              Print Casting Sheet
+              {castingSheetDownloading ? "Downloading…" : "Download Casting Sheet"}
             </button>
           </div>
 
