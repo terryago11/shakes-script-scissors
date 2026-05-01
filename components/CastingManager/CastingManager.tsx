@@ -101,6 +101,7 @@ export default function CastingManager({ playId }: Props) {
   const [newOptionName, setNewOptionName] = useState("");
   const [pendingConfirm, setPendingConfirm] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [showUnassignConfirm, setShowUnassignConfirm] = useState(false);
+  const [castingSheetDownloading, setCastingSheetDownloading] = useState(false);
 
   // Reset audition mode when leaving the casting page
   useEffect(() => {
@@ -281,8 +282,6 @@ export default function CastingManager({ playId }: Props) {
     // Always show the choosing panel — it doubles as the desired-count picker.
     setSuggestState({ phase: "choosing" });
   }
-
-  const [castingSheetDownloading, setCastingSheetDownloading] = useState(false);
 
   async function handlePrintCastingSheet() {
     if (!play || !activeCut) return;
