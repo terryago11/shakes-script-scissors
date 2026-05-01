@@ -30,6 +30,14 @@ interface UnitData {
   isContinuation?: boolean;
   /** Part-indent char widths, parallel to keptLines (0 = no indent) */
   lineIndents?: number[];
+  /** True when this speech has been reassigned to a different character */
+  hasReassignment?: boolean;
+  /** Pre-reassignment speaker name (only set when hasReassignment is true) */
+  originalSpeaker?: string;
+  /** True when this is a song speech or song SD */
+  isSong?: boolean;
+  /** True when this is a dance SD */
+  isDance?: boolean;
 }
 
 interface SceneData {
@@ -233,6 +241,17 @@ function buildScriptData(
           charLineCount.set(spkId, prev + keptLines.length);
         }
 
+        const hasReassignment = !!(reassignments[speech.id]);
+        const originalSpeaker: string | undefined = hasReassignment
+          ? (isAllSpeech
+              ? speech.speakerTag.trim()
+              : (speech.characterIds ?? [speech.characterId])
+                  .map((id) => resolveCharacterName(id, aliases, play.castList))
+                  .join(" & "))
+          : undefined;
+        const isSongSpeech = (speech as Speech & { isSong?: boolean }).isSong === true
+          || (cut.sdFlagOverrides?.[speech.id]?.isSong === true);
+
         units.push({
           id: rawUnit.id,
           type: "speech",
@@ -243,12 +262,18 @@ function buildScriptData(
           originalLines,
           isContinuation: continuationIds.has(rawUnit.id),
           lineIndents,
+          hasReassignment,
+          originalSpeaker,
+          isSong: isSongSpeech,
+          isDance: false,
         });
       } else {
         const stage = rawUnit as StageDirection;
         const text = cut.sdTextEdits?.[stage.id] ?? stage.text;
         const isEdited = !!(cut.sdTextEdits?.[stage.id]);
         const isInserted = !!(cut.insertedSDs?.[stage.id]);
+        const isSongSD = (cut.sdFlagOverrides?.[stage.id]?.isSong ?? stage.isSong) === true;
+        const isDanceSD = (cut.sdFlagOverrides?.[stage.id]?.isDance ?? stage.isDance) === true;
         units.push({
           id: rawUnit.id,
           type: "stage",
@@ -259,6 +284,8 @@ function buildScriptData(
           originalLines: [stage.text],
           isEdited,
           isInserted,
+          isSong: isSongSD,
+          isDance: isDanceSD,
         });
       }
 
@@ -487,17 +514,20 @@ function renderUnit(u){
       if(mode==='clean')return null;
       return '<div class="stage-dir" style="text-decoration:line-through;opacity:.5">['+esc(u.originalLines[0]||'')+']</div>';
     }
-    if(mode==='clean')return '<div class="stage-dir">['+esc(u.keptLines[0]||'')+']</div>';
+    var sdPrefix='';
+    if(u.isSong)sdPrefix+='<span style="color:#7c3aed">♪ </span>';
+    if(u.isDance)sdPrefix+='<span style="color:#0891b2">⊛ </span>';
+    if(mode==='clean')return '<div class="stage-dir">'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>';
     if(u.isInserted&&mode==='standard'){
-      return '<div class="stage-dir stage-dir-edited"><span style="font-size:9px;color:#16a34a;background:#dcfce7;border-radius:2px;padding:0 3px;margin-right:6px;font-style:normal;vertical-align:middle">inserted</span>['+esc(u.keptLines[0]||'')+']</div>';
+      return '<div class="stage-dir stage-dir-edited"><span style="font-size:9px;color:#16a34a;background:#dcfce7;border-radius:2px;padding:0 3px;margin-right:6px;font-style:normal;vertical-align:middle">inserted</span>'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>';
     }
     if(u.isEdited&&mode==='diff'){
-      var left='<div class="diff-label">Modified</div><div class="stage-dir stage-dir-edited">['+esc(u.keptLines[0]||'')+']</div>';
-      var right='<div class="diff-label">Original</div><div class="stage-dir">['+esc(u.originalLines[0]||'')+']</div>';
+      var left='<div class="diff-label">Modified</div><div class="stage-dir stage-dir-edited">'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>';
+      var right='<div class="diff-label">Original</div><div class="stage-dir">'+sdPrefix+'['+esc(u.originalLines[0]||'')+']</div>';
       return'<div class="diff-row"><div class="diff-col diff-left">'+left+'</div><div class="diff-col diff-right">'+right+'</div></div>';
     }
     var sdCls=u.isEdited&&mode==='standard'?'stage-dir stage-dir-edited':'stage-dir';
-    return '<div class="'+sdCls+'">['+esc(u.keptLines[0]||'')+']</div>';
+    return '<div class="'+sdCls+'">'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>';
   }
   if(filterChar&&u.characterId!==filterChar)return null;
   if(mode==='clean'&&u.status==='cut')return null;
@@ -505,8 +535,13 @@ function renderUnit(u){
   if(u.isContinuation){
     if(mode==='clean'){name='';}
     else{name='<div class="char-name" style="font-style:italic;font-weight:normal">(cont.)</div>';}
+  }else if(u.hasReassignment&&mode==='standard'){
+    var origSpan='<span style="text-decoration:line-through;color:#b91c1c">'+esc(u.originalSpeaker||'')+'</span>';
+    var newSpan='<span style="color:#16a34a">'+esc(u.characterName)+'</span>';
+    name='<div class="char-name">'+origSpan+' '+newSpan+'</div>';
   }else{
-    name='<div class="char-name">'+esc(u.characterName)+'</div>';
+    var songPfx=u.isSong?'<span style="color:#7c3aed;font-size:11px">♪ </span>':'';
+    name='<div class="char-name">'+songPfx+esc(u.characterName)+'</div>';
   }
   if(mode==='diff'){
     var leftLines=u.keptLines.map(function(l){return'<div>'+esc(l)+'</div>';}).join('');
@@ -524,7 +559,11 @@ function renderUnit(u){
   }else{
     lines=u.keptLines.map(function(l,i){
       var ind=u.lineIndents&&u.lineIndents[i]?'padding-left:'+u.lineIndents[i]+'ch':'';
-      return ind?'<div style="'+ind+'">'+esc(l)+'</div>':'<div>'+esc(l)+'</div>';
+      var sty='';
+      if(ind)sty+=ind+';';
+      if(u.isSong)sty+='color:#7c3aed;font-style:italic;';
+      if(sty)sty=sty.replace(/;$/,'');
+      return sty?'<div style="'+sty+'">'+esc(l)+'</div>':'<div>'+esc(l)+'</div>';
     }).join('');
   }
   return'<div class="speech">'+name+lines+'</div>';

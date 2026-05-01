@@ -236,6 +236,9 @@ export async function renderScriptDocx(
               ? cut.deliveryNoteEdits[speech.id] || undefined
               : speech.deliveryNote;
 
+          const isSongSpeech = (speech as Speech & { isSong?: boolean }).isSong === true
+            || (cut.sdFlagOverrides?.[speech.id]?.isSong === true);
+
           // Speaker label: in standard mode show original struck-out + new name for reassignments
           const labelRuns: TextRun[] = [];
           if (reassignment && viewMode === "standard") {
@@ -272,6 +275,10 @@ export async function renderScriptDocx(
                 ...(isInsertion ? { color: "1d6b38" } : {}),
               }));
             }
+          }
+
+          if (isSongSpeech && !effectivelyCut) {
+            labelRuns.unshift(new TextRun({ text: "♪ ", color: "7c3aed", size: 18 }));
           }
 
           if (isContinuation) {
@@ -339,6 +346,8 @@ export async function renderScriptDocx(
                 ...(baseStrike ? { strike: true, color: "999999" } : {}),
                 // Highlight inserted speeches (from cut.insertions) in green
                 ...(isInsertion ? { color: "1d6b38" } : {}),
+                // Song speeches: violet italic (only when not struck)
+                ...(isSongSpeech && !baseStrike ? { italics: true, color: "7c3aed" } : {}),
               })];
             }
 
@@ -361,22 +370,28 @@ export async function renderScriptDocx(
           const isTextEditedSD = !!(cut.sdTextEdits?.[stage.id]);
           const isSyntheticSD = stage.id.endsWith(":sd"); // from expandStageNotes
           const sdText = cut.sdTextEdits?.[stage.id] ?? stage.text;
+          const isSongSD = (cut.sdFlagOverrides?.[stage.id]?.isSong ?? stage.isSong) === true;
+          const isDanceSD = (cut.sdFlagOverrides?.[stage.id]?.isDance ?? stage.isDance) === true;
+
+          const sdRuns: TextRun[] = [];
+          if (isSongSD) sdRuns.push(new TextRun({ text: "♪ ", color: "7c3aed", italics: true, size: 18 }));
+          if (isDanceSD) sdRuns.push(new TextRun({ text: "⊛ ", color: "0891b2", italics: true, size: 18 }));
+          sdRuns.push(new TextRun({
+            text: `[${sdText}]`,
+            italics: true,
+            size: 18,
+            ...(effectivelyCut
+              ? { strike: true, color: "aaaaaa" }
+              : ((isInsertedSD || isTextEditedSD) && viewMode === "standard")
+              ? { color: "1d6b38" }
+              : isSyntheticSD
+              ? { color: "666666" }
+              : { color: "666666" }),
+          }));
+
           paragraphs.push(
             new Paragraph({
-              children: [
-                new TextRun({
-                  text: `[${sdText}]`,
-                  italics: true,
-                  size: 18,
-                  ...(effectivelyCut
-                    ? { strike: true, color: "aaaaaa" }
-                    : ((isInsertedSD || isTextEditedSD) && viewMode === "standard")
-                    ? { color: "1d6b38" }  // inserted/edited SDs in green in standard mode
-                    : isSyntheticSD
-                    ? { color: "666666" }  // stageNote-expanded SDs in muted grey
-                    : { color: "666666" }),
-                }),
-              ],
+              children: sdRuns,
               alignment: AlignmentType.CENTER,
               spacing: { before: 60, after: 60 },
             })
