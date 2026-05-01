@@ -7,3 +7,4 @@ _Persistent error log — append only, never delete._
 - **25C simplify**: `useMemo` cannot be placed after early returns (Rules of Hooks). `naturalMinimum` depends on `speakingChars`/`fullyCutCharIds` computed post-early-return, so it stays as an IIFE — cannot be memoized without restructuring the whole component.
 - **25C CompareCastOptions**: initially looked up actors by name (case-insensitive toLowerCase) instead of stable ID — breaks silently on actor rename. Always use `actorId` for actor lookups.
 - **25D casting sheet PDF**: replacing the `window.open`+`document.write` approach left `lib/cuts/CastingGridExporter.ts` with no importers — it is now dead code; delete it or repurpose before the next refactor pass.
+- **25D casting sheet PDF**: `useState` placed after an early return in `CastingManager` — ESLint `react-hooks/rules-of-hooks` error. Always add new `useState` calls with the other state declarations at the TOP of the component, before any early returns.
