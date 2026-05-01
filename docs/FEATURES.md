@@ -117,7 +117,7 @@ All three modes are available in the script editor and in the exported HTML file
 | **Cut counts on cards** | Each character card shows cut line/word/time counts inline |
 | **Full-cast banner** | Dismissible green banner appears once all speaking characters are assigned; links to Rehearsal tab |
 | **Unassign All** | Clears all character-to-actor assignments at once (with inline confirmation); available in both normal and Audition Mode |
-| **Print Casting Sheet** | One-click blank casting worksheet (HTML, `@media print`); character cards list name + stats with a blank line for handwriting in the actor; actor cards list the actor's name with blank rows for characters; available in Audition Mode |
+| **Download Casting Sheet** | One-click PDF download from Audition Mode; character cards list name + stats with a blank line for handwriting in the actor; actor cards list the actor's name with blank rows for characters; server-side PDF via `pdfkit` — no print dialog, no Microsoft Store prompt on Windows |
 
 ---
 
@@ -146,7 +146,7 @@ All three modes are available in the script editor and in the exported HTML file
 | **Cue scripts — Download All as ZIP** | Server-side PDF generation via `pdfkit`; one PDF per actor; all bundled as a single `.zip` download; same header/footer layout as print |
 | **Export full script as Word (.docx)** | From ⚙ Settings → Save & Export; exports the full current-cut script as `.docx` via the `docx` package; **Clean** mode (cuts hidden) or **Standard** mode (cuts struck through in grey, inserted words underlined in green, speech reassignments shown original→new, inserted speeches/SDs in green); one-way conversion — cannot be re-imported |
 | **Import cut from Word** *(experimental)* | ⚙ Settings → "Import cut from pre-existing Word doc"; parses `<w:highlight>` annotations from a `.docx` the director marked up themselves; ignores tracked changes, insertions, SDs, and speaker labels; matches highlighted passages to canonical Folger text using speaker-block Jaccard matching + token-span alignment; produces word-level cuts; requires clear Act/Scene headings; hard-rejects if match rate < 40%; amber warning 40–69%; always creates a new cut |
-| **Casting grid (blank)** | Printable HTML casting worksheet from Audition Mode → Print Casting Sheet; shows all characters with stats + a blank underline, and all actors with blank fill-in rows; `@media print` optimised; opens in a new browser tab |
+| **Casting grid (PDF)** | Direct PDF download from Audition Mode → Download Casting Sheet; 3-column character and actor card layout; blank underlines and fill-in rows; no print dialog — `.pdf` saves directly to disk |
 | **Line Buddy HTML** | Per-actor interactive cue-card drill export from the Cue Scripts page → Line Buddy (HTML); cue text shown first, tap/Space/→ to reveal lines, ← to go back, S to shuffle; progress bar; mobile-friendly; ZIP delivery (one HTML per actor) |
 
 ---
