@@ -245,13 +245,13 @@ A preview panel shows the suggested groupings. Click **Apply** to create the act
 
 > **Tip:** Actors are a global pool — all cast options share the same actor names and colours. Only assignments (and optional per-option must-double links) differ between options.
 
-### Print Casting Sheet
+### Download Casting Sheet
 
-In Audition Mode, click **Print Casting Sheet** to open a printable blank casting worksheet in a new tab. The sheet shows:
+In Audition Mode, click **Download Casting Sheet** to save a blank casting worksheet as a `.pdf` file directly to your Downloads folder — no print dialog, no browser tab. The sheet shows:
 - **Characters section**: one card per character with line/word/time stats and a blank underline for handwriting in the actor's name.
 - **Actors section**: one card per actor with their name and colour swatch, plus blank ruled rows for writing in character assignments.
 
-Click **Print / Save PDF** in the new tab (or use your browser's print function) to save a PDF copy for rehearsal distribution. Because the sheet is always blank, it is safe to print at any point in the casting process without revealing current draft assignments.
+Because the sheet is always blank, it is safe to download at any point in the casting process without revealing current draft assignments. Open the PDF in any viewer and print from there.
 
 ### Quick-change warnings
 

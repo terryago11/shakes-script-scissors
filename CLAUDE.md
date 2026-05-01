@@ -70,7 +70,8 @@ Both updates should be done together.
 | `lib/cuts/StageTimeEngine.ts` | Per-character on-stage time from entrance/exit SDs; `computePairwiseSharedMinutes` returns symmetric shared-time map for merge-phase doubling |
 | `lib/cuts/CueScriptBuilder.ts` | Builds per-actor cue scripts from cut play |
 | `lib/cuts/CastingUtils.ts` | `suggestMinimumCast` → `SuggestResult` (Welsh–Powell graph colouring; optional merge/split phases for `desiredActorCount`) + `buildForbiddenPairs` |
-| `lib/cuts/CastingGridExporter.ts` | `exportCastingGrid` — printable casting-sheet HTML (character cards + actor cards); always rendered `printableBlank: true` from the UI (blank worksheet for handwriting) |
+| `lib/cuts/CastingGridExporter.ts` | `exportCastingGrid` — printable casting-sheet HTML (character cards + actor cards); **unused since Group 25D fix** — superseded by `castingGridPdf.ts`; safe to delete |
+| `lib/export/castingGridPdf.ts` | `exportCastingGridPdf` — server-side PDFKit casting grid PDF (3-column card grid, character + actor cards); called by `app/api/export/casting-grid-pdf/route.ts`; reuses `pdfToBuffer` + `sanitizeName` from `cueScriptPdf.ts` |
 | `lib/cuts/LineBuddyExporter.ts` | `exportLineBuddy` — per-actor interactive cue-card drill HTML (cue → reveal → advance; shuffle; keyboard nav); ZIP delivery via `app/api/export/line-buddy-zip/route.ts` |
 | `lib/cuts/QuickChangeEngine.ts` | `computeQuickChanges` — actor quick-change warnings with act/scene/line locations |
 | `lib/cuts/PropsEngine.ts` | Scans stage directions and speech text for prop keywords; returns `PropReference[]` with `source`, `confidence`, and context fields |
