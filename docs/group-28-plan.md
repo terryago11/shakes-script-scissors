@@ -389,7 +389,7 @@ In the line `TextRun`, add italic + violet for song lines (don't override existi
 
 ### 28C Session 4 — Remaining Fidelity + New Features
 
-> All items below are **not yet implemented**. Implement them in order in a new session.
+> **DONE (2026-05-02).** All S4-1 through S4-8 implemented and verified against actual DOCX exports.
 
 #### 28C-S4-1: HTML — Inserted speeches green styling
 
@@ -709,21 +709,28 @@ const doc = new Document({
 
 ---
 
-#### 28C-S4-9: Verification matrix update
+#### 28C-S4-9: Verification matrix update ✅ DONE 2026-05-02
 
-After Session 4, the feature matrix (28B) should be updated:
+Verified against actual DOCX exports (`/tests/exports/`):
+- Standard: `The_Tempest_Draft_test_standard_02-05-2026--20-17.docx` (72 KB)
+- Clean: `The_Tempest_Draft_test_clean_02-05-2026--20-16.docx` (48 KB)
 
-| Feature | HTML Std | HTML Clean | Word Std | Word Clean |
-|---------|----------|------------|----------|------------|
-| Word cut | `<del>` red | hidden | **red** strike | hidden |
-| Line cut | red strike | hidden | **red** strike | hidden |
-| Speech cut | red strike | hidden | **red** strike | hidden |
-| SD cut | red strike | hidden | **red** strike | hidden |
-| Speech insert | inline, green | inline, plain | inline, green | inline, plain |
-| Line numbers | every 5th, scene-rel, std=all / clean=kept | same | same | same |
-| Filename | ends `dd-mm-yyyy--hh-mm` | same | same | same |
-| Word header | N/A | N/A | project\|play\|cut\|date | same |
-| Page numbers | N/A | N/A | centered in footer | same |
+| Feature | HTML Std | HTML Clean | Word Std | Word Clean | Status |
+|---------|----------|------------|----------|------------|--------|
+| Word-level `<del>`/`<ins>` | `<del>` red / `<ins>` green | hidden | **red** strike | hidden | ✅ 194 mixed-edit lines |
+| Line cut | red strike | hidden | **red** strike | hidden | ✅ |
+| Speech cut | red strike | hidden | **red** strike | hidden | ✅ |
+| SD cut | red strike | hidden | **red** strike | hidden | ✅ |
+| Speech insert | inline, green | inline, plain | inline, green | inline, plain | ✅ |
+| Line numbers | every 5th, scene-rel, std=all / clean=kept | same | same | same | ✅ 461 std / 297 clean |
+| Filename suffix | `dd-mm-yyyy--hh-mm` | same | same | same | ✅ |
+| Word header | N/A | N/A | project\|play\|cut\|date\|time | same | ✅ |
+| Page numbers | N/A | N/A | centered in footer | same | ✅ |
+| Red strikes | N/A | N/A | `b91c1c` (1274 in std, 0 in clean) | N/A | ✅ |
+| Reassignment | red+strike original / green new | hidden/shown | red+strike / green | hidden/shown | ✅ |
+| Continuation `(cont.)` | 69 in std | 0 in clean | 69 in std | 0 in clean | ✅ |
+| Consecutive SDs | 29 adjacent pairs rendered | same | same | same | ✅ |
+| Green SD (edited/inserted) | 8 green SDs | same | same | same | ✅ |
 
 ---
 
