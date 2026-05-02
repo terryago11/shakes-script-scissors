@@ -30,6 +30,8 @@ interface UnitData {
   isContinuation?: boolean;
   /** Part-indent char widths, parallel to keptLines (0 = no indent) */
   lineIndents?: number[];
+  /** Effective delivery note for this speech (respects deliveryNoteEdits) */
+  deliveryNote?: string;
   /** True when this speech has been reassigned to a different character */
   hasReassignment?: boolean;
   /** Pre-reassignment speaker name (only set when hasReassignment is true) */
@@ -241,6 +243,11 @@ function buildScriptData(
           charLineCount.set(spkId, prev + keptLines.length);
         }
 
+        const effectiveDeliveryNote: string | undefined =
+          cut.deliveryNoteEdits?.[speech.id] !== undefined
+            ? (cut.deliveryNoteEdits[speech.id] || undefined)
+            : speech.deliveryNote;
+
         const hasReassignment = !!(reassignments[speech.id]);
         const originalSpeaker: string | undefined = hasReassignment
           ? (isAllSpeech
@@ -262,6 +269,7 @@ function buildScriptData(
           originalLines,
           isContinuation: continuationIds.has(rawUnit.id),
           lineIndents,
+          deliveryNote: effectiveDeliveryNote,
           hasReassignment,
           originalSpeaker,
           isSong: isSongSpeech,
@@ -532,16 +540,17 @@ function renderUnit(u){
   if(filterChar&&u.characterId!==filterChar)return null;
   if(mode==='clean'&&u.status==='cut')return null;
   var name;
+  var dnote=u.deliveryNote?'<div class="char-name" style="font-weight:normal;font-style:italic;text-transform:none;letter-spacing:0">'+esc(u.deliveryNote)+'</div>':'';
   if(u.isContinuation){
     if(mode==='clean'){name='';}
-    else{name='<div class="char-name" style="font-style:italic;font-weight:normal">(cont.)</div>';}
+    else{name='<div class="char-name" style="font-style:italic;font-weight:normal">(cont.)</div>'+dnote;}
   }else if(u.hasReassignment&&mode==='standard'){
     var origSpan='<span style="text-decoration:line-through;color:#b91c1c">'+esc(u.originalSpeaker||'')+'</span>';
     var newSpan='<span style="color:#16a34a">'+esc(u.characterName)+'</span>';
-    name='<div class="char-name">'+origSpan+' '+newSpan+'</div>';
+    name='<div class="char-name">'+origSpan+' '+newSpan+'</div>'+dnote;
   }else{
     var songPfx=u.isSong?'<span style="color:#7c3aed;font-size:11px">♪ </span>':'';
-    name='<div class="char-name">'+songPfx+esc(u.characterName)+'</div>';
+    name='<div class="char-name">'+songPfx+esc(u.characterName)+'</div>'+dnote;
   }
   if(mode==='diff'){
     var leftLines=u.keptLines.map(function(l){return'<div>'+esc(l)+'</div>';}).join('');

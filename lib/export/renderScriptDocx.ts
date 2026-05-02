@@ -17,6 +17,7 @@ import type { Cut } from "@/types/project";
 import { expandSplits, expandInsertions, expandStageNotes, expandInsertedSDs } from "@/lib/cuts/expandUtils";
 import { applyEditsToLine } from "@/lib/cuts/applyEdits";
 import { PART_LABELS } from "@/lib/cuts/SceneSubdivisionUtils";
+import { getEffectiveSceneOrder } from "@/lib/project/projectUtils";
 
 export type ScriptDocxViewMode = "clean" | "standard";
 
@@ -127,21 +128,38 @@ export async function renderScriptDocx(
     );
   }
 
-  // ── Walk acts → scenes → expanded units ─────────────────────────────────────
+  // ── Walk scenes in effective order (respects cut.sceneOrder) ───────────────
+  // Build scene lookup: sceneId → {act, scene}
+  const sceneMap = new Map<string, { act: Play["acts"][0]; scene: Play["acts"][0]["scenes"][0] }>();
+  for (const act of play.acts) {
+    for (const scene of act.scenes) {
+      sceneMap.set(scene.id, { act, scene });
+    }
+  }
+  const effectiveOrder = getEffectiveSceneOrder(play, cut);
+
+  let lastActId: string | null = null;
   let isFirstAct = true;
 
-  for (const act of play.acts) {
-    // Act heading — page break before every act except the first
-    paragraphs.push(
-      new Paragraph({
-        text: act.title,
-        heading: HeadingLevel.HEADING_1,
-        ...(!isFirstAct ? { pageBreakBefore: true } : {}),
-      })
-    );
-    isFirstAct = false;
+  for (const sceneId of effectiveOrder) {
+    const info = sceneMap.get(sceneId);
+    if (!info) continue;
+    const { act, scene } = info;
 
-    for (const scene of act.scenes) {
+    // Act heading — emit when act changes; page break before every act except the first
+    if (act.id !== lastActId) {
+      paragraphs.push(
+        new Paragraph({
+          text: act.title,
+          heading: HeadingLevel.HEADING_1,
+          ...(!isFirstAct ? { pageBreakBefore: true } : {}),
+        })
+      );
+      isFirstAct = false;
+      lastActId = act.id;
+    }
+
+    {
       // Scene heading
       paragraphs.push(
         new Paragraph({
@@ -410,6 +428,22 @@ export async function renderScriptDocx(
           );
           splitIdx++;
         }
+      }
+
+      // Intermission pause after scene (if any)
+      const pause = cut.pauses?.[`after:${sceneId}`];
+      if (pause) {
+        paragraphs.push(
+          new Paragraph({
+            children: [new TextRun({ text: `— ${pause.name} (${pause.minutes} min) —`, italics: true, color: "888888", size: 22 })],
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 200, after: 200 },
+            border: {
+              top: { style: BorderStyle.DASHED, size: 4, color: "CCCCCC", space: 6 },
+              bottom: { style: BorderStyle.DASHED, size: 4, color: "CCCCCC", space: 6 },
+            },
+          })
+        );
       }
     }
   }
