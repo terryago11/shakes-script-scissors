@@ -20,14 +20,26 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature gro
 
 ---
 
-## Upcoming — Group 28 — Export Fidelity Audit — [full spec](./group-28-plan.md)
+## In Progress — Group 28 — Export Fidelity Audit — [full spec](./group-28-plan.md)
 
-Deep audit and fix of HTML and Word exports to match the app's standard and clean rendering exactly. Confirmed bugs: speech reassignments ignored in HTML, delivery notes uppercase in Word, consecutive SDs missing, character headers repeated in continuous speech blocks, song/dance indicators absent, sub-scene divisions missing from Word, no character cast list at top of Word document. See the spec for the full feature matrix, fix plan, and verification protocol.
+Deep audit and fix of HTML and Word exports to match the app's standard and clean rendering exactly. Sessions 1–3 done; Session 4 (S4-1 through S4-9) in progress.
 
-- **28A** — Baseline audit (vanilla play, no edits)
-- **28B** — Feature matrix test project (exercises every feature including splits, ALL reassignments, sub-scene divisions)
-- **28C** — Bug fixes: delivery notes · continuation + split-tool suppression · reassignments · consecutive SDs · song/dance indicators · inserted SDs · sub-scene divisions in Word · character list at top of Word
+- **28A ✓** — Baseline audit
+- **28B ✓** — Feature matrix test project
+- **28C ✓** — Bug fixes (Sessions 1–3): delivery notes · continuation · reassignments · consecutive SDs · song/dance · inserted SDs · sub-scene divisions · character list
+- **28C S4** *(in progress)* — Inserted speech green styling · word-level edit HTML · SD diff columns · line numbers (HTML + Word) · filename date suffix · Word red cuts · Word header/footer
 - **28D** — Documentation + PR
+
+---
+
+## Upcoming — Group 29 — Cue Script Improvements — [full spec](./group-28-plan.md#group-29--cue-script-improvements)
+
+Overhaul the cue script export page and line buddy drill tool. Full spec lives in the Group 28 plan doc.
+
+- **29-2** — UI cleanup: search bar on cue script page · per-actor "Export Line Buddy" button · print button in script view nav · move batch buttons to top bar · remove clutter text
+- **29-3** — Line buddy redesign: scene-based scrolling layout · per-line reveal (not per-speech) · scene jump navigation · keyboard shortcuts · remove shuffle/reset/card-counter · stretch: right/wrong marking + mistake review
+- **29-4** — Export fidelity: delivery notes in cue scripts · song/dance indicators in line buddy · inserted SDs · verify cue script and line buddy against clean script
+- **29-D** — Documentation + PR
 
 ---
 

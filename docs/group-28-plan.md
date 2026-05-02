@@ -387,6 +387,346 @@ In the line `TextRun`, add italic + violet for song lines (don't override existi
 
 ---
 
+### 28C Session 4 — Remaining Fidelity + New Features
+
+> All items below are **not yet implemented**. Implement them in order in a new session.
+
+#### 28C-S4-1: HTML — Inserted speeches green styling
+
+**File:** `lib/cuts/HtmlExporter.ts`
+
+**Problem:** `isInserted` in `UnitData` is set for SD units only. Inserted speech units (from
+`cut.insertions`, emitted by `expandInsertions`) are never marked green.
+
+**Fix in `buildScriptData`** — speech branch, after `isContinuation`:
+```typescript
+const isInsertedSpeech = !!(cut.insertions?.[speech.id]);
+```
+Include `isInserted: isInsertedSpeech` in `units.push`.
+
+**Fix in embedded JS `renderUnit`** — at the start of the speech name block, before `isContinuation` (note: include `dnote` so delivery notes still render):
+```javascript
+if(u.isInserted&&mode==='standard'){
+  name='<div class="char-name" style="color:#16a34a">'+esc(u.characterName)+'</div>'+dnote;
+}else if(u.isContinuation){ ... }else if(u.hasReassignment...){ ... }else{ ... }
+```
+Lines in standard mode with `isInserted` (before the existing keptLines loop):
+```javascript
+if(mode==='standard'&&u.isInserted){
+  lines=u.keptLines.map(function(l,i){
+    var ind=u.lineIndents&&u.lineIndents[i]?'padding-left:'+u.lineIndents[i]+'ch':'';
+    var sty=(ind?ind+';':'')+'color:#16a34a';
+    return'<div style="'+sty+'">'+esc(l)+'</div>';
+  }).join('');
+}else{/* existing keptLines loop */}
+```
+
+---
+
+#### 28C-S4-2: HTML — Word-level edits (segment-aware HTML)
+
+**File:** `lib/cuts/HtmlExporter.ts`
+
+**Problem:** `segmentsToText` collapses cut words. Standard mode should show `<del>` for cut words
+and green for inserted words.
+
+**Add to `UnitData` interface:**
+```typescript
+/** Pre-rendered HTML per kept line: <del> for cut words, green span for inserts (standard only). null when no word-level edits on that line. */
+editedLineHtml?: (string | null)[];
+```
+
+**Add inline helpers before `buildScriptData`:**
+```typescript
+function escHtml(s: string): string {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function segmentsToHtml(segs: {type:"keep"|"cut"|"insert";text:string}[]): string {
+  return segs.map(s => {
+    if (s.type === "cut") return `<del style="color:#b91c1c;text-decoration:line-through">${escHtml(s.text)}</del>`;
+    if (s.type === "insert") return `<span style="color:#16a34a">${escHtml(s.text)}</span>`;
+    return escHtml(s.text);
+  }).join("");
+}
+```
+
+**In `buildScriptData`** — extend the existing `keptLinePairs` map to carry `html` alongside `text`/`indent`:
+```typescript
+// No-ops case:
+return { text: l.text, indent: l.partIndentChars ?? 0, html: null };
+// Has-ops case:
+const segments = applyEditsToLine(l.id, l.text, lineOps ...);
+return { text: segmentsToText(segments), indent: ..., html: segmentsToHtml(segments) };
+```
+Then after `const lineIndents = keptLinePairs.map(p => p.indent)`:
+```typescript
+const editedLineHtml = keptLinePairs.map(p => p.html);
+```
+Include `editedLineHtml` in `units.push`.
+
+**In embedded JS `renderUnit`** — in the kept-lines render path:
+```javascript
+var lineContent=(mode==='standard'&&u.editedLineHtml)?u.editedLineHtml[i]:esc(l);
+return sty?'<div style="'+sty+'">'+lineContent+'</div>':'<div>'+lineContent+'</div>';
+```
+`editedLineHtml[i]` must NOT be passed through `esc()` — it is already-escaped HTML.
+
+---
+
+#### 28C-S4-3: HTML diff mode — SDs in both columns
+
+**File:** `lib/cuts/HtmlExporter.ts` (embedded JS `renderUnit`, SD branch)
+
+**Problem:** Non-edited, non-cut SDs fall through to single-column render in diff mode. App shows
+unchanged SDs in both columns (same text both sides).
+
+**Replace** the existing SD diff block (which only triggers on `u.isEdited`):
+```javascript
+if(mode==='diff'){
+  if(u.status==='cut'){
+    var right='<div class="diff-label">Original</div>'
+      +'<div class="stage-dir" style="text-decoration:line-through;opacity:.5">'
+      +'['+esc(u.originalLines[0]||'')+']</div>';
+    return'<div class="diff-row">'
+      +'<div class="diff-col diff-left"><div class="diff-label">Modified</div>'
+      +'<span style="color:#a8a29e;font-size:12px;font-style:italic">(cut)</span></div>'
+      +'<div class="diff-col diff-right">'+right+'</div></div>';
+  }
+  var leftSD=u.isEdited
+    ?'<div class="stage-dir stage-dir-edited">'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>'
+    :'<div class="stage-dir">'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>';
+  var rightSD='<div class="stage-dir">'+sdPrefix+'['+esc(u.originalLines[0]||'')+']</div>';
+  var leftLabel=u.isEdited?'<div class="diff-label">Modified</div>':'';
+  var rightLabel=u.isEdited?'<div class="diff-label">Original</div>':'';
+  return'<div class="diff-row">'
+    +'<div class="diff-col diff-left">'+leftLabel+leftSD+'</div>'
+    +'<div class="diff-col diff-right">'+rightLabel+rightSD+'</div>'
+    +'</div>';
+}
+```
+
+---
+
+#### 28C-S4-4: Line numbers in HTML exports
+
+**File:** `lib/cuts/HtmlExporter.ts`
+
+**Scheme:** Scene-relative, every 5th line. Standard mode counts ALL lines (including cut lines).
+Clean mode counts KEPT lines only. Matches `SpeechBlock.tsx` exactly.
+
+**Add to `UnitData`:**
+```typescript
+keptLineNums?: (number | null)[];   // parallel to keptLines; non-null only on every 5th kept line
+origLineNums?: (number | null)[];   // parallel to originalLines; non-null only on every 5th std line
+```
+
+**In `buildScriptData`** — add scene-level counters (declared outside the speech loop, reset per scene):
+```typescript
+let sceneCleanLine = 0;
+let sceneStdLine = 0;
+```
+For each speech, walk `speech.lines` (before filtering):
+```typescript
+const keptLineNums: (number|null)[] = [];
+const origLineNums: (number|null)[] = [];
+for (const l of speech.lines) {
+  sceneStdLine++;
+  origLineNums.push(sceneStdLine % 5 === 0 ? sceneStdLine : null);
+  if (lineCutMap[l.id] !== "cut") {
+    sceneCleanLine++;
+    keptLineNums.push(sceneCleanLine % 5 === 0 ? sceneCleanLine : null);
+  }
+}
+```
+Include in `units.push`. SDs and subdividers: no line numbers.
+
+**In embedded JS `renderUnit`** — add helper:
+```javascript
+function lineNumSpan(n){
+  return n!=null
+    ?'<span style="display:inline-block;width:2.5em;text-align:right;color:#a8a29e;font-size:11px;margin-right:6px;user-select:none">'+n+'</span>'
+    :'<span style="display:inline-block;width:2.5em;margin-right:6px"></span>';
+}
+```
+In the kept-lines render (clean + standard non-diff):
+```javascript
+var numArr=(mode==='clean')?u.keptLineNums:u.origLineNums;
+lines=u.keptLines.map(function(l,i){
+  var lineContent=(mode==='standard'&&u.editedLineHtml)?u.editedLineHtml[i]:esc(l);
+  var num=lineNumSpan(numArr&&numArr[i]!=null?numArr[i]:null);
+  var ind=u.lineIndents&&u.lineIndents[i]?'padding-left:'+u.lineIndents[i]+'ch':'';
+  var sty=ind?ind+';':'';
+  if(u.isSong)sty+='color:#7c3aed;font-style:italic;';
+  if(sty)sty=sty.replace(/;$/,'');
+  return sty?'<div style="'+sty+'">'+num+lineContent+'</div>':'<div>'+num+lineContent+'</div>';
+}).join('');
+```
+For cut lines in standard (uses `originalLines`):
+```javascript
+lines=u.originalLines.map(function(l,i){
+  var num=lineNumSpan(u.origLineNums&&u.origLineNums[i]!=null?u.origLineNums[i]:null);
+  return'<div class="line-cut">'+num+esc(l)+'</div>';
+}).join('');
+```
+For diff left (keptLines, clean nums) and right (originalLines, std nums):
+```javascript
+var leftLines=u.keptLines.map(function(l,i){
+  var num=lineNumSpan(u.keptLineNums&&u.keptLineNums[i]!=null?u.keptLineNums[i]:null);
+  return'<div>'+num+esc(l)+'</div>';
+}).join('');
+var rightLines=u.originalLines.map(function(l,i){
+  var cls=u.status==='cut'?' class="line-cut"':'';
+  var num=lineNumSpan(u.origLineNums&&u.origLineNums[i]!=null?u.origLineNums[i]:null);
+  return'<div'+cls+'>'+num+esc(l)+'</div>';
+}).join('');
+```
+
+---
+
+#### 28C-S4-5: Line numbers in Word exports
+
+**File:** `lib/export/renderScriptDocx.ts`
+
+Add scene-level counters (reset at start of each scene's unit loop):
+```typescript
+let sceneCleanLine = 0;
+let sceneStdLine = 0;
+```
+For each line paragraph:
+```typescript
+sceneStdLine++;
+const isLineKept = !lineCut;
+if (isLineKept) sceneCleanLine++;
+const lineNum = viewMode === "clean" ? sceneCleanLine : sceneStdLine;
+const showNum = lineNum % 5 === 0;
+```
+Prepend a number run when `showNum`:
+```typescript
+const lineNumRun = showNum
+  ? new TextRun({ text: `${lineNum}  `, color: "aaaaaa", size: 16 })
+  : null;
+const lineChildren: TextRun[] = lineNumRun ? [lineNumRun, ...existingRuns] : existingRuns;
+```
+Pass `lineChildren` to `Paragraph({ children: lineChildren, ... })`.
+
+---
+
+#### 28C-S4-6: Filename date/time suffix on all exports
+
+Format: `dd-mm-yyyy--hh-mm` (local time at export)
+
+Inline helper (add to each relevant file — no shared util needed):
+```typescript
+function exportDateSuffix(): string {
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, "0");
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  return `${dd}-${mm}-${now.getFullYear()}--${hh}-${min}`;
+}
+```
+
+**`lib/project/projectIO.ts`:**
+- `exportScriptHtml`: `${safeName}-${safeCut}-${exportDateSuffix()}.html`
+- `exportProject` (JSON): `${safeName}-${exportDateSuffix()}.sss.json`
+
+**`app/api/export/script-docx/route.ts`** — `Content-Disposition` header:
+```typescript
+const suffix = exportDateSuffix();
+res.headers.set("Content-Disposition", `attachment; filename="${safeName}-${safeCut}-${suffix}.docx"`);
+```
+
+---
+
+#### 28C-S4-7: Word standard mode — red/green colors (not grey)
+
+**File:** `lib/export/renderScriptDocx.ts`
+
+**Problem:** All cut indicators currently use `color: "999999"` (grey). Standard mode should use
+red (`b91c1c`) for cuts, matching the app.
+
+Replace every `color: "999999"` + `strike: true` pairing (content cuts only) with `color: "b91c1c"`:
+
+| Location | Current | Fix |
+|----------|---------|-----|
+| Cut speech label (`effectivelyCut` branch) | `color: "999999"` | `color: "b91c1c"` |
+| Reassignment old-name run (line ~265) | `color: "999999"` | `color: "b91c1c"` |
+| Word-level cut segment (`s.type === "cut"`) | `color: "999999"` | `color: "b91c1c"` |
+| Full-line `baseStrike` run | `color: "999999"` | `color: "b91c1c"` |
+| SD `effectivelyCut` TextRun | `color: "aaaaaa"` | `color: "b91c1c"` |
+| Delivery note on cut speech | `color: "999999"` | `color: "b91c1c"` |
+
+**Do NOT change:** character list strikethrough for fully-cut characters stays `color: "aaaaaa"` (grey — "not in production", not "content cut").
+
+---
+
+#### 28C-S4-8: Word — Header and page numbers
+
+**File:** `lib/export/renderScriptDocx.ts`
+
+Add `projectName?: string` to `renderScriptDocx` signature. Update caller in
+`app/api/export/script-docx/route.ts` to pass it from the request body.
+
+Import additions:
+```typescript
+import { Header, Footer, PageNumber } from "docx";
+```
+
+Build header text:
+```typescript
+const headerParts = [projectName, play.title, cut.name, exportDateSuffix()].filter(Boolean);
+const headerText = headerParts.join(" | ");
+```
+
+Replace `new Document({ sections: [{ children: paragraphs }] })` with:
+```typescript
+const doc = new Document({
+  sections: [{
+    headers: {
+      default: new Header({
+        children: [new Paragraph({
+          children: [new TextRun({ text: headerText, size: 18, color: "888888" })],
+          alignment: AlignmentType.RIGHT,
+        })],
+      }),
+    },
+    footers: {
+      default: new Footer({
+        children: [new Paragraph({
+          children: [new TextRun({ children: [PageNumber.CURRENT], size: 18, color: "888888" })],
+          alignment: AlignmentType.CENTER,
+        })],
+      }),
+    },
+    children: paragraphs,
+  }],
+  styles: {
+    default: { document: { run: { font: "Times New Roman", size: 24 } } },
+  },
+});
+```
+
+---
+
+#### 28C-S4-9: Verification matrix update
+
+After Session 4, the feature matrix (28B) should be updated:
+
+| Feature | HTML Std | HTML Clean | Word Std | Word Clean |
+|---------|----------|------------|----------|------------|
+| Word cut | `<del>` red | hidden | **red** strike | hidden |
+| Line cut | red strike | hidden | **red** strike | hidden |
+| Speech cut | red strike | hidden | **red** strike | hidden |
+| SD cut | red strike | hidden | **red** strike | hidden |
+| Speech insert | inline, green | inline, plain | inline, green | inline, plain |
+| Line numbers | every 5th, scene-rel, std=all / clean=kept | same | same | same |
+| Filename | ends `dd-mm-yyyy--hh-mm` | same | same | same |
+| Word header | N/A | N/A | project\|play\|cut\|date | same |
+| Page numbers | N/A | N/A | centered in footer | same |
+
+---
+
 ### 28D — Documentation + PR
 
 After all 28C fixes verified:
@@ -437,3 +777,179 @@ Then:
 - The render engine is an embedded JS template string in `HtmlExporter.ts` (~lines 367–540).
 - Fields added in `buildScriptData` must also be read in `renderUnit` — the template has no type checking.
 - When changing data shape, also update `window.__SCRIPT__` field in the client-side script block.
+
+---
+
+## Group 29 — Cue Script Improvements
+
+**Goal:** Overhaul the cue script export page UI, add per-actor line buddy, add a print button to the script view, and redesign the line buddy drill to be a scene-based line-by-line reveal tool. Also verify cue script and line buddy export fidelity.
+
+**Estimated sessions:** 3 (Sessions 29-2, 29-3, 29-4 below; group 28 S4 is Session 29-1).
+
+---
+
+### Session 29-2 — Cue Script UI Cleanup
+
+**Files:**
+- `components/CueScript/ExportMenu.tsx`
+- `app/projects/[projectId]/export/page.tsx`
+- Script editor nav (likely `app/projects/[projectId]/layout.tsx`)
+
+#### 29-2-1: Search bar on cue script page
+
+The project layout already wraps everything in `<SearchProvider>`. The cue script page (`ExportMenu.tsx`) just needs to import `useSearch()` and add a search toggle button to the control bar — same amber-highlight style and Cmd+F shortcut as the `NavSearchButton` in the script view.
+
+#### 29-2-2: Per-actor "Export Line Buddy" button
+
+Add a single-actor line buddy export button in the control bar (Row 1, next to Print/Save PDF). Downloads current actor's HTML directly — no ZIP needed:
+```typescript
+import { exportLineBuddy, lineBuddyFileName } from "@/lib/cuts/LineBuddyExporter";
+
+function handleLineBuddySingle() {
+  if (!selectedActor || !cueScript) return;
+  const html = exportLineBuddy(cueScript, selectedActor);
+  const blob = new Blob([html], { type: "text/html" });
+  triggerDownload(blob, lineBuddyFileName(selectedActor.name));
+}
+```
+Button label: **"Export Line Buddy"**
+
+#### 29-2-3: Print button in script view nav
+
+Add a Print button to the script editor nav bar (desktop: next to Edit and Search; mobile: in hamburger menu). Calls `window.print()`. Button must have `no-print` class to hide itself during printing. Edit the script editor nav component (investigate exact file — likely `app/projects/[projectId]/layout.tsx` near the `NavSearchButton`).
+
+#### 29-2-4: Move batch buttons to top bar
+
+Remove Row 2 (`border-t` div in `ExportMenu.tsx`). Move "Download All" and "Export All Line Buddy" batch buttons to the top bar area (investigate how the project layout exposes action slots for per-page buttons — may need to add a slot). If no layout slot exists, add them to the ExportMenu header row with a visual separator from the per-actor controls.
+
+#### 29-2-5: Remove clutter text
+
+Delete from `ExportMenu.tsx`:
+- `<span class="text-xs text-stone-400">All actors:</span>` label (line ~132)
+- `<span class="text-xs text-stone-400 ml-auto">Export full script as Word: open ⚙ Settings</span>` (lines ~147–149)
+
+**Verification:**
+```bash
+npx tsc --noEmit && npm run lint
+```
+Then open cue script page — confirm search button present, per-actor line buddy button next to Print, batch buttons relocated, clutter text gone.
+
+---
+
+### Session 29-3 — Line Buddy Redesign
+
+**Files:**
+- `types/cut.ts` — add scene/act metadata to `CueEntry`
+- `lib/cuts/CueScriptBuilder.ts` — emit scene/act metadata on every entry
+- `lib/cuts/LineBuddyExporter.ts` — full rewrite
+
+#### Step 1: Enrich `CueEntry` with scene metadata
+
+In `types/cut.ts`, add to `CueEntry`:
+```typescript
+sceneId?: string;
+actId?: string;
+sceneTitle?: string;
+actTitle?: string;
+```
+
+#### Step 2: `CueScriptBuilder` emits scene/act
+
+`buildCueScript` currently uses `getEffectiveUnitsInOrder(play, cut)` which returns a flat list without scene headers. Need to iterate `play.acts[].scenes[]` with `getEffectiveSceneOrder`, tracking `currentSceneId`, `currentActId`, `currentSceneTitle`, `currentActTitle`. Tag each `entries.push(...)` with the current scene context.
+
+#### Step 3: `LineBuddyExporter` complete rewrite
+
+**New data shape:**
+```javascript
+const ALL_SCENES = [
+  {
+    sceneId: "...",
+    actId: "...",
+    sceneTitle: "Act 1, Scene 1",
+    actTitle: "Act 1",
+    items: [
+      { type: "cue", text: "...", cueSpeaker: "..." },
+      { type: "lines", text: "...", characterName: "HAMLET" },
+      { type: "stage", text: "...", isSong: false, isDance: false },
+      ...
+    ]
+  },
+  ...
+]
+```
+
+**New UX model:**
+- One scene displayed at a time
+- All content of the scene is laid out and visible as a column of blocks
+- `type: "lines"` items start hidden (CSS `visibility: hidden`); `type: "cue"` and `type: "stage"` are always visible
+- Pressing Space or Right arrow reveals the **next** hidden lines-item in the current scene
+- After all lines in a scene are revealed, Space/Right advances to the next scene
+- **Header:** sticky, shows current `actTitle · sceneTitle`; includes a `<select>` listing all scenes for jump navigation; prev/next scene buttons
+- **Progress:** `"3 / 12 lines"` within the current scene; no card X-of-X counter
+- **Removed:** shuffle button, reset button, card counter
+- **Keyboard shortcuts:**
+  - Space / Right → reveal next line
+  - Left → go back one line (re-hide it, decrement pointer)
+  - `]` → next scene
+  - `[` → prev scene
+  - `g` → focus scene jump select
+
+**Song/dance indicators in stage directions:**
+```javascript
+var sdPrefix = '';
+if (item.isSong) sdPrefix = '<span style="color:#7c3aed">♪ </span>';
+if (item.isDance) sdPrefix = '<span style="color:#0891b2">⊛ </span>';
+```
+Pass `isSong`/`isDance` from the SD's `CueEntry` — requires adding these fields to `CueEntry` and emitting them in `CueScriptBuilder`.
+
+**Stretch goal — right/wrong marking:**
+- After each lines-item is revealed, show Right / Wrong buttons (keyboard: `k` = right, `j` = wrong)
+- Track `wrongItems: number[]` (indices into current scene's items array)
+- At scene end (all revealed), show: `"Scene complete. Mistakes: N"` + `"Review mistakes"` button
+- Review mode: iterate only the wrongItems; for each, scroll to the cue entry before that lines-item and re-reveal from there (go back to the cue, show it, hide actor lines, user presses Space to re-reveal)
+- `"Back to scene"` exits review mode
+
+**Verification:**
+- Export single-actor line buddy for a Hamlet cut
+- Navigate to Act 2 Scene 2 via jump select
+- Space through all lines — verify sequential reveal, correct line count
+- `[` / `]` — verify scene navigation
+- Check no shuffle, no reset, no card counter
+- Verify song/dance SD prefix colors
+- Test stretch goal: mark some wrong, trigger review, verify it shows just those speeches
+
+---
+
+### Session 29-4 — Export Fidelity: Cue Script & Line Buddy
+
+#### 29-4-1: Delivery notes in cue scripts
+
+`CueScriptBuilder` currently omits delivery notes. Verify by reading the builder — if absent, add a delivery note entry immediately after each actor speech label (same italic style as script view). Likely implementation: emit a `type: "delivery"` entry or include the delivery note in the `characterName` field.
+
+#### 29-4-2: Song/dance flags in line buddy
+
+Song/dance must be indicated in the line buddy. Add `isSong?: boolean; isDance?: boolean` to `CueEntry`. In `CueScriptBuilder`, when emitting a stage direction entry, resolve `isSong`/`isDance` from `cut.sdFlagOverrides` (same logic as exporters). The line buddy renders prefix ♪/⊛ as described in Session 29-3.
+
+For song speeches in line buddy: render actor lines in violet italic `color:#7c3aed;font-style:italic` (same as HTML export).
+
+#### 29-4-3: Inserted SDs in cue scripts
+
+`getEffectiveUnitsInOrder` may or may not include inserted SDs from `cut.insertedSDs`. Verify by checking the function — if absent, ensure inserted SDs flow through to cue script entries (relevant ones, where the actor is involved).
+
+#### 29-4-4: Verify cue script document clean version
+
+`CueScriptDocument.tsx` renders `buildCueScript()` output. Spot-check:
+- Word-level edits: builder calls `applyEditsToLine` + `segmentsToText` ✅ (already in builder)
+- Speech reassignments ✅
+- Delivery notes: fix in 29-4-1
+- Song/dance: `CueScriptDocument.tsx` should show song speeches in violet italic if `isSong` is on the entry — add if missing
+- Sub-scene labels: if subdivision markers should appear in cue script (TBD during session — likely not needed)
+
+---
+
+### 29-D — Documentation + PR (Group 29)
+
+After all sessions complete:
+1. Update `docs/CHANGELOG.md` with Group 29 entries.
+2. Add Group 29 to `docs/ROADMAP.md` as done.
+3. Ship PR via `/ship-docs`.
