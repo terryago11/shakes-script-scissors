@@ -4,23 +4,25 @@ Completed feature groups for shakes-script-scissors.
 
 ## Done ✓
 
-- **Group 28 — Export Fidelity Audit**: Comprehensive correctness audit and repair of HTML and Word DOCX script exports across all view modes (Standard / Clean / Diff). Eight sessions of bug fixes and new features, verified against real exports of The Tempest.
-  - **28A — Baseline audit**: identified 8 fidelity categories needing fixes, defined "Full Feature Test" cut, established verification protocol.
-  - **28C-1 — SD cuts in Word**: stage directions that are effectively cut (both original and any edited version cut) now render with strikethrough in Word standard mode, hidden in clean mode.
-  - **28C-2 — Continuation detection in HTML + Word**: `(cont.)` appended to speaker label when the same character's previous speech (excluding cut units) is by the same character, matching the app's `SceneBlock.tsx` logic; split-speech `:s2` units inherit continuation correctly; hidden in clean mode.
-  - **28C-3 — Speech reassignments in HTML + Word**: reassigned speeches show original speaker (red + strikethrough) followed by new speaker (green + bold); applies in both HTML standard and Word standard modes; both counts route correctly in clean mode.
-  - **28C-5 — Song/dance indicators in HTML + Word**: `♪` prefix for song lines and `[song]` / `[dance]` / `[song & dance]` markers on SDs exported to both HTML and Word.
-  - **28C-6 — Delivery notes in HTML**: delivery notes (e.g. `[aside]`) rendered in italics after the character name in HTML standard mode.
-  - **28C-7 — Scene reorder in Word**: `getEffectiveSceneOrder` used instead of raw `cut.sceneOrder` so scenes render in the director-specified order.
-  - **28C-8 — Pauses in Word**: intermission pauses (from `cut.pauses`) rendered as a bold centred paragraph with duration between the scenes they follow.
+- **Group 28 — Export Fidelity Audit**: Comprehensive correctness audit and repair of HTML and Word DOCX script exports across all view modes (Standard / Clean / Diff). Four sessions of bug fixes and new features, verified against real exports of The Tempest.
+  - **28A — Baseline audit + expansion pipeline fix**: added `expandStageNotes` to the HTML export pipeline so inline `<stage>` mid-speech SDs emit as separate SD blocks (matching Word behaviour and the app). Identified 8 fidelity categories requiring fixes.
+  - **28C-1 — Delivery note case in Word**: removed `.toUpperCase()` from delivery note `TextRun` objects; delivery notes now render lowercase italic (e.g. `[aside]`) in both normal and reassignment branches.
+  - **28C-2 — Continuation detection in HTML + Word**: `(cont.)` appended to speaker label when the same character's previous kept speech is by the same character, matching `SceneBlock.tsx` (lines 145–207) exactly; split-speech `:s2` units inherit continuation from their `:s1` parent; hidden in clean mode.
+  - **28C-3 — Speech reassignments in HTML**: original speaker shown red + strikethrough, new speaker green; clean mode shows only the effective name. Word already had partial support; confirmed correct.
+  - **28C-4 — Consecutive SDs**: confirmed no code change needed — `expandStageNotes` (28A) already ensures adjacent natural SDs emit as separate units with unique IDs.
+  - **28C-5 — Song/dance indicators in HTML + Word**: `♪` violet prefix on song SDs and speech labels, lines rendered violet italic; `⊛` cyan prefix on dance SDs; flags resolved from `cut.sdFlagOverrides` overlaid on TEI data.
+  - **28C-6 — Inserted SDs in HTML + Word**: new `expandInsertedSDs()` in `expandUtils.ts` emits director-created SDs from `cut.insertedSDs`; HTML renders green "inserted" badge in standard mode; Word renders green colour.
+  - **28C-7 — Sub-scene divisions in Word**: `Part B / Part C` divider paragraphs injected at subdivision boundaries in Word export, matching HTML exporter logic.
+  - **28C-8 — Character list in Word**: Characters section inserted after the title block — fully-cut characters in grey strikethrough, aliased characters show alias in green + original in grey, normal characters in black.
+  - **Session 1 follow-up — delivery notes in HTML, scene reorder + pauses in Word**: `deliveryNote` field added to `UnitData`; rendered as lowercase italic after character name in HTML. Word scene loop replaced with `getEffectiveSceneOrder` walk so director-specified scene order is honoured. Intermission pauses from `cut.pauses` rendered as a dashed-border centred paragraph in Word.
   - **S4-1 — Inserted speeches green (HTML)**: speeches from `cut.insertions` now get green character name + green lines in HTML standard mode.
-  - **S4-2 — Word-level edits (HTML)**: `<del style="color:#b91c1c">` for cut words and `<span style="color:#16a34a">` for inserted words in HTML standard mode (segment-aware rendering).
-  - **S4-3 — Diff mode SD columns (HTML)**: stage directions always render in two columns in diff mode regardless of whether they have edits.
-  - **S4-4 — Line numbers in HTML**: scene-relative counter, every 5th line; standard mode counts all lines, clean mode counts only kept lines.
-  - **S4-5 — Line numbers in Word**: same scheme as HTML, prepended as a grey `TextRun` to every 5th line paragraph.
+  - **S4-2 — Word-level edits (HTML)**: `<del style="color:#b91c1c">` for cut words and `<span style="color:#16a34a">` for inserted words in HTML standard mode (segment-aware, pre-escaped — not double-escaped).
+  - **S4-3 — Diff mode SD columns (HTML)**: stage directions always render in both left and right diff columns regardless of whether they have edits.
+  - **S4-4 — Line numbers in HTML**: scene-relative counter, every 5th line; standard mode counts all lines (including cut), clean mode counts only kept lines.
+  - **S4-5 — Line numbers in Word**: same scheme as HTML, prepended as a small grey `TextRun` to every 5th line paragraph.
   - **S4-6 — Filename timestamp suffix**: HTML and DOCX filenames end with `dd-mm-yyyy--hh-mm` (local time) so exports are self-datestamped.
-  - **S4-7 — Red cuts in Word standard mode**: content-cut text runs changed from grey `999999` to red `b91c1c` (character list strikethroughs remain grey).
-  - **S4-8 — Word header + page numbers**: header shows `project | play | cut | dd-mm-yyyy--hh-mm`; footer shows centred page number.
+  - **S4-7 — Red cuts in Word standard mode**: content-cut text runs changed from grey `999999` to red `b91c1c`; character list strikethroughs remain grey.
+  - **S4-8 — Word header + page numbers**: header shows `project | play | cut | dd-mm-yyyy--hh-mm` right-aligned; footer shows centred page number via `PageNumber.CURRENT`.
 
 - **Group 25D (fix) — Casting Sheet PDF download**: replaced the `window.open` + `window.print()` approach with server-side PDF generation and a direct browser download. The old approach triggered the Microsoft Store on Windows when no PDF printer was configured; clicking "Download Casting Sheet" now saves a `.pdf` file immediately without any print dialog. New `lib/export/castingGridPdf.ts` (PDFKit generator — 3-column card grid, character cards with stats + blank actor line, actor cards with colour dot + character rows); new `app/api/export/casting-grid-pdf/route.ts` POST endpoint; `CastingManager.tsx` updated to POST data and trigger a blob download with a loading state; `pdfToBuffer` in `lib/export/cueScriptPdf.ts` exported for reuse. `lib/cuts/CastingGridExporter.ts` (HTML generator) is now orphaned.
 
