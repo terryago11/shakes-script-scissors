@@ -281,7 +281,7 @@ function ProjectNav({
       const res = await fetch("/api/export/script-docx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ play, cut: activeCut, viewMode }),
+        body: JSON.stringify({ play, cut: activeCut, viewMode, projectName: project.name || project.playTitle }),
       });
       if (!res.ok) throw new Error("Export failed");
       const blob = await res.blob();

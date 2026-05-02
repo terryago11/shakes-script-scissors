@@ -11,6 +11,9 @@ import {
   HeadingLevel,
   AlignmentType,
   BorderStyle,
+  Header,
+  Footer,
+  PageNumber,
 } from "docx";
 import type { Play, Speech, StageDirection } from "@/types/play";
 import type { Cut } from "@/types/project";
@@ -20,6 +23,15 @@ import { PART_LABELS } from "@/lib/cuts/SceneSubdivisionUtils";
 import { getEffectiveSceneOrder } from "@/lib/project/projectUtils";
 
 export type ScriptDocxViewMode = "clean" | "standard";
+
+function exportDateSuffix(): string {
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, "0");
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  return `${dd}-${mm}-${now.getFullYear()}--${hh}-${min}`;
+}
 
 /** Resolve the effective display name for a speech, respecting reassignments and aliases. */
 function resolveSpeakerLabel(speech: Speech, cut: Cut): string {
@@ -47,7 +59,8 @@ function isUnitCut(unitId: string, cut: Cut): boolean {
 export async function renderScriptDocx(
   play: Play,
   cut: Cut,
-  viewMode: ScriptDocxViewMode
+  viewMode: ScriptDocxViewMode,
+  projectName?: string
 ): Promise<Buffer> {
   const lineCutMap = cut.lineCutMap ?? {};
   const speechEdits = cut.speechEdits ?? {};
@@ -238,6 +251,9 @@ export async function renderScriptDocx(
       const splitBoundaryIds = new Set(sceneSplits.map((s) => s.afterUnitId));
       let splitIdx = 0;
 
+      let sceneCleanLine = 0;
+      let sceneStdLine = 0;
+
       for (const unit of sceneUnits) {
         const effectivelyCut = isUnitCut(unit.id, cut);
 
@@ -263,7 +279,7 @@ export async function renderScriptDocx(
             // Original name struck through
             labelRuns.push(new TextRun({
               text: (speech.characterName ?? speech.characterId).toUpperCase() + " ",
-              bold: true, size: 18, strike: true, color: "999999",
+              bold: true, size: 18, strike: true, color: "b91c1c",
             }));
             // New name in green
             const newName = resolveSpeakerLabel(speech, cut);
@@ -282,14 +298,14 @@ export async function renderScriptDocx(
             labelRuns.push(new TextRun({
               text: label.toUpperCase(),
               bold: true, size: 18,
-              ...(effectivelyCut ? { strike: true, color: "999999" } : {}),
+              ...(effectivelyCut ? { strike: true, color: "b91c1c" } : {}),
               ...(isInsertion ? { color: "1d6b38" } : {}),
             }));
             if (effectiveDeliveryNote) {
               labelRuns.push(new TextRun({
                 text: ` ${effectiveDeliveryNote}`,
                 italics: true, bold: false, size: 18,
-                ...(effectivelyCut ? { strike: true, color: "999999" } : {}),
+                ...(effectivelyCut ? { strike: true, color: "b91c1c" } : {}),
                 ...(isInsertion ? { color: "1d6b38" } : {}),
               }));
             }
@@ -324,6 +340,16 @@ export async function renderScriptDocx(
             const lineCut = lineCutMap[line.id] === "cut";
             if (lineCut && viewMode === "clean") continue;
 
+            // Scene-relative line number (every 5th)
+            sceneStdLine++;
+            const isLineKept = !lineCut && !effectivelyCut;
+            if (isLineKept) sceneCleanLine++;
+            const lineNum = viewMode === "clean" ? sceneCleanLine : sceneStdLine;
+            const showNum = lineNum % 5 === 0;
+            const lineNumRun = showNum
+              ? new TextRun({ text: `${lineNum}  `, color: "aaaaaa", size: 16 })
+              : null;
+
             const lineOps = ops.filter((op) => op.lineId === line.id);
             const baseStrike = effectivelyCut || lineCut;
 
@@ -336,14 +362,14 @@ export async function renderScriptDocx(
                 .filter((s) => s.type !== "cut" || viewMode === "standard")
                 .map((s) => {
                   if (s.type === "cut") {
-                    return new TextRun({ text: s.text, size: 24, strike: true, color: "999999" });
+                    return new TextRun({ text: s.text, size: 24, strike: true, color: "b91c1c" });
                   } else if (s.type === "insert") {
                     // Inserted words: underlined to distinguish from original text
                     return new TextRun({ text: s.text, size: 24, underline: {}, color: "1d6b38" });
                   } else {
                     return new TextRun({
                       text: s.text, size: 24,
-                      ...(baseStrike ? { strike: true, color: "999999" } : {}),
+                      ...(baseStrike ? { strike: true, color: "b91c1c" } : {}),
                     });
                   }
                 });
@@ -361,7 +387,7 @@ export async function renderScriptDocx(
               runs = [new TextRun({
                 text: line.text,
                 size: 24,
-                ...(baseStrike ? { strike: true, color: "999999" } : {}),
+                ...(baseStrike ? { strike: true, color: "b91c1c" } : {}),
                 // Highlight inserted speeches (from cut.insertions) in green
                 ...(isInsertion ? { color: "1d6b38" } : {}),
                 // Song speeches: violet italic (only when not struck)
@@ -371,12 +397,13 @@ export async function renderScriptDocx(
 
             if (runs.length === 0) continue;
 
+            const lineChildren: TextRun[] = lineNumRun ? [lineNumRun, ...runs] : runs;
             const partIndentTwips = line.partIndent && line.partIndentChars
               ? Math.round(line.partIndentChars * 100)
               : 0;
             paragraphs.push(
               new Paragraph({
-                children: runs,
+                children: lineChildren,
                 spacing: { before: 0, after: 0 },
                 ...(partIndentTwips ? { indent: { left: partIndentTwips } } : {}),
               })
@@ -399,7 +426,7 @@ export async function renderScriptDocx(
             italics: true,
             size: 18,
             ...(effectivelyCut
-              ? { strike: true, color: "aaaaaa" }
+              ? { strike: true, color: "b91c1c" }
               : ((isInsertedSD || isTextEditedSD) && viewMode === "standard")
               ? { color: "1d6b38" }
               : isSyntheticSD
@@ -448,8 +475,29 @@ export async function renderScriptDocx(
     }
   }
 
+  const headerParts = [projectName, play.title, cut.name, exportDateSuffix()].filter(Boolean) as string[];
+  const headerText = headerParts.join(" | ");
+
   const doc = new Document({
-    sections: [{ children: paragraphs }],
+    sections: [{
+      headers: {
+        default: new Header({
+          children: [new Paragraph({
+            children: [new TextRun({ text: headerText, size: 18, color: "888888" })],
+            alignment: AlignmentType.RIGHT,
+          })],
+        }),
+      },
+      footers: {
+        default: new Footer({
+          children: [new Paragraph({
+            children: [new TextRun({ children: [PageNumber.CURRENT], size: 18, color: "888888" })],
+            alignment: AlignmentType.CENTER,
+          })],
+        }),
+      },
+      children: paragraphs,
+    }],
     styles: {
       default: {
         document: { run: { font: "Times New Roman", size: 24 } },

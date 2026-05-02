@@ -40,6 +40,12 @@ interface UnitData {
   isSong?: boolean;
   /** True when this is a dance SD */
   isDance?: boolean;
+  /** Pre-rendered HTML per kept line: <del> for cut words, green span for inserts (standard only). null when no word-level edits. */
+  editedLineHtml?: (string | null)[];
+  /** Scene-relative line numbers parallel to keptLines; non-null only on every 5th kept line (clean count) */
+  keptLineNums?: (number | null)[];
+  /** Scene-relative line numbers parallel to originalLines; non-null only on every 5th std line */
+  origLineNums?: (number | null)[];
 }
 
 interface SceneData {
@@ -85,6 +91,18 @@ function getUnitStatus(
   const hasLineCuts = speech.lines.some((l) => lineCutMap[l.id] === "cut");
   const hasWordEdits = ((speechEdits[speech.id] as { ops?: unknown[] } | undefined)?.ops?.length ?? 0) > 0;
   return hasLineCuts || hasWordEdits ? "modified" : "kept";
+}
+
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function segmentsToHtml(segs: { type: "kept" | "cut" | "insert"; text: string }[]): string {
+  return segs.map((s) => {
+    if (s.type === "cut") return `<del style="color:#b91c1c;text-decoration:line-through">${escHtml(s.text)}</del>`;
+    if (s.type === "insert") return `<span style="color:#16a34a">${escHtml(s.text)}</span>`;
+    return escHtml(s.text);
+  }).join("");
 }
 
 function buildScriptData(
@@ -199,6 +217,10 @@ function buildScriptData(
     const splitBoundaryIds = new Set(sceneSplits.map((s) => s.afterUnitId));
     let splitIdx = 0;
 
+    // Scene-relative line counters for line numbering (every 5th line)
+    let sceneCleanLine = 0;
+    let sceneStdLine = 0;
+
     for (const rawUnit of expandedUnits) {
       const status = getUnitStatus(rawUnit as Speech | StageDirection, cut);
 
@@ -222,6 +244,18 @@ function buildScriptData(
         const isInsertion = !!(cut.insertions?.[speech.id]);
         const originalLines = isInsertion ? [] : speech.lines.map((l) => l.text);
 
+        // Scene-relative line numbers (every 5th), parallel to originalLines / keptLines
+        const origLineNums: (number | null)[] = [];
+        const keptLineNums: (number | null)[] = [];
+        for (const l of speech.lines) {
+          sceneStdLine++;
+          origLineNums.push(sceneStdLine % 5 === 0 ? sceneStdLine : null);
+          if (lineCutMap[l.id] !== "cut") {
+            sceneCleanLine++;
+            keptLineNums.push(sceneCleanLine % 5 === 0 ? sceneCleanLine : null);
+          }
+        }
+
         const keptLinePairs =
           status === "cut"
             ? []
@@ -229,13 +263,14 @@ function buildScriptData(
                 .filter((l) => lineCutMap[l.id] !== "cut")
                 .map((l) => {
                   const lineOps = ops.filter((op) => op.lineId === l.id);
-                  if (lineOps.length === 0) return { text: l.text, indent: l.partIndentChars ?? 0 };
+                  if (lineOps.length === 0) return { text: l.text, indent: l.partIndentChars ?? 0, html: null as string | null };
                   const segments = applyEditsToLine(l.id, l.text, lineOps as Parameters<typeof applyEditsToLine>[2]);
-                  return { text: segmentsToText(segments), indent: l.partIndentChars ?? 0 };
+                  return { text: segmentsToText(segments), indent: l.partIndentChars ?? 0, html: segmentsToHtml(segments) };
                 })
                 .filter(({ text }) => text.trim().length > 0);
         const keptLines = keptLinePairs.map((p) => p.text);
         const lineIndents = keptLinePairs.map((p) => p.indent);
+        const editedLineHtml = keptLinePairs.map((p) => p.html);
 
         // Tally kept lines per effective speaker (each gets full count)
         for (const spkId of effectiveCharIds) {
@@ -274,6 +309,10 @@ function buildScriptData(
           originalSpeaker,
           isSong: isSongSpeech,
           isDance: false,
+          isInserted: isInsertion,
+          editedLineHtml,
+          keptLineNums,
+          origLineNums,
         });
       } else {
         const stage = rawUnit as StageDirection;
@@ -478,6 +517,12 @@ function esc(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+function lineNumSpan(n){
+  return n!=null
+    ?'<span style="display:inline-block;width:2.5em;text-align:right;color:#a8a29e;font-size:11px;margin-right:6px;user-select:none">'+n+'</span>'
+    :'<span style="display:inline-block;width:2.5em;margin-right:6px"></span>';
+}
+
 function render(){
   var col=document.getElementById('script-col');
   var h=[];
@@ -529,10 +574,26 @@ function renderUnit(u){
     if(u.isInserted&&mode==='standard'){
       return '<div class="stage-dir stage-dir-edited"><span style="font-size:9px;color:#16a34a;background:#dcfce7;border-radius:2px;padding:0 3px;margin-right:6px;font-style:normal;vertical-align:middle">inserted</span>'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>';
     }
-    if(u.isEdited&&mode==='diff'){
-      var left='<div class="diff-label">Modified</div><div class="stage-dir stage-dir-edited">'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>';
-      var right='<div class="diff-label">Original</div><div class="stage-dir">'+sdPrefix+'['+esc(u.originalLines[0]||'')+']</div>';
-      return'<div class="diff-row"><div class="diff-col diff-left">'+left+'</div><div class="diff-col diff-right">'+right+'</div></div>';
+    if(mode==='diff'){
+      if(u.status==='cut'){
+        var sdRightCut='<div class="diff-label">Original</div>'
+          +'<div class="stage-dir" style="text-decoration:line-through;opacity:.5">'
+          +'['+esc(u.originalLines[0]||'')+']</div>';
+        return'<div class="diff-row">'
+          +'<div class="diff-col diff-left"><div class="diff-label">Modified</div>'
+          +'<span style="color:#a8a29e;font-size:12px;font-style:italic">(cut)</span></div>'
+          +'<div class="diff-col diff-right">'+sdRightCut+'</div></div>';
+      }
+      var sdLeft=u.isEdited
+        ?'<div class="stage-dir stage-dir-edited">'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>'
+        :'<div class="stage-dir">'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>';
+      var sdRight='<div class="stage-dir">'+sdPrefix+'['+esc(u.originalLines[0]||'')+']</div>';
+      var sdLeftLabel=u.isEdited?'<div class="diff-label">Modified</div>':'';
+      var sdRightLabel=u.isEdited?'<div class="diff-label">Original</div>':'';
+      return'<div class="diff-row">'
+        +'<div class="diff-col diff-left">'+sdLeftLabel+sdLeft+'</div>'
+        +'<div class="diff-col diff-right">'+sdRightLabel+sdRight+'</div>'
+        +'</div>';
     }
     var sdCls=u.isEdited&&mode==='standard'?'stage-dir stage-dir-edited':'stage-dir';
     return '<div class="'+sdCls+'">'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>';
@@ -541,7 +602,9 @@ function renderUnit(u){
   if(mode==='clean'&&u.status==='cut')return null;
   var name;
   var dnote=u.deliveryNote?'<div class="char-name" style="font-weight:normal;font-style:italic;text-transform:none;letter-spacing:0">'+esc(u.deliveryNote)+'</div>':'';
-  if(u.isContinuation){
+  if(u.isInserted&&mode==='standard'){
+    name='<div class="char-name" style="color:#16a34a">'+esc(u.characterName)+'</div>'+dnote;
+  }else if(u.isContinuation){
     if(mode==='clean'){name='';}
     else{name='<div class="char-name" style="font-style:italic;font-weight:normal">(cont.)</div>'+dnote;}
   }else if(u.hasReassignment&&mode==='standard'){
@@ -553,10 +616,14 @@ function renderUnit(u){
     name='<div class="char-name">'+songPfx+esc(u.characterName)+'</div>'+dnote;
   }
   if(mode==='diff'){
-    var leftLines=u.keptLines.map(function(l){return'<div>'+esc(l)+'</div>';}).join('');
-    var rightLines=u.originalLines.map(function(l){
+    var leftLines=u.keptLines.map(function(l,i){
+      var num=lineNumSpan(u.keptLineNums&&u.keptLineNums[i]!=null?u.keptLineNums[i]:null);
+      return'<div>'+num+esc(l)+'</div>';
+    }).join('');
+    var rightLines=u.originalLines.map(function(l,i){
       var cls=u.status==='cut'?' class="line-cut"':'';
-      return'<div'+cls+'>'+esc(l)+'</div>';
+      var num=lineNumSpan(u.origLineNums&&u.origLineNums[i]!=null?u.origLineNums[i]:null);
+      return'<div'+cls+'>'+num+esc(l)+'</div>';
     }).join('');
     var left=leftLines?'<div class="diff-label">Modified</div>'+name+leftLines:'<div class="diff-label">Modified</div><span style="color:#a8a29e;font-size:12px;font-style:italic">(cut)</span>';
     var right='<div class="diff-label">Original</div>'+name+rightLines;
@@ -564,15 +631,27 @@ function renderUnit(u){
   }
   var lines;
   if(mode==='standard'&&u.status==='cut'){
-    lines=u.originalLines.map(function(l){return'<div class="line-cut">'+esc(l)+'</div>';}).join('');
-  }else{
+    lines=u.originalLines.map(function(l,i){
+      var num=lineNumSpan(u.origLineNums&&u.origLineNums[i]!=null?u.origLineNums[i]:null);
+      return'<div class="line-cut">'+num+esc(l)+'</div>';
+    }).join('');
+  }else if(mode==='standard'&&u.isInserted){
     lines=u.keptLines.map(function(l,i){
+      var num=lineNumSpan(u.keptLineNums&&u.keptLineNums[i]!=null?u.keptLineNums[i]:null);
       var ind=u.lineIndents&&u.lineIndents[i]?'padding-left:'+u.lineIndents[i]+'ch':'';
-      var sty='';
-      if(ind)sty+=ind+';';
+      var sty=(ind?ind+';':'')+'color:#16a34a';
+      return'<div style="'+sty+'">'+num+esc(l)+'</div>';
+    }).join('');
+  }else{
+    var numArr=(mode==='clean')?u.keptLineNums:u.origLineNums;
+    lines=u.keptLines.map(function(l,i){
+      var lineContent=(mode==='standard'&&u.editedLineHtml&&u.editedLineHtml[i]!=null)?u.editedLineHtml[i]:esc(l);
+      var num=lineNumSpan(numArr&&numArr[i]!=null?numArr[i]:null);
+      var ind=u.lineIndents&&u.lineIndents[i]?'padding-left:'+u.lineIndents[i]+'ch':'';
+      var sty=ind?ind+';':'';
       if(u.isSong)sty+='color:#7c3aed;font-style:italic;';
       if(sty)sty=sty.replace(/;$/,'');
-      return sty?'<div style="'+sty+'">'+esc(l)+'</div>':'<div>'+esc(l)+'</div>';
+      return sty?'<div style="'+sty+'">'+num+lineContent+'</div>':'<div>'+num+lineContent+'</div>';
     }).join('');
   }
   return'<div class="speech">'+name+lines+'</div>';

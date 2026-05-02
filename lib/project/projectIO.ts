@@ -158,8 +158,14 @@ export function exportScriptHtml(
   const displayName = projectName || play.title;
   const safeName = displayName.replace(/[^a-z0-9]/gi, "-").toLowerCase();
   const safeCut = cut.name.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+  const _now = new Date();
+  const _dd = String(_now.getDate()).padStart(2, "0");
+  const _mm = String(_now.getMonth() + 1).padStart(2, "0");
+  const _hh = String(_now.getHours()).padStart(2, "0");
+  const _min = String(_now.getMinutes()).padStart(2, "0");
+  const _suffix = `${_dd}-${_mm}-${_now.getFullYear()}--${_hh}-${_min}`;
   a.href = url;
-  a.download = `${safeName}-${safeCut}.html`;
+  a.download = `${safeName}-${safeCut}-${_suffix}.html`;
   a.click();
   URL.revokeObjectURL(url);
 }
