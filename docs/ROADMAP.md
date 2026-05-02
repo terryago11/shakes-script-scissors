@@ -8,27 +8,28 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature gro
 
 **Group 25 ✓ Done** — Script Polish, Count Audit, Audition Mode & Exports — see CHANGELOG for details.
 
+**Group 28 ✓ Done** — Export Fidelity Audit — see CHANGELOG for details.
+
 ---
 
-## Upcoming — Group 26 — Electron Native File I/O
+## Skipped — Group 26 — Electron Native File I/O *(deferred)*
 - **Native open/save** (`electron/main.ts`, `electron/preload.ts`, `ProjectStore.tsx`, `SettingsModal.tsx`): replace web-style import/export with native `dialog.showOpenDialog` / `showSaveDialog` IPC in Electron. Projects open/save like Word documents. Web app keeps existing download/upload flow. Cmd+S saves without dialog once a path is known.
 
 ---
 
-## Upcoming — Group 27 — Help System
+## Skipped — Group 27 — Help System *(deferred)*
 - Consolidate scattered `?` buttons into a shared `HelpPopover` component. Add a Help nav entry linking to a topic index modal. Optionally: first-time onboarding highlights on first project load (hand-rolled, no library dependency). Design discussion required before implementation.
 
 ---
 
-## In Progress — Group 28 — Export Fidelity Audit — [full spec](./group-28-plan.md)
+## Done ✓ — Group 28 — Export Fidelity Audit — [full spec](./group-28-plan.md)
 
-Deep audit and fix of HTML and Word exports to match the app's standard and clean rendering exactly. Sessions 1–3 done; Session 4 (S4-1 through S4-9) in progress.
+Deep audit and fix of HTML and Word exports to match the app's standard and clean rendering exactly. All sessions complete and verified.
 
 - **28A ✓** — Baseline audit
 - **28B ✓** — Feature matrix test project
-- **28C ✓** — Bug fixes (Sessions 1–3): delivery notes · continuation · reassignments · consecutive SDs · song/dance · inserted SDs · sub-scene divisions · character list
-- **28C S4** *(in progress)* — Inserted speech green styling · word-level edit HTML · SD diff columns · line numbers (HTML + Word) · filename date suffix · Word red cuts · Word header/footer
-- **28D** — Documentation + PR
+- **28C ✓** — Bug fixes (Sessions 1–4): delivery notes · continuation · reassignments · consecutive SDs · song/dance · inserted SDs · sub-scene divisions · character list · inserted speech green · word-level HTML diff · SD diff columns · line numbers (HTML + Word) · filename date suffix · Word red cuts · Word header/footer
+- **28D ✓** — Documentation + PR
 
 ---
 
