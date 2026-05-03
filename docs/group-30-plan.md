@@ -5,7 +5,7 @@ Nine improvements: integrity engine correctness (reassigned speeches, insertedSD
 
 ## Session breakdown
 - **Session 1 (30-quick):** 30A + 30B-1 + 30B-2 — quick fixes + engine correctness ✅
-- **Session 2 (30-integrity):** 30B-3 + 30B-4 — near-fully-cut chars + mark for removal
+- **Session 2 (30-integrity):** 30B-3 + 30B-4 — near-fully-cut chars + mark for removal ✅
 - **Session 3 (30-casting):** 30C + 30D — doubling conflict warnings + multi-select filters
 - **Session 4 (30-features):** 30E + 30F — scene subdivisions + on-stage sidebar
 
