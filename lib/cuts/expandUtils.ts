@@ -150,14 +150,6 @@ export function expandInsertions(
   return result;
 }
 
-/**
- * Expand director-inserted stage directions into the unit stream.
- *
- * For each unit, emits the unit itself, then any InsertedSD objects whose
- * afterUnitId matches that unit's id — as synthetic StageDirection objects.
- *
- * Returns the input array unchanged if insertedSDs is absent or empty.
- */
 export function expandInsertedSDs(
   units: ScriptUnit[],
   insertedSDs: Record<string, InsertedSD> | undefined

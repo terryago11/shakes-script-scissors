@@ -8,3 +8,4 @@ _Persistent error log — append only, never delete._
 - **25C CompareCastOptions**: initially looked up actors by name (case-insensitive toLowerCase) instead of stable ID — breaks silently on actor rename. Always use `actorId` for actor lookups.
 - **25D casting sheet PDF**: replacing the `window.open`+`document.write` approach left `lib/cuts/CastingGridExporter.ts` with no importers — it is now dead code; delete it or repurpose before the next refactor pass.
 - **25D casting sheet PDF**: `useState` placed after an early return in `CastingManager` — ESLint `react-hooks/rules-of-hooks` error. Always add new `useState` calls with the other state declarations at the TOP of the component, before any early returns.
+- **Group 28 simplify**: inlined date-suffix logic used `_`-prefixed variable names (`_now`, `_dd`, etc.) — underscore prefix conventionally means "unused" in TypeScript; the correct fix is to extract to a shared `exportDateSuffix()` utility and call it directly.

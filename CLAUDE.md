@@ -77,7 +77,7 @@ Both updates should be done together.
 | `lib/cuts/PropsEngine.ts` | Scans stage directions and speech text for prop keywords; returns `PropReference[]` with `source`, `confidence`, and context fields |
 | `lib/cuts/countIntegrityCheck.ts` | `runCountIntegrityCheck(lineCounts)` — cross-checks `byCharacterByScene` + `byUnit` against canonical totals; called from `SceneDashboard` on every render; `console.error` on failure, never throws |
 | `lib/project/ProjectStore.tsx` | React context + localStorage persistence; all project mutations |
-| `lib/project/projectUtils.ts` | `generateId()`, `defaultColors`, `resolveCharacterName()`, `getEffectiveSceneOrder()` |
+| `lib/project/projectUtils.ts` | `generateId()`, `defaultColors`, `resolveCharacterName()`, `getEffectiveSceneOrder()`, `exportDateSuffix()` |
 | `lib/project/projectIO.ts` | JSON export/import with Zod validation (`exportProject` / `importProject`) |
 | `app/api/play/[playId]/route.ts` | GET: fetch + parse + cache a play |
 | `app/api/plays/route.ts` | GET: returns `PLAYS` listing |

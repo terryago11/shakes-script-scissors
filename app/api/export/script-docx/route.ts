@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { renderScriptDocx, type ScriptDocxViewMode } from "@/lib/export/renderScriptDocx";
 import { sanitizeName } from "@/lib/export/cueScriptPdf";
+import { exportDateSuffix } from "@/lib/project/projectUtils";
 import type { Play } from "@/types/play";
 import type { Cut } from "@/types/project";
 
@@ -28,13 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   const docxBuffer = await renderScriptDocx(play, cut, viewMode, projectName);
-  const _now = new Date();
-  const _dd = String(_now.getDate()).padStart(2, "0");
-  const _mm = String(_now.getMonth() + 1).padStart(2, "0");
-  const _hh = String(_now.getHours()).padStart(2, "0");
-  const _min = String(_now.getMinutes()).padStart(2, "0");
-  const _suffix = `${_dd}-${_mm}-${_now.getFullYear()}--${_hh}-${_min}`;
-  const filename = `${sanitizeName(play.title)}_${sanitizeName(cut.name)}_${viewMode}_${_suffix}.docx`;
+  const filename = `${sanitizeName(play.title)}_${sanitizeName(cut.name)}_${viewMode}_${exportDateSuffix()}.docx`;
 
   return new NextResponse(new Uint8Array(docxBuffer), {
     status: 200,

@@ -20,18 +20,9 @@ import type { Cut } from "@/types/project";
 import { expandSplits, expandInsertions, expandStageNotes, expandInsertedSDs } from "@/lib/cuts/expandUtils";
 import { applyEditsToLine } from "@/lib/cuts/applyEdits";
 import { PART_LABELS } from "@/lib/cuts/SceneSubdivisionUtils";
-import { getEffectiveSceneOrder } from "@/lib/project/projectUtils";
+import { getEffectiveSceneOrder, exportDateSuffix } from "@/lib/project/projectUtils";
 
 export type ScriptDocxViewMode = "clean" | "standard";
-
-function exportDateSuffix(): string {
-  const now = new Date();
-  const dd = String(now.getDate()).padStart(2, "0");
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const hh = String(now.getHours()).padStart(2, "0");
-  const min = String(now.getMinutes()).padStart(2, "0");
-  return `${dd}-${mm}-${now.getFullYear()}--${hh}-${min}`;
-}
 
 /** Resolve the effective display name for a speech, respecting reassignments and aliases. */
 function resolveSpeakerLabel(speech: Speech, cut: Cut): string {
@@ -429,8 +420,6 @@ export async function renderScriptDocx(
               ? { strike: true, color: "b91c1c" }
               : ((isInsertedSD || isTextEditedSD) && viewMode === "standard")
               ? { color: "1d6b38" }
-              : isSyntheticSD
-              ? { color: "666666" }
               : { color: "666666" }),
           }));
 

@@ -2,6 +2,15 @@ import { characterIdToName } from "@/lib/folger/TeiParser";
 import type { Play } from "@/types/play";
 import type { Cut } from "@/types/project";
 
+export function exportDateSuffix(): string {
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, "0");
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  return `${dd}-${mm}-${now.getFullYear()}--${hh}-${min}`;
+}
+
 /** Generate a short random ID */
 export function generateId(): string {
   return Math.random().toString(36).slice(2, 10) +
