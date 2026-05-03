@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import type { Play } from "@/types/play";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import { buildCueScript } from "@/lib/cuts/CueScriptBuilder";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
+import { exportLineBuddy, lineBuddyFileName } from "@/lib/cuts/LineBuddyExporter";
 import CueScriptDocument from "./CueScriptDocument";
 
 interface Props {
@@ -29,6 +30,9 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
   const [zipLoading, setZipLoading] = useState(false);
   const [lineBuddyLoading, setLineBuddyLoading] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const selectedActor = actors.find((a) => a.id === selectedActorId) || null;
 
@@ -36,12 +40,39 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
     .filter((a) => a.actorId === selectedActorId)
     .map((a) => resolveCharacterName(a.characterId, cut.characterAliases, play.castList));
 
-  const cueScript = selectedActor
-    ? buildCueScript(play, cut, selectedActor, assignments, cut.characterAliases)
-    : null;
+  const cueScript = useMemo(
+    () => selectedActor ? buildCueScript(play, cut, selectedActor, assignments, cut.characterAliases) : null,
+    [play, cut, selectedActor, assignments]
+  );
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+        e.preventDefault();
+        setSearchOpen((o) => !o);
+      } else if (e.key === "Escape" && searchOpen) {
+        setSearchOpen(false);
+        setSearchQuery("");
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    if (searchOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 0);
+    } else {
+      setSearchQuery("");
+    }
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [searchOpen]);
 
   function handlePrint() {
     window.print();
+  }
+
+  function handleLineBuddySingle() {
+    if (!selectedActor || !cueScript) return;
+    const html = exportLineBuddy(cueScript, selectedActor);
+    const blob = new Blob([html], { type: "text/html" });
+    triggerDownload(blob, lineBuddyFileName(selectedActor.name));
   }
 
   async function handleZipDownload() {
@@ -103,8 +134,8 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
     <div className="max-w-4xl mx-auto">
       {/* Controls — hidden when printing */}
       <div className="no-print px-6 py-4 border-b border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900">
-        {/* Row 1: actor selector + print */}
-        <div className="flex items-center gap-4">
+        {/* Single control row: actor selector + per-actor actions + search + batch */}
+        <div className="flex items-center gap-2 flex-wrap">
           <label className="text-sm font-medium text-stone-700 dark:text-stone-200 shrink-0">
             Actor Cue Script
           </label>
@@ -119,35 +150,76 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
               </option>
             ))}
           </select>
+
+          {/* Per-actor: Print and Line Buddy */}
           <button
             onClick={handlePrint}
-            className="ml-auto px-4 py-2 bg-stone-700 text-white text-sm rounded-lg hover:bg-stone-800 shrink-0"
+            className="no-print px-3 py-1.5 text-sm rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-700"
           >
             Print / Save PDF
           </button>
+          <button
+            onClick={handleLineBuddySingle}
+            disabled={!selectedActor}
+            className="px-3 py-1.5 text-sm rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Export Line Buddy
+          </button>
+
+          {/* Search toggle */}
+          <button
+            onClick={() => setSearchOpen((o) => !o)}
+            title="Find in cue script (Cmd+F / Ctrl+F)"
+            className={`p-1.5 rounded border transition-colors ${
+              searchOpen
+                ? "bg-amber-100 border-amber-300 text-amber-700 dark:bg-amber-900/40 dark:border-amber-800 dark:text-amber-400"
+                : "border-stone-200 dark:border-stone-700 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 hover:border-stone-300 dark:hover:border-stone-600"
+            }`}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
+
+          {/* Batch downloads — separated visually */}
+          <div className="flex items-center gap-2 ml-auto border-l border-stone-200 dark:border-stone-700 pl-3">
+            <button
+              onClick={handleZipDownload}
+              disabled={zipLoading}
+              className="px-3 py-1.5 text-xs rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            >
+              {zipLoading ? "Generating…" : "Download All as ZIP"}
+            </button>
+            <button
+              onClick={handleLineBuddyDownload}
+              disabled={lineBuddyLoading}
+              className="px-3 py-1.5 text-xs rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            >
+              {lineBuddyLoading ? "Generating…" : "All Line Buddies (ZIP)"}
+            </button>
+          </div>
         </div>
 
-        {/* Row 2: batch download button */}
-        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-stone-100 dark:border-stone-800">
-          <span className="text-xs text-stone-400 dark:text-stone-500 shrink-0">All actors:</span>
-          <button
-            onClick={handleZipDownload}
-            disabled={zipLoading}
-            className="px-3 py-1.5 text-xs rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {zipLoading ? "Generating…" : "Download All as ZIP"}
-          </button>
-          <button
-            onClick={handleLineBuddyDownload}
-            disabled={lineBuddyLoading}
-            className="px-3 py-1.5 text-xs rounded border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {lineBuddyLoading ? "Generating…" : "Line Buddy (HTML)"}
-          </button>
-          <span className="text-xs text-stone-400 dark:text-stone-500 ml-auto">
-            Export full script as Word: open ⚙ Settings
-          </span>
-        </div>
+        {/* Search bar — shown when open */}
+        {searchOpen && (
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-stone-100 dark:border-stone-800">
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Find in cue script…"
+              className="flex-1 border border-stone-300 dark:border-stone-600 rounded px-3 py-1.5 text-sm bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+            <button
+              onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+              className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 text-sm px-2 py-1.5"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Error display */}
         {exportError && (
@@ -157,7 +229,7 @@ export default function ExportMenu({ play, cut, actors, assignments }: Props) {
 
       {/* Cue script preview */}
       {cueScript ? (
-        <CueScriptDocument cueScript={cueScript} characterNames={actorCharacterNames} />
+        <CueScriptDocument cueScript={cueScript} characterNames={actorCharacterNames} searchQuery={searchQuery || undefined} />
       ) : (
         <div className="text-stone-400 dark:text-stone-400 text-sm p-6">Select an actor above.</div>
       )}

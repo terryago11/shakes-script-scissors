@@ -1,4 +1,4 @@
-import type { CueScript } from "@/types/cut";
+import type { CueScript, CueEntry } from "@/types/cut";
 import type { Actor } from "@/types/project";
 
 function esc(s: string): string {
@@ -9,46 +9,54 @@ function esc(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Group flat CueScript entries into drill cards.
- *
- * Each card has an optional cue (the prompt) and one or more response entries
- * (the actor's lines and relevant stage directions). A new card starts whenever
- * a "cue" entry appears.
- */
-interface DrillCard {
-  cueText: string | null;
-  cueSpeaker: string | null;
-  responses: Array<{ type: "lines" | "stage"; text: string; characterName?: string }>;
+interface SceneBlock {
+  sceneId: string;
+  actId: string;
+  sceneTitle: string;
+  actTitle: string;
+  items: CueEntry[];
 }
 
-function buildCards(entries: CueScript["entries"]): DrillCard[] {
-  const cards: DrillCard[] = [];
-  let current: DrillCard | null = null;
+/** Group flat CueEntry list into scene blocks, preserving order. */
+function buildScenes(entries: CueScript["entries"]): SceneBlock[] {
+  const scenes: SceneBlock[] = [];
+  const sceneIndex = new Map<string, number>();
 
   for (const entry of entries) {
-    if (entry.type === "cue") {
-      if (current) cards.push(current);
-      current = { cueText: entry.text, cueSpeaker: entry.cueSpeakerName ?? null, responses: [] };
-    } else {
-      if (!current) {
-        // Lines/stage before any cue — open an implicit first card
-        current = { cueText: null, cueSpeaker: null, responses: [] };
-      }
-      current.responses.push({ type: entry.type as "lines" | "stage", text: entry.text, characterName: entry.characterName });
+    const sceneId = entry.sceneId ?? "__default__";
+    if (!sceneIndex.has(sceneId)) {
+      sceneIndex.set(sceneId, scenes.length);
+      scenes.push({
+        sceneId,
+        actId: entry.actId ?? "",
+        sceneTitle: entry.sceneTitle ?? "Scene",
+        actTitle: entry.actTitle ?? "",
+        items: [],
+      });
     }
+    scenes[sceneIndex.get(sceneId)!].items.push(entry);
   }
-  if (current) cards.push(current);
-  // Drop cards that have no responses (pure trailing cue with nothing after)
-  return cards.filter((c) => c.responses.length > 0);
+
+  // Drop scenes with no lines items (actor not present)
+  return scenes.filter((s) => s.items.some((i) => i.type === "lines"));
 }
 
 export function exportLineBuddy(cueScript: CueScript, actor: Actor): string {
-  const cards = buildCards(cueScript.entries);
-  const cardData = JSON.stringify(
-    cards.map((c) => ({
-      cue: c.cueText,
-      cueSpeaker: c.cueSpeaker,
-      responses: c.responses,
+  const scenes = buildScenes(cueScript.entries);
+  const sceneData = JSON.stringify(
+    scenes.map((s) => ({
+      sceneId: s.sceneId,
+      actId: s.actId,
+      sceneTitle: s.sceneTitle,
+      actTitle: s.actTitle,
+      items: s.items.map((e) => ({
+        type: e.type,
+        text: e.text,
+        characterName: e.characterName,
+        cueSpeaker: e.cueSpeakerName,
+        isSong: e.isSong ?? false,
+        isDance: e.isDance ?? false,
+      })),
     }))
   );
 
@@ -91,98 +99,122 @@ export function exportLineBuddy(cueScript: CueScript, actor: Actor): string {
     font-family: Georgia, serif;
     background: var(--stone-light);
     color: var(--text);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     min-height: 100%;
     padding: 0;
-    touch-action: manipulation;
   }
 
-  /* ── Header ───────────────────────────────────────────────── */
+  /* ── Sticky header ──────────────────────────────────────────── */
   header {
     width: 100%;
     background: var(--card-bg);
     border-bottom: 1px solid var(--border);
-    padding: 10px 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
+    padding: 8px 16px;
     position: sticky;
     top: 0;
     z-index: 10;
-  }
-  header h1 { font-size: 15px; font-weight: bold; flex: 1; }
-  header .sub { font-size: 11px; color: var(--muted); display: block; font-style: italic; }
-  .progress-bar-wrap {
-    position: sticky;
-    top: 49px;
-    width: 100%;
-    height: 4px;
-    background: var(--border);
-    z-index: 9;
-  }
-  .progress-bar {
-    height: 100%;
-    background: var(--amber);
-    transition: width .25s ease;
-    width: 0%;
-  }
-
-  /* ── Main card area ──────────────────────────────────────── */
-  main {
-    width: 100%;
-    max-width: 640px;
-    flex: 1;
     display: flex;
     flex-direction: column;
+    gap: 6px;
+  }
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .header-title { font-size: 14px; font-weight: bold; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .header-sub { font-size: 11px; color: var(--muted); font-style: italic; white-space: nowrap; }
+  .header-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+  .scene-select {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    padding: 3px 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--stone-light);
+    color: var(--text);
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .btn-nav {
+    min-height: 32px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .btn-nav:hover { background: var(--stone-light); }
+  .btn-nav:disabled { opacity: .35; cursor: default; }
+
+  /* ── Scene content ──────────────────────────────────────────── */
+  main {
+    max-width: 640px;
+    margin: 0 auto;
     padding: 16px;
   }
-  .card {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 20px;
+
+  .scene-header {
+    font-size: 11px;
+    font-style: normal;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
     margin-bottom: 12px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
   }
 
-  /* Cue zone */
+  .progress-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    text-align: right;
+  }
+
+  /* ── Entry blocks ───────────────────────────────────────────── */
+  .entry { margin-bottom: 10px; }
+
+  /* Cue */
   .cue-zone {
     border-left: 3px solid var(--amber);
-    padding: 8px 12px;
-    margin-bottom: 16px;
+    padding: 6px 10px;
     font-style: italic;
     color: var(--muted);
-    font-size: 15px;
   }
-  .cue-zone .cue-speaker {
-    font-size: 11px;
+  .cue-speaker {
+    font-size: 10px;
     text-transform: uppercase;
     letter-spacing: .07em;
     color: var(--amber);
     display: block;
-    margin-bottom: 3px;
+    margin-bottom: 2px;
     font-style: normal;
   }
-  .cue-zone .cue-text { font-size: 16px; }
-  .cue-zone .cue-opening { color: var(--muted); font-size: 13px; font-style: normal; }
+  .cue-text { font-size: 15px; }
+  .cue-opening { color: var(--muted); font-size: 13px; font-style: normal; }
 
-  /* Answer zone */
-  .answer-zone {
-    flex: 1;
-    border-radius: 8px;
+  /* Lines — hidden until revealed */
+  .lines-block {
     background: var(--reveal-bg);
-    padding: 14px 16px;
-    transition: opacity .2s;
+    border-radius: 8px;
+    padding: 12px 14px;
   }
-  .answer-zone.hidden { visibility: hidden; opacity: 0; }
-  .speech-block { margin-bottom: 10px; }
-  .speech-block:last-child { margin-bottom: 0; }
+  .lines-block.hidden { visibility: hidden; }
   .speech-name {
-    font-size: 11px;
+    font-size: 10px;
     text-transform: uppercase;
     letter-spacing: .07em;
     color: var(--amber);
@@ -193,31 +225,45 @@ export function exportLineBuddy(cueScript: CueScript, actor: Actor): string {
     line-height: 1.6;
     white-space: pre-wrap;
   }
+  .speech-text.song-text { color: #7c3aed; font-style: italic; }
+
+  /* Stage direction */
   .stage-dir {
     font-size: 13px;
     font-style: italic;
     color: var(--muted);
-    padding-left: 12px;
-    margin: 4px 0;
+    padding-left: 10px;
   }
 
-  /* Counter */
-  .counter {
-    text-align: center;
-    font-size: 12px;
-    color: var(--muted);
-    margin-bottom: 10px;
-  }
-
-  /* ── Buttons ─────────────────────────────────────────────── */
-  .btn-row {
+  /* ── Bottom reveal button ───────────────────────────────────── */
+  .reveal-bar {
+    position: sticky;
+    bottom: 0;
+    background: var(--card-bg);
+    border-top: 1px solid var(--border);
+    padding: 10px 16px;
     display: flex;
-    gap: 8px;
     justify-content: center;
-    flex-wrap: wrap;
-    margin-top: 4px;
+    gap: 10px;
+    z-index: 8;
   }
-  button {
+  button.btn-primary {
+    min-height: 44px;
+    padding: 8px 28px;
+    border-radius: 8px;
+    border: none;
+    background: var(--amber);
+    color: #fff;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity .15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button.btn-primary:hover { opacity: .9; }
+  button.btn-primary:active { opacity: .75; }
+  button.btn-secondary {
     min-height: 44px;
     padding: 8px 20px;
     border-radius: 8px;
@@ -230,30 +276,17 @@ export function exportLineBuddy(cueScript: CueScript, actor: Actor): string {
     transition: background .15s;
     -webkit-tap-highlight-color: transparent;
   }
-  button:hover { background: var(--stone-light); }
-  button:active { opacity: .75; }
-  .btn-primary {
-    background: var(--amber);
-    color: #fff;
-    border-color: var(--amber);
-    font-weight: bold;
-    min-width: 140px;
-  }
-  .btn-primary:hover { opacity: .9; background: var(--amber); }
-  .btn-sm { font-size: 12px; min-height: 36px; padding: 6px 14px; }
-  .btn-active { background: var(--amber-light); border-color: var(--amber); }
+  button.btn-secondary:hover { background: var(--stone-light); }
 
-  /* ── Empty state ─────────────────────────────────────────── */
   .empty {
     text-align: center;
     color: var(--muted);
     font-style: italic;
-    padding: 40px 20px;
+    padding: 60px 20px;
   }
 
   @media (max-width: 400px) {
     main { padding: 10px; }
-    .card { padding: 14px; }
     .speech-text { font-size: 15px; }
   }
 </style>
@@ -261,174 +294,214 @@ export function exportLineBuddy(cueScript: CueScript, actor: Actor): string {
 <body>
 
 <header>
-  <div style="flex:1;min-width:0;">
-    <h1>${title}</h1>
-    <span class="sub">${subtitle}</span>
+  <div class="header-top">
+    <div class="header-title">${title}</div>
+    <span class="header-sub">${subtitle}</span>
+  </div>
+  <div class="header-nav">
+    <button class="btn-nav" id="btnPrev" onclick="prevScene()" title="Previous scene ([)" disabled>&#8592;</button>
+    <select class="scene-select" id="sceneJump" onchange="jumpScene(this.value)" title="Jump to scene (g)"></select>
+    <button class="btn-nav" id="btnNext" onclick="nextScene()" title="Next scene (])" disabled>&#8594;</button>
   </div>
 </header>
-<div class="progress-bar-wrap"><div class="progress-bar" id="prog"></div></div>
 
 <main id="app">
-  <div class="empty">Loading…</div>
+  <div class="empty">Loading&#8230;</div>
 </main>
 
+<div class="reveal-bar" id="revealBar">
+  <button class="btn-primary" id="btnReveal" onclick="advance()">Reveal &#9660;</button>
+</div>
+
 <script>
-const ALL_CARDS = ${cardData};
+const ALL_SCENES = ${sceneData};
 
-let order = [];
-let idx = 0;
-let revealed = false;
-let shuffleOn = false;
+let sceneIdx = 0;
+let revealIdx = -1; // index into current scene's lines-type items revealed so far (-1 = none)
 
-function fisherYates(arr) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
+function linesItems(scene) {
+  return scene.items.reduce(function(acc, item, i) {
+    if (item.type === 'lines') acc.push(i);
+    return acc;
+  }, []);
 }
 
-function resetOrder() {
-  order = shuffleOn
-    ? fisherYates(ALL_CARDS.map((_, i) => i))
-    : ALL_CARDS.map((_, i) => i);
-  idx = 0;
-  revealed = false;
+function updateNavButtons() {
+  var s = ALL_SCENES;
+  document.getElementById('btnPrev').disabled = sceneIdx === 0;
+  document.getElementById('btnNext').disabled = sceneIdx === s.length - 1;
 }
 
-function currentCard() { return ALL_CARDS[order[idx]]; }
-
-function updateProgress() {
-  const pct = ALL_CARDS.length === 0 ? 0 : Math.round((idx / ALL_CARDS.length) * 100);
-  document.getElementById('prog').style.width = pct + '%';
+function buildSceneSelect() {
+  var sel = document.getElementById('sceneJump');
+  sel.innerHTML = '';
+  ALL_SCENES.forEach(function(s, i) {
+    var opt = document.createElement('option');
+    opt.value = i;
+    var label = s.actTitle ? s.actTitle + ' · ' + s.sceneTitle : s.sceneTitle;
+    opt.textContent = label;
+    sel.appendChild(opt);
+  });
+  sel.value = sceneIdx;
 }
 
 function render() {
-  const app = document.getElementById('app');
-  if (ALL_CARDS.length === 0) {
-    app.innerHTML = '<div class="empty">No lines found for this actor.</div>';
+  if (ALL_SCENES.length === 0) {
+    document.getElementById('app').innerHTML = '<div class="empty">No lines found for this actor.</div>';
+    document.getElementById('revealBar').style.display = 'none';
     return;
   }
 
-  const card = currentCard();
-  const total = ALL_CARDS.length;
-  const num = idx + 1;
+  var scene = ALL_SCENES[sceneIdx];
+  var lineIdxs = linesItems(scene);
+  var allRevealed = revealIdx >= lineIdxs.length - 1;
 
-  // Cue zone
-  let cueHtml;
-  if (card.cue) {
-    const speaker = card.cueSpeaker
-      ? '<span class="cue-speaker">' + esc(card.cueSpeaker) + '</span>'
-      : '';
-    cueHtml = '<div class="cue-zone">' + speaker +
-      '<span class="cue-text">…' + esc(card.cue) + '</span></div>';
-  } else {
-    cueHtml = '<div class="cue-zone"><span class="cue-opening">— Beginning —</span></div>';
-  }
+  // Scene heading
+  var heading = scene.actTitle ? scene.actTitle + ' · ' + scene.sceneTitle : scene.sceneTitle;
+  var progress = lineIdxs.length > 0
+    ? '<div class="progress-label">' + (allRevealed ? lineIdxs.length : revealIdx + 1) + ' / ' + lineIdxs.length + ' lines</div>'
+    : '';
 
-  // Answer zone
-  let answerHtml = '';
-  for (const r of card.responses) {
-    if (r.type === 'lines') {
-      const name = r.characterName
-        ? '<div class="speech-name">' + esc(r.characterName) + '</div>'
+  // Build item HTML
+  var itemsHtml = '';
+  var lineItemCounter = 0;
+  for (var i = 0; i < scene.items.length; i++) {
+    var item = scene.items[i];
+    if (item.type === 'cue') {
+      var spk = item.cueSpeaker
+        ? '<span class="cue-speaker">' + esc(item.cueSpeaker) + '</span>'
         : '';
-      answerHtml += '<div class="speech-block">' + name +
-        '<div class="speech-text">' + esc(r.text) + '</div></div>';
-    } else {
-      answerHtml += '<div class="stage-dir">[' + esc(r.text) + ']</div>';
+      var txt = item.text
+        ? '<span class="cue-text">…' + esc(item.text) + '</span>'
+        : '<span class="cue-opening">— Beginning —</span>';
+      itemsHtml += '<div class="entry"><div class="cue-zone">' + spk + txt + '</div></div>';
+    } else if (item.type === 'lines') {
+      var revealed = lineItemCounter <= revealIdx;
+      var hiddenClass = revealed ? '' : ' hidden';
+      var nameHtml = item.characterName
+        ? '<div class="speech-name">' + esc(item.characterName) + '</div>'
+        : '';
+      var songClass = item.isSong ? ' song-text' : '';
+      var textHtml = '<div class="speech-text' + songClass + '">' + esc(item.text).replace(/\\n/g, '<br>') + '</div>';
+      itemsHtml += '<div class="entry" data-line-idx="' + lineItemCounter + '"><div class="lines-block' + hiddenClass + '">' + nameHtml + textHtml + '</div></div>';
+      lineItemCounter++;
+    } else if (item.type === 'stage') {
+      var sdPrefix = '';
+      if (item.isSong) sdPrefix = '<span style="color:#7c3aed">&#9834; </span>';
+      if (item.isDance) sdPrefix = '<span style="color:#0891b2">&#8859; </span>';
+      itemsHtml += '<div class="entry"><div class="stage-dir">[' + sdPrefix + esc(item.text) + ']</div></div>';
     }
   }
 
-  const hidden = revealed ? '' : ' hidden';
+  document.getElementById('app').innerHTML =
+    '<div class="scene-header">' + esc(heading) + '</div>' +
+    progress +
+    itemsHtml;
 
-  const revealBtn = revealed
-    ? ''
-    : '<button class="btn-primary" onclick="doReveal()" id="revBtn">Reveal ▼</button>';
-  const nextBtn = revealed
-    ? '<button class="btn-primary" onclick="doNext()">' +
-      (idx < total - 1 ? 'Next →' : 'Restart ↺') +
-      '</button>'
-    : '';
-  const prevBtn = idx > 0
-    ? '<button onclick="doPrev()">← Back</button>'
-    : '';
+  // Update reveal button
+  var bar = document.getElementById('revealBar');
+  var btn = document.getElementById('btnReveal');
+  if (lineIdxs.length === 0) {
+    bar.style.display = 'none';
+  } else {
+    bar.style.display = 'flex';
+    if (allRevealed) {
+      btn.textContent = sceneIdx < ALL_SCENES.length - 1 ? 'Next Scene →' : 'Done ✓';
+    } else {
+      btn.textContent = 'Reveal ▼';
+    }
+  }
 
-  const shuffleClass = shuffleOn ? ' btn-active' : '';
-  const controlRow =
-    '<button class="btn-sm' + shuffleClass + '" onclick="toggleShuffle()">' +
-    (shuffleOn ? '\u{1F500} Shuffle On' : '\u{1F500} Shuffle') +
-    '</button>' +
-    '<button class="btn-sm" onclick="doReset()">Reset</button>';
+  document.getElementById('sceneJump').value = sceneIdx;
+  updateNavButtons();
 
-  app.innerHTML =
-    '<div class="counter">Card ' + num + ' of ' + total + '</div>' +
-    '<div class="card">' +
-      cueHtml +
-      '<div class="answer-zone' + hidden + '">' + answerHtml + '</div>' +
-    '</div>' +
-    '<div class="btn-row">' + prevBtn + revealBtn + nextBtn + '</div>' +
-    '<div class="btn-row" style="margin-top:8px;">' + controlRow + '</div>';
+  // Scroll newly revealed line into view
+  if (revealIdx >= 0 && !allRevealed) {
+    var el = document.querySelector('[data-line-idx="' + revealIdx + '"]');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
 
-  updateProgress();
+function advance() {
+  var scene = ALL_SCENES[sceneIdx];
+  var lineIdxs = linesItems(scene);
+  if (revealIdx < lineIdxs.length - 1) {
+    revealIdx++;
+    render();
+  } else {
+    // All lines revealed — advance to next scene
+    nextScene();
+  }
+}
+
+function goBack() {
+  if (revealIdx >= 0) {
+    revealIdx--;
+    render();
+  } else if (sceneIdx > 0) {
+    sceneIdx--;
+    var scene = ALL_SCENES[sceneIdx];
+    revealIdx = linesItems(scene).length - 1;
+    render();
+  }
+}
+
+function nextScene() {
+  if (sceneIdx < ALL_SCENES.length - 1) {
+    sceneIdx++;
+    revealIdx = -1;
+    render();
+  }
+}
+
+function prevScene() {
+  if (sceneIdx > 0) {
+    sceneIdx--;
+    revealIdx = -1;
+    render();
+  }
+}
+
+function jumpScene(val) {
+  var idx = parseInt(val, 10);
+  if (!isNaN(idx) && idx >= 0 && idx < ALL_SCENES.length) {
+    sceneIdx = idx;
+    revealIdx = -1;
+    render();
+  }
 }
 
 function esc(s) {
-  return String(s)
+  return String(s || '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
 
-function doReveal() { revealed = true; render(); }
-
-function doNext() {
-  if (idx < ALL_CARDS.length - 1) {
-    idx++;
-    revealed = false;
-    render();
-  } else {
-    // Restart
-    resetOrder();
-    render();
-  }
-}
-
-function doPrev() {
-  if (idx > 0) {
-    idx--;
-    revealed = true; // show previous card fully revealed
-    render();
-  }
-}
-
-function doReset() {
-  resetOrder();
-  render();
-}
-
-function toggleShuffle() {
-  shuffleOn = !shuffleOn;
-  resetOrder();
-  render();
-}
-
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', function(e) {
+  var tag = (e.target || {}).tagName;
+  if (tag === 'SELECT' || tag === 'INPUT' || tag === 'TEXTAREA') return;
   if (e.key === ' ' || e.key === 'ArrowRight') {
     e.preventDefault();
-    if (!revealed) doReveal(); else doNext();
+    advance();
   } else if (e.key === 'ArrowLeft') {
     e.preventDefault();
-    doPrev();
-  } else if (e.key === 's' || e.key === 'S') {
-    toggleShuffle();
+    goBack();
+  } else if (e.key === ']') {
+    e.preventDefault();
+    nextScene();
+  } else if (e.key === '[') {
+    e.preventDefault();
+    prevScene();
+  } else if (e.key === 'g' || e.key === 'G') {
+    e.preventDefault();
+    document.getElementById('sceneJump').focus();
   }
 });
 
 // Init
-resetOrder();
+buildSceneSelect();
 render();
 </script>
 </body>

@@ -1,5 +1,5 @@
 import type { Play, Scene, ScriptUnit } from "@/types/play";
-import { expandSplits, expandInsertions, expandStageNotes } from "./expandUtils";
+import { expandSplits, expandInsertions, expandInsertedSDs, expandStageNotes } from "./expandUtils";
 import type { Actor, ActorAssignment, Cut } from "@/types/project";
 import { buildSceneEntries } from "./SceneSubdivisionUtils";
 import type { LineCounts, LineWithStatus, ScriptUnitWithStatus, CountPair, SceneCounts, UnitCounts } from "@/types/cut";
@@ -384,10 +384,13 @@ export function getEffectiveUnitsInOrder(play: Play, cut: Cut): ScriptUnit[] {
   const units: ScriptUnit[] = [];
   for (const act of play.acts) {
     for (const scene of act.scenes) {
-      const expanded = expandStageNotes(expandInsertions(
-        expandSplits(scene.units, cut.speechSplits),
-        cut.insertions,
-        play.castList
+      const expanded = expandStageNotes(expandInsertedSDs(
+        expandInsertions(
+          expandSplits(scene.units, cut.speechSplits),
+          cut.insertions,
+          play.castList
+        ),
+        cut.insertedSDs
       ));
       units.push(...expanded);
     }

@@ -4,6 +4,18 @@ Completed feature groups for shakes-script-scissors.
 
 ## Done ✓
 
+- **Group 29 — Cue Script Improvements**: Overhauled the cue script export page UI and redesigned the Line Buddy drill tool; verified cue script and line buddy export fidelity.
+  - **29-2-1 — Search bar on cue script page**: Cmd+F / Ctrl+F (or magnifying-glass button) opens an inline search bar below the control row; matches highlighted amber in the cue script preview; Esc closes.
+  - **29-2-2 — Per-actor Export Line Buddy button**: "Export Line Buddy" button added to the per-actor control row (next to Print / Save PDF); downloads the current actor's HTML drill file directly without a ZIP.
+  - **29-2-3 — Print button in script view nav**: printer icon added to the script editor nav bar (desktop and hamburger); calls `window.print()`; hidden during printing via `no-print` class.
+  - **29-2-4 — Batch buttons moved to top bar**: "Download All as ZIP" and "All Line Buddies (ZIP)" moved from a separate row to the right end of the single control row; separated from per-actor controls with a left border.
+  - **29-2-5 — Clutter text removed**: "All actors:" label and "Export full script as Word: open ⚙ Settings" hint removed from the export page.
+  - **29-3 — Line Buddy redesign**: complete rewrite of `LineBuddyExporter.ts`. New scene-based layout: all scenes listed as a column; `lines` items start hidden and are revealed one at a time. Sticky header shows act · scene title with a scene-jump `<select>` and prev/next buttons. Keyboard: Space/→ reveal next line, ← go back, `[`/`]` prev/next scene, `g` focus scene select. Progress shows "N / M lines" within the scene. Song speeches rendered violet italic; song SDs show ♪ prefix (violet), dance SDs show ⊛ prefix (cyan). Shuffle, reset, and card counter removed.
+  - **29-4-1 — Delivery notes in cue scripts**: `CueScriptBuilder` already included delivery notes in the character label (e.g. `PROSPERO [aside]`) — confirmed correct, no change needed.
+  - **29-4-2 — Song/dance flags in line buddy**: `isSong`/`isDance` added to `CueEntry` (types/cut.ts); `CueScriptBuilder` resolves flags from `cut.sdFlagOverrides` overlaid on TEI data for both SD entries and speech entries; line buddy renders song/dance prefixes from these flags.
+  - **29-4-3 — Inserted SDs in cue scripts**: `expandInsertedSDs` was present in `expandUtils.ts` but not called in `getEffectiveUnitsInOrder` (`CutEngine.ts`) — inserted SDs were silently missing. Fixed by adding the call to both `CutEngine.getEffectiveUnitsInOrder` and the inline expand pipeline in `CueScriptBuilder`.
+  - **29-4-4 — Cue script document fidelity**: `CueScriptDocument.tsx` updated — song speeches now render violet italic (matching cue script builder's `isSong` flag); search highlighting now uses a compiled `RegExp` hoisted to the parent component (one construction per keystroke instead of per-entry); `buildCueScript` memoized in `ExportMenu`; two merged `useEffect`s on `searchOpen`.
+
 - **Group 28 — Export Fidelity Audit**: Comprehensive correctness audit and repair of HTML and Word DOCX script exports across all view modes (Standard / Clean / Diff). Four sessions of bug fixes and new features, verified against real exports of The Tempest.
   - **28A — Baseline audit + expansion pipeline fix**: added `expandStageNotes` to the HTML export pipeline so inline `<stage>` mid-speech SDs emit as separate SD blocks (matching Word behaviour and the app). Identified 8 fidelity categories requiring fixes.
   - **28C-1 — Delivery note case in Word**: removed `.toUpperCase()` from delivery note `TextRun` objects; delivery notes now render lowercase italic (e.g. `[aside]`) in both normal and reassignment branches.
