@@ -352,8 +352,16 @@ From the **⚙ gear** menu → **Export as Word**: exports the full current cut 
 1. Click **Export as Word** — an amber warning panel expands.
 2. Choose the view mode:
    - **Clean** — cuts hidden; only the surviving script is included.
-   - **Standard** — cuts shown with grey strikethrough; inserted text underlined in green; word-level cuts/insertions marked individually.
+   - **Standard** — cuts shown with red strikethrough; inserted text underlined in green; word-level cuts/insertions marked individually; original speaker struck through in red with new speaker in green for reassigned speeches.
 3. Click **Download Anyway** to download the file.
+
+Both modes include:
+- **Characters section** at the top of the document — fully-cut characters shown in grey strikethrough; aliased characters show alias in green + original in grey.
+- **Song/dance indicators** — ♪ violet prefix on song speeches and SDs; ⊛ cyan prefix on dance SDs; song lines rendered in violet italic.
+- **Line numbers** — scene-relative, every 5th line (Standard counts all lines; Clean counts only kept lines).
+- **Header** — right-aligned `project | play | cut | dd-mm-yyyy--hh-mm` on every page.
+- **Page numbers** — centred in the footer.
+- **Timestamp filename** — `PlayTitle_CutName_mode_dd-mm-yyyy--hh-mm.docx`.
 
 Note: the `.docx` is a one-way export — it cannot be re-imported into Shakespeare Script Scissors.
 

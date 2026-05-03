@@ -2,7 +2,7 @@ import type { Play, Speech, StageDirection } from "@/types/play";
 import type { Cut, Actor, ActorAssignment } from "@/types/project";
 import { applyEditsToLine, segmentsToText } from "./applyEdits";
 import { resolveCharacterName } from "@/lib/project/projectUtils";
-import { expandSplits, expandInsertions } from "./expandUtils";
+import { expandSplits, expandInsertions, expandStageNotes, expandInsertedSDs } from "./expandUtils";
 import { PART_LABELS } from "./SceneSubdivisionUtils";
 
 // ---------------------------------------------------------------------------
@@ -22,8 +22,30 @@ interface UnitData {
   originalLines: string[];
   /** True when this SD's text has been overridden via sdTextEdits */
   isEdited?: boolean;
+  /** True when this is a director-created SD from cut.insertedSDs */
+  isInserted?: boolean;
   /** Part label for subdivider units (e.g. "B", "C") */
   subdividerLabel?: string;
+  /** True when same speaker continues from the immediately preceding kept speech */
+  isContinuation?: boolean;
+  /** Part-indent char widths, parallel to keptLines (0 = no indent) */
+  lineIndents?: number[];
+  /** Effective delivery note for this speech (respects deliveryNoteEdits) */
+  deliveryNote?: string;
+  /** True when this speech has been reassigned to a different character */
+  hasReassignment?: boolean;
+  /** Pre-reassignment speaker name (only set when hasReassignment is true) */
+  originalSpeaker?: string;
+  /** True when this is a song speech or song SD */
+  isSong?: boolean;
+  /** True when this is a dance SD */
+  isDance?: boolean;
+  /** Pre-rendered HTML per kept line: <del> for cut words, green span for inserts (standard only). null when no word-level edits. */
+  editedLineHtml?: (string | null)[];
+  /** Scene-relative line numbers parallel to keptLines; non-null only on every 5th kept line (clean count) */
+  keptLineNums?: (number | null)[];
+  /** Scene-relative line numbers parallel to originalLines; non-null only on every 5th std line */
+  origLineNums?: (number | null)[];
 }
 
 interface SceneData {
@@ -71,6 +93,18 @@ function getUnitStatus(
   return hasLineCuts || hasWordEdits ? "modified" : "kept";
 }
 
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function segmentsToHtml(segs: { type: "kept" | "cut" | "insert"; text: string }[]): string {
+  return segs.map((s) => {
+    if (s.type === "cut") return `<del style="color:#b91c1c;text-decoration:line-through">${escHtml(s.text)}</del>`;
+    if (s.type === "insert") return `<span style="color:#16a34a">${escHtml(s.text)}</span>`;
+    return escHtml(s.text);
+  }).join("");
+}
+
 function buildScriptData(
   play: Play,
   cut: Cut,
@@ -114,17 +148,78 @@ function buildScriptData(
 
     const units: UnitData[] = [];
 
-    // Expand splits and insertions so they render correctly in the HTML export
-    const expandedUnits = expandInsertions(
-      expandSplits(info.units, cut.speechSplits),
-      cut.insertions,
-      play.castList
+    // Expand splits, insertions, inline stage notes, and inserted SDs for HTML export
+    const expandedUnits = expandInsertedSDs(
+      expandStageNotes(
+        expandInsertions(
+          expandSplits(info.units, cut.speechSplits),
+          cut.insertions,
+          play.castList
+        )
+      ),
+      cut.insertedSDs
     );
+
+    // Continuation detection — port of SceneBlock.tsx lines 145–207 (no showOriginal mode)
+    const continuationIds = new Set<string>();
+    {
+      let lastSpeakerId: string | null = null;
+      const insertionMap = cut.insertions ?? {};
+      const splits = cut.speechSplits ?? {};
+
+      const insAfterMap = new Map<string, Array<{ id: string; characterId: string }>>();
+      for (const ins of Object.values(insertionMap)) {
+        const arr = insAfterMap.get(ins.afterUnitId) ?? [];
+        arr.push(ins as { id: string; characterId: string });
+        insAfterMap.set(ins.afterUnitId, arr);
+      }
+
+      for (const rawUnit of expandedUnits) {
+        if (rawUnit.type === "speech") {
+          const unit = rawUnit as Speech;
+          const isS2 = unit.id.endsWith(":s2");
+          const isInsertionUnit = !!insertionMap[unit.id];
+
+          if (!isS2 && !isInsertionUnit) {
+            const reassigned = reassignments[unit.id];
+            const charId = reassigned ? reassigned[0] : unit.characterId;
+            const isAllSpeechUnit =
+              /\bALL\b/i.test(unit.speakerTag) ||
+              (unit.characterIds != null && unit.characterIds.length > 1) ||
+              (reassigned != null && reassigned.length > 1);
+            const isKept = cut.cutMap[unit.id] !== "cut";
+
+            if (isKept) {
+              if (!isAllSpeechUnit && lastSpeakerId === charId) continuationIds.add(unit.id);
+              lastSpeakerId = isAllSpeechUnit ? null : charId;
+            }
+
+            const split = splits[unit.id];
+            if (split && isKept) {
+              const s2Id = `${unit.id}:s2`;
+              const s2Reassigned = reassignments[s2Id];
+              const s2CharId = s2Reassigned ? s2Reassigned[0] : (split.newCharacterId ?? unit.characterId);
+              if (lastSpeakerId === s2CharId) continuationIds.add(s2Id);
+              lastSpeakerId = s2CharId;
+            }
+          }
+        }
+
+        for (const ins of insAfterMap.get(rawUnit.id) ?? []) {
+          if (lastSpeakerId === ins.characterId) continuationIds.add(ins.id);
+          lastSpeakerId = ins.characterId;
+        }
+      }
+    }
 
     // Build the set of split boundary unit IDs for this scene (empty if not subdivided)
     const sceneSplits = cut.sceneSubdivisions?.[sceneId] ?? [];
     const splitBoundaryIds = new Set(sceneSplits.map((s) => s.afterUnitId));
     let splitIdx = 0;
+
+    // Scene-relative line counters for line numbering (every 5th line)
+    let sceneCleanLine = 0;
+    let sceneStdLine = 0;
 
     for (const rawUnit of expandedUnits) {
       const status = getUnitStatus(rawUnit as Speech | StageDirection, cut);
@@ -149,24 +244,55 @@ function buildScriptData(
         const isInsertion = !!(cut.insertions?.[speech.id]);
         const originalLines = isInsertion ? [] : speech.lines.map((l) => l.text);
 
-        const keptLines =
+        // Scene-relative line numbers (every 5th), parallel to originalLines / keptLines
+        const origLineNums: (number | null)[] = [];
+        const keptLineNums: (number | null)[] = [];
+        for (const l of speech.lines) {
+          sceneStdLine++;
+          origLineNums.push(sceneStdLine % 5 === 0 ? sceneStdLine : null);
+          if (lineCutMap[l.id] !== "cut") {
+            sceneCleanLine++;
+            keptLineNums.push(sceneCleanLine % 5 === 0 ? sceneCleanLine : null);
+          }
+        }
+
+        const keptLinePairs =
           status === "cut"
             ? []
             : speech.lines
                 .filter((l) => lineCutMap[l.id] !== "cut")
                 .map((l) => {
                   const lineOps = ops.filter((op) => op.lineId === l.id);
-                  if (lineOps.length === 0) return l.text;
+                  if (lineOps.length === 0) return { text: l.text, indent: l.partIndentChars ?? 0, html: null as string | null };
                   const segments = applyEditsToLine(l.id, l.text, lineOps as Parameters<typeof applyEditsToLine>[2]);
-                  return segmentsToText(segments);
+                  return { text: segmentsToText(segments), indent: l.partIndentChars ?? 0, html: segmentsToHtml(segments) };
                 })
-                .filter((t) => t.trim().length > 0);
+                .filter(({ text }) => text.trim().length > 0);
+        const keptLines = keptLinePairs.map((p) => p.text);
+        const lineIndents = keptLinePairs.map((p) => p.indent);
+        const editedLineHtml = keptLinePairs.map((p) => p.html);
 
         // Tally kept lines per effective speaker (each gets full count)
         for (const spkId of effectiveCharIds) {
           const prev = charLineCount.get(spkId) ?? 0;
           charLineCount.set(spkId, prev + keptLines.length);
         }
+
+        const effectiveDeliveryNote: string | undefined =
+          cut.deliveryNoteEdits?.[speech.id] !== undefined
+            ? (cut.deliveryNoteEdits[speech.id] || undefined)
+            : speech.deliveryNote;
+
+        const hasReassignment = !!(reassignments[speech.id]);
+        const originalSpeaker: string | undefined = hasReassignment
+          ? (isAllSpeech
+              ? speech.speakerTag.trim()
+              : (speech.characterIds ?? [speech.characterId])
+                  .map((id) => resolveCharacterName(id, aliases, play.castList))
+                  .join(" & "))
+          : undefined;
+        const isSongSpeech = (speech as Speech & { isSong?: boolean }).isSong === true
+          || (cut.sdFlagOverrides?.[speech.id]?.isSong === true);
 
         units.push({
           id: rawUnit.id,
@@ -176,11 +302,25 @@ function buildScriptData(
           status,
           keptLines,
           originalLines,
+          isContinuation: continuationIds.has(rawUnit.id),
+          lineIndents,
+          deliveryNote: effectiveDeliveryNote,
+          hasReassignment,
+          originalSpeaker,
+          isSong: isSongSpeech,
+          isDance: false,
+          isInserted: isInsertion,
+          editedLineHtml,
+          keptLineNums,
+          origLineNums,
         });
       } else {
         const stage = rawUnit as StageDirection;
         const text = cut.sdTextEdits?.[stage.id] ?? stage.text;
         const isEdited = !!(cut.sdTextEdits?.[stage.id]);
+        const isInserted = !!(cut.insertedSDs?.[stage.id]);
+        const isSongSD = (cut.sdFlagOverrides?.[stage.id]?.isSong ?? stage.isSong) === true;
+        const isDanceSD = (cut.sdFlagOverrides?.[stage.id]?.isDance ?? stage.isDance) === true;
         units.push({
           id: rawUnit.id,
           type: "stage",
@@ -190,6 +330,9 @@ function buildScriptData(
           keptLines: status === "cut" ? [] : [text],
           originalLines: [stage.text],
           isEdited,
+          isInserted,
+          isSong: isSongSD,
+          isDance: isDanceSD,
         });
       }
 
@@ -374,6 +517,12 @@ function esc(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+function lineNumSpan(n){
+  return n!=null
+    ?'<span style="display:inline-block;width:2.5em;text-align:right;color:#a8a29e;font-size:11px;margin-right:6px;user-select:none">'+n+'</span>'
+    :'<span style="display:inline-block;width:2.5em;margin-right:6px"></span>';
+}
+
 function render(){
   var col=document.getElementById('script-col');
   var h=[];
@@ -418,23 +567,63 @@ function renderUnit(u){
       if(mode==='clean')return null;
       return '<div class="stage-dir" style="text-decoration:line-through;opacity:.5">['+esc(u.originalLines[0]||'')+']</div>';
     }
-    if(mode==='clean')return '<div class="stage-dir">['+esc(u.keptLines[0]||'')+']</div>';
-    if(u.isEdited&&mode==='diff'){
-      var left='<div class="diff-label">Modified</div><div class="stage-dir stage-dir-edited">['+esc(u.keptLines[0]||'')+']</div>';
-      var right='<div class="diff-label">Original</div><div class="stage-dir">['+esc(u.originalLines[0]||'')+']</div>';
-      return'<div class="diff-row"><div class="diff-col diff-left">'+left+'</div><div class="diff-col diff-right">'+right+'</div></div>';
+    var sdPrefix='';
+    if(u.isSong)sdPrefix+='<span style="color:#7c3aed">♪ </span>';
+    if(u.isDance)sdPrefix+='<span style="color:#0891b2">⊛ </span>';
+    if(mode==='clean')return '<div class="stage-dir">'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>';
+    if(u.isInserted&&mode==='standard'){
+      return '<div class="stage-dir stage-dir-edited"><span style="font-size:9px;color:#16a34a;background:#dcfce7;border-radius:2px;padding:0 3px;margin-right:6px;font-style:normal;vertical-align:middle">inserted</span>'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>';
+    }
+    if(mode==='diff'){
+      if(u.status==='cut'){
+        var sdRightCut='<div class="diff-label">Original</div>'
+          +'<div class="stage-dir" style="text-decoration:line-through;opacity:.5">'
+          +'['+esc(u.originalLines[0]||'')+']</div>';
+        return'<div class="diff-row">'
+          +'<div class="diff-col diff-left"><div class="diff-label">Modified</div>'
+          +'<span style="color:#a8a29e;font-size:12px;font-style:italic">(cut)</span></div>'
+          +'<div class="diff-col diff-right">'+sdRightCut+'</div></div>';
+      }
+      var sdLeft=u.isEdited
+        ?'<div class="stage-dir stage-dir-edited">'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>'
+        :'<div class="stage-dir">'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>';
+      var sdRight='<div class="stage-dir">'+sdPrefix+'['+esc(u.originalLines[0]||'')+']</div>';
+      var sdLeftLabel=u.isEdited?'<div class="diff-label">Modified</div>':'';
+      var sdRightLabel=u.isEdited?'<div class="diff-label">Original</div>':'';
+      return'<div class="diff-row">'
+        +'<div class="diff-col diff-left">'+sdLeftLabel+sdLeft+'</div>'
+        +'<div class="diff-col diff-right">'+sdRightLabel+sdRight+'</div>'
+        +'</div>';
     }
     var sdCls=u.isEdited&&mode==='standard'?'stage-dir stage-dir-edited':'stage-dir';
-    return '<div class="'+sdCls+'">['+esc(u.keptLines[0]||'')+']</div>';
+    return '<div class="'+sdCls+'">'+sdPrefix+'['+esc(u.keptLines[0]||'')+']</div>';
   }
   if(filterChar&&u.characterId!==filterChar)return null;
   if(mode==='clean'&&u.status==='cut')return null;
-  var name='<div class="char-name">'+esc(u.characterName)+'</div>';
+  var name;
+  var dnote=u.deliveryNote?'<div class="char-name" style="font-weight:normal;font-style:italic;text-transform:none;letter-spacing:0">'+esc(u.deliveryNote)+'</div>':'';
+  if(u.isInserted&&mode==='standard'){
+    name='<div class="char-name" style="color:#16a34a">'+esc(u.characterName)+'</div>'+dnote;
+  }else if(u.isContinuation){
+    if(mode==='clean'){name='';}
+    else{name='<div class="char-name" style="font-style:italic;font-weight:normal">(cont.)</div>'+dnote;}
+  }else if(u.hasReassignment&&mode==='standard'){
+    var origSpan='<span style="text-decoration:line-through;color:#b91c1c">'+esc(u.originalSpeaker||'')+'</span>';
+    var newSpan='<span style="color:#16a34a">'+esc(u.characterName)+'</span>';
+    name='<div class="char-name">'+origSpan+' '+newSpan+'</div>'+dnote;
+  }else{
+    var songPfx=u.isSong?'<span style="color:#7c3aed;font-size:11px">♪ </span>':'';
+    name='<div class="char-name">'+songPfx+esc(u.characterName)+'</div>'+dnote;
+  }
   if(mode==='diff'){
-    var leftLines=u.keptLines.map(function(l){return'<div>'+esc(l)+'</div>';}).join('');
-    var rightLines=u.originalLines.map(function(l){
+    var leftLines=u.keptLines.map(function(l,i){
+      var num=lineNumSpan(u.keptLineNums&&u.keptLineNums[i]!=null?u.keptLineNums[i]:null);
+      return'<div>'+num+esc(l)+'</div>';
+    }).join('');
+    var rightLines=u.originalLines.map(function(l,i){
       var cls=u.status==='cut'?' class="line-cut"':'';
-      return'<div'+cls+'>'+esc(l)+'</div>';
+      var num=lineNumSpan(u.origLineNums&&u.origLineNums[i]!=null?u.origLineNums[i]:null);
+      return'<div'+cls+'>'+num+esc(l)+'</div>';
     }).join('');
     var left=leftLines?'<div class="diff-label">Modified</div>'+name+leftLines:'<div class="diff-label">Modified</div><span style="color:#a8a29e;font-size:12px;font-style:italic">(cut)</span>';
     var right='<div class="diff-label">Original</div>'+name+rightLines;
@@ -442,9 +631,28 @@ function renderUnit(u){
   }
   var lines;
   if(mode==='standard'&&u.status==='cut'){
-    lines=u.originalLines.map(function(l){return'<div class="line-cut">'+esc(l)+'</div>';}).join('');
+    lines=u.originalLines.map(function(l,i){
+      var num=lineNumSpan(u.origLineNums&&u.origLineNums[i]!=null?u.origLineNums[i]:null);
+      return'<div class="line-cut">'+num+esc(l)+'</div>';
+    }).join('');
+  }else if(mode==='standard'&&u.isInserted){
+    lines=u.keptLines.map(function(l,i){
+      var num=lineNumSpan(u.keptLineNums&&u.keptLineNums[i]!=null?u.keptLineNums[i]:null);
+      var ind=u.lineIndents&&u.lineIndents[i]?'padding-left:'+u.lineIndents[i]+'ch':'';
+      var sty=(ind?ind+';':'')+'color:#16a34a';
+      return'<div style="'+sty+'">'+num+esc(l)+'</div>';
+    }).join('');
   }else{
-    lines=u.keptLines.map(function(l){return'<div>'+esc(l)+'</div>';}).join('');
+    var numArr=(mode==='clean')?u.keptLineNums:u.origLineNums;
+    lines=u.keptLines.map(function(l,i){
+      var lineContent=(mode==='standard'&&u.editedLineHtml&&u.editedLineHtml[i]!=null)?u.editedLineHtml[i]:esc(l);
+      var num=lineNumSpan(numArr&&numArr[i]!=null?numArr[i]:null);
+      var ind=u.lineIndents&&u.lineIndents[i]?'padding-left:'+u.lineIndents[i]+'ch':'';
+      var sty=ind?ind+';':'';
+      if(u.isSong)sty+='color:#7c3aed;font-style:italic;';
+      if(sty)sty=sty.replace(/;$/,'');
+      return sty?'<div style="'+sty+'">'+num+lineContent+'</div>':'<div>'+num+lineContent+'</div>';
+    }).join('');
   }
   return'<div class="speech">'+name+lines+'</div>';
 }

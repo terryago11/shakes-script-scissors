@@ -1,6 +1,7 @@
 import type { ScriptUnit, Speech, Line, StageDirection, Character } from "@/types/play";
 import type { Cut } from "@/types/project";
 import type { Insertion } from "@/types/insertion";
+import type { InsertedSD } from "@/types/insertedsd";
 
 /**
  * Expand speech splits in a flat list of ScriptUnits for a single scene.
@@ -144,6 +145,39 @@ export function expandInsertions(
         lineCount: ins.lines.length,
       };
       result.push(synthetic);
+    }
+  }
+  return result;
+}
+
+export function expandInsertedSDs(
+  units: ScriptUnit[],
+  insertedSDs: Record<string, InsertedSD> | undefined
+): ScriptUnit[] {
+  if (!insertedSDs || Object.keys(insertedSDs).length === 0) return units;
+
+  const afterMap = new Map<string, InsertedSD[]>();
+  for (const isd of Object.values(insertedSDs)) {
+    const arr = afterMap.get(isd.afterUnitId) ?? [];
+    arr.push(isd);
+    afterMap.set(isd.afterUnitId, arr);
+  }
+
+  const result: ScriptUnit[] = [];
+  for (const unit of units) {
+    result.push(unit);
+    const following = afterMap.get(unit.id);
+    if (!following) continue;
+    for (const isd of following) {
+      result.push({
+        type: "stage",
+        id: isd.id,
+        text: isd.text,
+        characters: isd.characters,
+        stageType: isd.stageType,
+        isSong: isd.isSong,
+        isDance: isd.isDance,
+      } as StageDirection);
     }
   }
   return result;

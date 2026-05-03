@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Project, Cut, Actor, ActorAssignment } from "@/types/project";
 import type { Play } from "@/types/play";
 import { generateScriptHtml } from "@/lib/cuts/HtmlExporter";
+import { exportDateSuffix } from "@/lib/project/projectUtils";
 
 // --- Zod schema for validation on import ---
 
@@ -159,7 +160,7 @@ export function exportScriptHtml(
   const safeName = displayName.replace(/[^a-z0-9]/gi, "-").toLowerCase();
   const safeCut = cut.name.replace(/[^a-z0-9]/gi, "-").toLowerCase();
   a.href = url;
-  a.download = `${safeName}-${safeCut}.html`;
+  a.download = `${safeName}-${safeCut}-${exportDateSuffix()}.html`;
   a.click();
   URL.revokeObjectURL(url);
 }

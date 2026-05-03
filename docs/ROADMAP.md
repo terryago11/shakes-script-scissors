@@ -6,25 +6,41 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature gro
 
 ---
 
-## Upcoming — Group 25 — Script Polish, Count Audit, Audition Mode & Exports — [implementation plan](./group-25-plan.md)
+**Group 25 ✓ Done** — Script Polish, Count Audit, Audition Mode & Exports — see CHANGELOG for details.
 
-**25A ✓ Done** — see CHANGELOG for details.
-
-**25B ✓ Done** — see CHANGELOG for details.
-
-**25C ✓ Done** — see CHANGELOG for details.
-
-**25D ✓ Done** — see CHANGELOG for details.
+**Group 28 ✓ Done** — Export Fidelity Audit — see CHANGELOG for details.
 
 ---
 
-## Upcoming — Group 26 — Electron Native File I/O
+## Skipped — Group 26 — Electron Native File I/O *(deferred)*
 - **Native open/save** (`electron/main.ts`, `electron/preload.ts`, `ProjectStore.tsx`, `SettingsModal.tsx`): replace web-style import/export with native `dialog.showOpenDialog` / `showSaveDialog` IPC in Electron. Projects open/save like Word documents. Web app keeps existing download/upload flow. Cmd+S saves without dialog once a path is known.
 
 ---
 
-## Upcoming — Group 27 — Help System
+## Skipped — Group 27 — Help System *(deferred)*
 - Consolidate scattered `?` buttons into a shared `HelpPopover` component. Add a Help nav entry linking to a topic index modal. Optionally: first-time onboarding highlights on first project load (hand-rolled, no library dependency). Design discussion required before implementation.
+
+---
+
+## Done ✓ — Group 28 — Export Fidelity Audit — [full spec](./group-28-plan.md)
+
+Deep audit and fix of HTML and Word exports to match the app's standard and clean rendering exactly. All sessions complete and verified.
+
+- **28A ✓** — Baseline audit
+- **28B ✓** — Feature matrix test project
+- **28C ✓** — Bug fixes (Sessions 1–4): delivery notes · continuation · reassignments · consecutive SDs · song/dance · inserted SDs · sub-scene divisions · character list · inserted speech green · word-level HTML diff · SD diff columns · line numbers (HTML + Word) · filename date suffix · Word red cuts · Word header/footer
+- **28D ✓** — Documentation + PR
+
+---
+
+## Upcoming — Group 29 — Cue Script Improvements — [full spec](./group-28-plan.md#group-29--cue-script-improvements)
+
+Overhaul the cue script export page and line buddy drill tool. Full spec lives in the Group 28 plan doc.
+
+- **29-2** — UI cleanup: search bar on cue script page · per-actor "Export Line Buddy" button · print button in script view nav · move batch buttons to top bar · remove clutter text
+- **29-3** — Line buddy redesign: scene-based scrolling layout · per-line reveal (not per-speech) · scene jump navigation · keyboard shortcuts · remove shuffle/reset/card-counter · stretch: right/wrong marking + mistake review
+- **29-4** — Export fidelity: delivery notes in cue scripts · song/dance indicators in line buddy · inserted SDs · verify cue script and line buddy against clean script
+- **29-D** — Documentation + PR
 
 ---
 
