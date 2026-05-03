@@ -4,6 +4,13 @@ Completed feature groups for shakes-script-scissors.
 
 ## Done ✓
 
+- **Group 30 — Session 1 (30-quick): Quick fixes + integrity engine correctness**
+  - **30A-1 — SD textarea min rows**: SD text-edit textarea now shows at least 3 rows (`rows={Math.max(3, lineCount)}`) + `overflow-y-auto max-h-40` so long SDs don't overflow. (`StageDirectionBlock.tsx`)
+  - **30A-2 — Custom actor count outside auditions**: "Desired # of actors" input in the Suggest panel is now editable outside audition mode. Added `localDesiredCount` state (before early returns); `desiredCount` derivation and `onChange` both branch on `isAudition`. (`CastingManager.tsx`)
+  - **30A-3 — Electron release notes HTML strip**: added `stripHtml()` helper in `electron/main.ts`; `releaseNotesDetail` now strips HTML tags, converts `<li>` → `\n• `, expands common entities, and collapses blank lines before displaying update notes in the native dialog.
+  - **30B-1 — Entrance/exit warnings respect speech reassignments**: `speakingKeptChars` in `StageTimeEngine` now honours `cut.speechReassignments` — the reassigned character(s) are added to the set instead of the original speaker, so "no-entrance" warnings correctly target whoever actually delivers the speech after reassignment. (`StageTimeEngine.ts`)
+  - **30B-2 — InsertedSDs count for entrance/exit warnings**: after the main scene-walk loop, `cut.insertedSDs` are now walked and their characters added to `enteredAnywhereChars` / `exitedAnywhereChars`, so a director-created entrance SD clears the "no-entrance" warning on the Integrity tab. (`StageTimeEngine.ts`)
+
 - **Group 29 — Cue Script Improvements**: Overhauled the cue script export page UI and redesigned the Line Buddy drill tool; verified cue script and line buddy export fidelity.
   - **29-2-1 — Search bar on cue script page**: Cmd+F / Ctrl+F (or magnifying-glass button) opens an inline search bar below the control row; matches highlighted amber in the cue script preview; Esc closes.
   - **29-2-2 — Per-actor Export Line Buddy button**: "Export Line Buddy" button added to the per-actor control row (next to Print / Save PDF); downloads the current actor's HTML drill file directly without a ZIP.

@@ -205,7 +205,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
               <textarea
                 autoFocus
                 value={draftText}
-                rows={Math.max(1, draftText.split("\n").length)}
+                rows={Math.max(3, draftText.split("\n").length)}
                 onChange={(e) => setDraftText(e.target.value)}
                 onBlur={commitTextEdit}
                 onKeyDown={(e) => {
@@ -217,7 +217,7 @@ export default function StageDirectionBlock({ stage, status, onToggle, castList,
                     cancelTextEdit();
                   }
                 }}
-                className="not-italic w-full bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1.5 py-0.5 text-stone-700 dark:text-stone-200 text-sm resize-none focus:outline-none focus:border-amber-400 dark:focus:border-amber-500"
+                className="not-italic w-full bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded px-1.5 py-0.5 text-stone-700 dark:text-stone-200 text-sm resize-none overflow-y-auto max-h-40 focus:outline-none focus:border-amber-400 dark:focus:border-amber-500"
               />
             ) : canEditText ? (
               <span className="inline">

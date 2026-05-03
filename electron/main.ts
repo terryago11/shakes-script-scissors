@@ -8,13 +8,25 @@ import { spawn, ChildProcess } from "child_process";
 autoUpdater.logger = log;
 (log as any).transports.file.level = "info";
 
+function stripHtml(html: string): string {
+  return html
+    .replace(/<li[^>]*>/gi, "\n• ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n)))
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function releaseNotesDetail(info: UpdateInfo): string {
   const notes = info.releaseNotes;
   if (!notes) return "";
-  if (typeof notes === "string") return `\n\nWhat's new:\n${notes}`;
+  if (typeof notes === "string") return `\n\nWhat's new:\n${stripHtml(notes)}`;
   if (Array.isArray(notes) && notes.length > 0) {
     const latest = notes[0] as { version?: string; note?: string };
-    return `\n\nWhat's new in ${latest.version ?? info.version}:\n${latest.note ?? ""}`;
+    return `\n\nWhat's new in ${latest.version ?? info.version}:\n${stripHtml(latest.note ?? "")}`;
   }
   return "";
 }

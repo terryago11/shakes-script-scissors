@@ -354,12 +354,28 @@ export function computeStageTime(
         } else if (unit.type === "speech") {
           // Skip speeches with empty/invalid characterId (data quality gaps in TEI)
           if ((cut.cutMap[unit.id] ?? "kept") === "kept" && unit.characterId) {
-            speakingKeptChars.add(unit.characterId);
+            const reassigned = cut.speechReassignments?.[unit.id];
+            if (reassigned && reassigned.length > 0) {
+              for (const c of reassigned) speakingKeptChars.add(c);
+            } else {
+              speakingKeptChars.add(unit.characterId);
+            }
           }
         }
       }
     }
   }
+  if (cut.insertedSDs) {
+    for (const sd of Object.values(cut.insertedSDs)) {
+      if ((cut.cutMap[sd.id] ?? "kept") === "cut") continue;
+      if (sd.stageType === "exit") {
+        for (const c of sd.characters ?? []) exitedAnywhereChars.add(c);
+      } else if (sd.stageType === "entrance") {
+        for (const c of sd.characters ?? []) enteredAnywhereChars.add(c);
+      }
+    }
+  }
+
   const warnings: StageTimeResult["warnings"] = [];
   for (const charId of speakingKeptChars) {
     if (!exitedAnywhereChars.has(charId)) {
