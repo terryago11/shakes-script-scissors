@@ -503,6 +503,9 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
           activeCut={activeCut}
           stageTime={stageTime}
           characterAliases={activeCut.characterAliases}
+          onToggleMarkedForRemoval={(characterId) =>
+            dispatch({ type: "TOGGLE_MARK_FOR_REMOVAL", characterId })
+          }
         />
       )}
     </div>

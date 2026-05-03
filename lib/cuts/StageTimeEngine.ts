@@ -31,8 +31,12 @@ export interface StageTimeResult {
   originalTotalMinutes: number;
   /** Total minutes added by pauses (already included in totalMinutes) */
   pauseMinutes: number;
-  /** Characters with kept speeches but no matching entrance or exit SD */
-  warnings: Array<{ characterId: string; type: "no-exit" | "no-entrance" }>;
+  /** Characters with kept speeches but no matching entrance or exit SD, or near-fully-cut */
+  warnings: Array<{
+    characterId: string;
+    type: "no-exit" | "no-entrance" | "entrance-only" | "few-lines";
+    lineCount?: number;
+  }>;
 }
 
 /** Returns the effective character list for an SD, applying any overrides from the cut. */
@@ -335,6 +339,7 @@ export function computeStageTime(
   const exitedAnywhereChars = new Set<string>();
   const enteredAnywhereChars = new Set<string>();
   const speakingKeptChars = new Set<string>();
+  const keptLinesByChar = new Map<string, number>();
   for (const act of play.acts) {
     for (const scene of act.scenes) {
       for (const unit of scene.units) {
@@ -355,10 +360,14 @@ export function computeStageTime(
           // Skip speeches with empty/invalid characterId (data quality gaps in TEI)
           if ((cut.cutMap[unit.id] ?? "kept") === "kept" && unit.characterId) {
             const reassigned = cut.speechReassignments?.[unit.id];
-            if (reassigned && reassigned.length > 0) {
-              for (const c of reassigned) speakingKeptChars.add(c);
-            } else {
-              speakingKeptChars.add(unit.characterId);
+            const effectiveSpeakers =
+              reassigned && reassigned.length > 0 ? reassigned : [unit.characterId];
+            const keptLineCount = unit.lines.filter(
+              (l) => (cut.lineCutMap?.[l.id] ?? "kept") === "kept"
+            ).length;
+            for (const c of effectiveSpeakers) {
+              speakingKeptChars.add(c);
+              keptLinesByChar.set(c, (keptLinesByChar.get(c) ?? 0) + keptLineCount);
             }
           }
         }
@@ -383,6 +392,22 @@ export function computeStageTime(
     }
     if (!enteredAnywhereChars.has(charId)) {
       warnings.push({ characterId: charId, type: "no-entrance" });
+    }
+  }
+
+  // Presence-only: appear in kept SDs but have no kept speeches
+  const sdChars = new Set([...enteredAnywhereChars, ...exitedAnywhereChars]);
+  for (const charId of sdChars) {
+    if (!speakingKeptChars.has(charId)) {
+      warnings.push({ characterId: charId, type: "entrance-only" });
+    }
+  }
+
+  // Few lines: kept speeches but fewer than 10 kept lines total
+  for (const charId of speakingKeptChars) {
+    const count = keptLinesByChar.get(charId) ?? 0;
+    if (count < 10) {
+      warnings.push({ characterId: charId, type: "few-lines", lineCount: count });
     }
   }
 

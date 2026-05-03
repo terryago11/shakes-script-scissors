@@ -323,7 +323,7 @@ export default function CastingManager({ playId }: Props) {
     const unassignedOnly = mode === "extend";
 
     const activeChars = speakingChars.filter((c) => {
-      if (fullyCutCharIds.has(c.id)) return false;
+      if (effectivelyExcludedIds.has(c.id)) return false;
       if (unassignedOnly && charToActor[c.id]) return false;
       return true;
     });
@@ -503,6 +503,9 @@ export default function CastingManager({ playId }: Props) {
       return allSpeechesCut && allSdsCut;
     })
   );
+  // Merge manually-flagged characters into a single exclusion set
+  const markedSet = new Set(activeCut?.markedForRemoval ?? []);
+  const effectivelyExcludedIds = new Set([...fullyCutCharIds, ...markedSet]);
 
   // Compute line/word/time counts using effective (audition-aware) assignments
   const { lineCounts } = activeCut
@@ -557,7 +560,7 @@ export default function CastingManager({ playId }: Props) {
   // SD remnant count for fully-cut characters (non-cut SDs that still mention them)
   const sdRemnantCountMap = new Map<string, number>();
   if (activeCut) {
-    for (const charId of fullyCutCharIds) {
+    for (const charId of effectivelyExcludedIds) {
       let count = 0;
       for (const act of play.acts) {
         for (const scene of act.scenes) {
@@ -576,7 +579,7 @@ export default function CastingManager({ playId }: Props) {
   // Compatibility lists: for each assigned character, which other characters can/can't share the actor
   const compatibilityMap = new Map<string, CompatEntry[]>();
   for (const char of speakingChars) {
-    if (fullyCutCharIds.has(char.id)) continue;
+    if (effectivelyExcludedIds.has(char.id)) continue;
     const actorId = charToActor[char.id];
     if (!actorId) continue;
     const actorCharIds = effectiveAssignments
@@ -585,7 +588,7 @@ export default function CastingManager({ playId }: Props) {
     const entries: CompatEntry[] = [];
     for (const other of speakingChars) {
       if (other.id === char.id) continue;
-      if (fullyCutCharIds.has(other.id)) continue;
+      if (effectivelyExcludedIds.has(other.id)) continue;
       const isAssignedToSameActor = charToActor[other.id] === actorId;
       const otherName = activeCut?.characterAliases?.[other.id] ?? other.name;
       if (isAssignedToSameActor) {
@@ -634,7 +637,7 @@ export default function CastingManager({ playId }: Props) {
 
   // All active (non-fully-cut) characters with resolved display names — for the "Link with…" dropdown
   const allActiveCharsForLinks = speakingChars
-    .filter((c) => !fullyCutCharIds.has(c.id))
+    .filter((c) => !effectivelyExcludedIds.has(c.id))
     .map((c) => ({
       id: c.id,
       name: activeCut?.characterAliases?.[c.id] ?? c.name,
@@ -685,20 +688,20 @@ export default function CastingManager({ playId }: Props) {
   });
 
   // #21 Full cast banner
-  const activeNonCutChars = speakingChars.filter((c) => !fullyCutCharIds.has(c.id));
+  const activeNonCutChars = speakingChars.filter((c) => !effectivelyExcludedIds.has(c.id));
   const isFullyCast =
     activeNonCutChars.length > 0 && activeNonCutChars.every((c) => charToActor[c.id]);
 
   const desiredCount = isAudition ? (draft?.desiredActorCount ?? null) : localDesiredCount;
 
   const unassignedCount = speakingChars.filter(
-    (c) => !fullyCutCharIds.has(c.id) && !charToActor[c.id]
+    (c) => !effectivelyExcludedIds.has(c.id) && !charToActor[c.id]
   ).length;
 
   // Note: cannot be useMemo — depends on values computed after the early returns above.
   const naturalMinimum = (() => {
     if (!activeCut) return null;
-    const activeCharsForMin = speakingChars.filter((c) => !fullyCutCharIds.has(c.id));
+    const activeCharsForMin = speakingChars.filter((c) => !effectivelyExcludedIds.has(c.id));
     const activeCharIdsForMin = activeCharsForMin.map((c) => c.id);
     if (activeCharIdsForMin.length === 0) return null;
 
@@ -1532,6 +1535,10 @@ export default function CastingManager({ playId }: Props) {
             conflictCount={conflictsPerChar.get(char.id) ?? 0}
             conflictingActorIds={getConflictingActorIds(char.id)}
             isFullyCut={fullyCutCharIds.has(char.id)}
+            isMarkedForRemoval={markedSet.has(char.id)}
+            onToggleMarkedForRemoval={() =>
+              dispatch({ type: "TOGGLE_MARK_FOR_REMOVAL", characterId: char.id })
+            }
             lineCounts={lineCounts?.byCharacter[char.id] ?? { original: 0, afterCut: 0 }}
             wordCounts={lineCounts?.words.byCharacter[char.id] ?? { original: 0, afterCut: 0 }}
             stageMinutes={stageTime?.byCharacter[char.id]?.minutes}
