@@ -55,6 +55,7 @@ type ProjectAction =
   | { type: "REASSIGN_SPEECH"; unitId: string; characterIds: string[] | null }
   | { type: "SET_CHARACTER_ALIAS"; characterId: string; alias: string | null }
   | { type: "TOGGLE_CHARACTER_LINK"; charIdA: string; charIdB: string }
+  | { type: "TOGGLE_MARK_FOR_REMOVAL"; characterId: string }
   | { type: "BULK_SET_CAST"; actors: Actor[]; assignments: ActorAssignment[] }
   | { type: "EXTEND_CAST"; actors: Actor[]; assignments: ActorAssignment[] }
   | { type: "SAVE_CAST_OPTION"; name: string; assignments?: ActorAssignment[]; desiredActorCount?: number; characterLinks?: Array<[string, string]> }
@@ -463,6 +464,19 @@ function reducer(state: ProjectState, action: ProjectAction): ProjectState {
       return withUndo(state, (c) => ({
         ...c,
         characterLinks: newLinks.length > 0 ? newLinks : undefined,
+      }));
+    }
+
+    case "TOGGLE_MARK_FOR_REMOVAL": {
+      const existing =
+        state.project!.cuts.find((c) => c.id === state.activeCutId)?.markedForRemoval ?? [];
+      const isMarked = existing.includes(action.characterId);
+      const next = isMarked
+        ? existing.filter((id) => id !== action.characterId)
+        : [...existing, action.characterId];
+      return withUndo(state, (c) => ({
+        ...c,
+        markedForRemoval: next.length > 0 ? next : undefined,
       }));
     }
 

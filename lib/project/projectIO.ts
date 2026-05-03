@@ -48,6 +48,7 @@ const CutSchema = z.object({
   ).optional(),
   characterAliases: z.record(z.string(), z.string()).optional(),
   characterLinks: z.array(z.tuple([z.string(), z.string()])).optional(),
+  markedForRemoval: z.array(z.string()).optional(),
   // Group 15 additions:
   speechSplits: z.record(z.string(), z.object({
     splitAtLineIndex: z.number().int().nonnegative(),

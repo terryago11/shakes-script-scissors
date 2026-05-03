@@ -102,6 +102,8 @@ export interface Cut {
    * encode dramaturgical choices (e.g. Theseus/Oberon) before running Suggest.
    */
   characterLinks?: Array<[string, string]>;
+  /** Character IDs explicitly flagged for removal by the director. */
+  markedForRemoval?: string[];
   /**
    * Speech splits: divides a Speech into two independently cuttable parts.
    * Part 1 keeps the original unitId. Part 2 uses "${unitId}:s2".
