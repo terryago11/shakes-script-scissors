@@ -102,6 +102,7 @@ export default function CastingManager({ playId }: Props) {
   const [pendingConfirm, setPendingConfirm] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [showUnassignConfirm, setShowUnassignConfirm] = useState(false);
   const [castingSheetDownloading, setCastingSheetDownloading] = useState(false);
+  const [localDesiredCount, setLocalDesiredCount] = useState<number | null>(null);
 
   // Reset audition mode when leaving the casting page
   useEffect(() => {
@@ -688,7 +689,7 @@ export default function CastingManager({ playId }: Props) {
   const isFullyCast =
     activeNonCutChars.length > 0 && activeNonCutChars.every((c) => charToActor[c.id]);
 
-  const desiredCount = draft?.desiredActorCount ?? null;
+  const desiredCount = isAudition ? (draft?.desiredActorCount ?? null) : localDesiredCount;
 
   const unassignedCount = speakingChars.filter(
     (c) => !fullyCutCharIds.has(c.id) && !charToActor[c.id]
@@ -1126,7 +1127,7 @@ export default function CastingManager({ playId }: Props) {
                 value={desiredCount ?? naturalMinimum ?? ""}
                 onChange={(e) => {
                   const v = parseInt(e.target.value, 10);
-                  setDraftDesiredCount(isNaN(v) ? null : v);
+                  isAudition ? setDraftDesiredCount(isNaN(v) ? null : v) : setLocalDesiredCount(isNaN(v) ? null : v);
                 }}
                 className="w-20 border border-stone-300 dark:border-stone-600 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white dark:bg-stone-800 dark:text-stone-200"
               />
