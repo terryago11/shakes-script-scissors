@@ -394,31 +394,39 @@ Directors who work by highlighting text in a Word document can import that `.doc
 From the nav bar → **Cue Scripts** page:
 
 1. Select an actor from the dropdown to preview their cue script.
-2. Click **Print / Save PDF** to print or save that actor's script from the app.
-3. Click **Download All as ZIP** to generate server-side PDFs for every actor at once and download them as a single ZIP file.
-4. Click **Line Buddy (HTML)** to download a ZIP of interactive HTML cue-card files — one per actor.
+2. Click **Print / Save PDF** to print or save that actor's script. (A printer icon in the main nav bar also triggers printing from the script view.)
+3. Click **Export Line Buddy** (next to Print) to download just that actor's interactive HTML drill file directly — no ZIP needed.
+4. Click **Download All as ZIP** to generate server-side PDFs for every actor at once as a single ZIP file.
+5. Click **All Line Buddies (ZIP)** to download one Line Buddy HTML file per actor in a single ZIP.
+
+**Searching the preview**: Press **Cmd+F** (Mac) or **Ctrl+F** (Windows/Linux), or click the magnifying-glass button, to open a search bar — matches are highlighted amber in the cue script preview. Press **Esc** or click **×** to close.
 
 Each actor's cue script shows:
 - Their character(s) at the top
 - All their lines, preceded by the last few words of the preceding speech (the "cue")
 - Entrance and exit stage directions mentioning their characters
 - Non-entrance/exit stage directions that fall within their on-stage blocks
+- Song speeches in violet italic; song/dance stage directions with ♪/⊛ prefixes
 
 Print settings: `@page` headers (play title and cut name top-left, actor name top-right), footer (page number, timestamp, tool attribution).
 
 ### Line Buddy — interactive cue-card drill
 
-**Line Buddy** is a self-contained HTML flashcard app for memorising lines. Each card shows the cue (the last few words of the preceding speech), and the actor taps or presses a key to reveal their response.
+**Line Buddy** is a self-contained HTML app for memorising lines scene by scene. Open any actor's HTML file in a browser — no internet connection needed.
 
-**Download**: Cue Scripts page → **Line Buddy (HTML)** button downloads a ZIP containing one HTML file per actor. Open any file in a browser — no internet connection needed.
+**Layout**: all content of the current scene is shown as a column of blocks. Cues (the last few words of the preceding speech) and stage directions are always visible; the actor's lines start hidden and are revealed one at a time.
 
-**Controls**:
-- **Space** or **→** — reveal lines / advance to next card
-- **←** — go back to the previous card (shown fully revealed)
-- **S** — toggle shuffle mode (randomises card order)
-- **Reset** button — restart from the first card in current order
+**Navigation**:
+- **Space** or **→** — reveal the next lines block; after all lines in a scene are revealed, advances to the next scene
+- **←** — go back one lines block (re-hides it)
+- **`[`** / **`]`** — jump to the previous / next scene
+- **`g`** — focus the scene jump dropdown to skip to any scene directly
 
-A progress bar tracks how far through the deck the actor is. Cards without a preceding speech (e.g. the opening line of a scene) show "— Beginning —" as the cue. Mobile-friendly with large tap targets (minimum 44 px).
+The sticky header shows the current act and scene title, prev/next scene buttons, and the scene jump dropdown. Progress shows "N / M lines" within the current scene. Lines without a preceding speech (e.g. the opening of a scene) show "— Beginning —" as the cue.
+
+**Song/dance**: song speeches are rendered in violet italic; song stage directions are prefixed with ♪ (violet), dance stage directions with ⊛ (cyan).
+
+**Download**: "Export Line Buddy" (per-actor, no ZIP) or "All Line Buddies (ZIP)" (all actors at once) on the Cue Scripts page.
 
 ---
 

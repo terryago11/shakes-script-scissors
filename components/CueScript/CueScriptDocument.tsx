@@ -3,6 +3,12 @@ import type { CueScript, CueEntry } from "@/types/cut";
 interface Props {
   cueScript: CueScript;
   characterNames?: string[];
+  searchQuery?: string;
+}
+
+function buildSearchRegex(query: string | undefined): RegExp | undefined {
+  if (!query || query.trim().length < 2) return undefined;
+  return new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
 }
 
 /** Escape a string value for embedding in a CSS content: "..." property */
@@ -10,21 +16,34 @@ function escapeCssString(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
-export default function CueScriptDocument({ cueScript, characterNames = [] }: Props) {
-  const { actorName, playTitle, cutName, entries } = cueScript;
+/** Split text and wrap matches in <mark> spans for search highlighting. */
+function HighlightedText({ text, regex }: { text: string; regex?: RegExp }) {
+  if (!regex) return <>{text}</>;
+  const parts = text.split(regex);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <mark key={i} className="bg-amber-200 dark:bg-amber-800 rounded-sm px-0.5">{part}</mark>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
 
-  // Build the characters string for the page header — truncate if long
+export default function CueScriptDocument({ cueScript, characterNames = [], searchQuery }: Props) {
+  const { actorName, playTitle, cutName, entries } = cueScript;
+  const searchRegex = buildSearchRegex(searchQuery);
+
   const charList = characterNames.join(", ");
   const charDisplay = charList.length > 60 ? charList.slice(0, 58) + "…" : charList;
 
-  // Timestamp for the print footer
   const printDate = new Date().toLocaleDateString("en-GB", {
     day: "2-digit", month: "short", year: "numeric",
   });
 
-  // @page margin-box CSS — injected as a <style> block for print
-  // All pages: footer with page number + date
-  // All pages except first: header with play/actor/characters
   const pageCSS = `
 @page {
   margin-top: 15mm;
@@ -46,7 +65,6 @@ export default function CueScriptDocument({ cueScript, characterNames = [] }: Pr
 
   return (
     <div className="font-serif max-w-2xl mx-auto px-8 py-10 print:px-6 print:py-4 print:bg-white print:text-black">
-      {/* Print-only @page styles */}
       <style dangerouslySetInnerHTML={{ __html: pageCSS }} />
 
       {/* Header */}
@@ -64,14 +82,14 @@ export default function CueScriptDocument({ cueScript, characterNames = [] }: Pr
       {/* Entries */}
       <div className="space-y-3">
         {entries.map((entry, i) => (
-          <CueEntryView key={i} entry={entry} />
+          <CueEntryView key={i} entry={entry} searchRegex={searchRegex} />
         ))}
       </div>
     </div>
   );
 }
 
-function CueEntryView({ entry }: { entry: CueEntry }) {
+function CueEntryView({ entry, searchRegex }: { entry: CueEntry; searchRegex?: RegExp }) {
   if (entry.type === "cue") {
     return (
       <div className="break-inside-avoid text-right pr-2 border-r-2 border-stone-300">
@@ -80,7 +98,9 @@ function CueEntryView({ entry }: { entry: CueEntry }) {
             {entry.cueSpeakerName}
           </div>
         )}
-        <div className="text-sm italic text-stone-500">{entry.text}</div>
+        <div className="text-sm italic text-stone-500">
+          <HighlightedText text={entry.text} regex={searchRegex} />
+        </div>
       </div>
     );
   }
@@ -88,7 +108,7 @@ function CueEntryView({ entry }: { entry: CueEntry }) {
   if (entry.type === "stage") {
     return (
       <div className="break-inside-avoid text-sm italic text-stone-500 text-center">
-        [{entry.text}]
+        [<HighlightedText text={entry.text} regex={searchRegex} />]
       </div>
     );
   }
@@ -101,9 +121,11 @@ function CueEntryView({ entry }: { entry: CueEntry }) {
           {entry.characterName}
         </div>
       )}
-      <div className="text-base text-stone-900 leading-relaxed">
+      <div className={`text-base leading-relaxed ${entry.isSong ? "text-violet-700 dark:text-violet-400 italic" : "text-stone-900 dark:text-stone-100"}`}>
         {entry.text.split("\n").map((line, i) => (
-          <div key={i}>{line}</div>
+          <div key={i}>
+            <HighlightedText text={line} regex={searchRegex} />
+          </div>
         ))}
       </div>
     </div>

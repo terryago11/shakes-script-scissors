@@ -57,6 +57,12 @@ export interface CueEntry {
   text: string;
   characterName?: string; // set on "lines" entries to show who is speaking
   cueSpeakerName?: string; // set on "cue" entries to label who is giving the cue
+  sceneId?: string;
+  actId?: string;
+  sceneTitle?: string;
+  actTitle?: string;
+  isSong?: boolean;
+  isDance?: boolean;
 }
 
 export interface CueScript {
