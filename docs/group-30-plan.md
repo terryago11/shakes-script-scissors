@@ -5,9 +5,9 @@ Nine improvements: integrity engine correctness (reassigned speeches, insertedSD
 
 ## Session breakdown
 - **Session 1 (30-quick):** 30A + 30B-1 + 30B-2 — quick fixes + engine correctness ✅
-- **Session 2 (30-integrity):** 30B-3 + 30B-4 — near-fully-cut chars + mark for removal
-- **Session 3 (30-casting):** 30C + 30D — doubling conflict warnings + multi-select filters
-- **Session 4 (30-features):** 30E + 30F — scene subdivisions + on-stage sidebar
+- **Session 2 (30-integrity):** 30B-3 + 30B-4 — near-fully-cut chars + mark for removal ✅
+- **Session 3 (30-casting):** 30C + 30D — doubling conflict warnings + multi-select filters ✅
+- **Session 4 (30-features):** 30E + 30F — scene subdivisions + on-stage sidebar ✅
 
 ---
 
@@ -128,9 +128,9 @@ Each `⚑ Marked` row shows the two checklist items inline: `X speeches remainin
 
 ---
 
-## 30C — Doubling conflict warnings (item 6)
+## 30C — Doubling conflict warnings (item 6) ✅
 
-### 30C-1: Warnings panel
+### 30C-1: Warnings panel ✅
 **File:** `components/CastingManager/CastingManager.tsx` — after quick-change warnings panel (line ~1493)
 
 Build `conflictsList` from existing `conflictsPerChar` + `simultaneousMap`:
@@ -154,7 +154,7 @@ Render a "Doubling Conflicts" section with a `🚫` icon per row, showing: actor
 
 Also check `suggestState.phase === "preview" && suggestState.forcedConflicts?.length > 0` — if present (they were forced below natural minimum), show a sub-section "Forced conflicts from last suggest:" listing each pair with shared-minutes if available. First verify that `SuggestResult.forcedConflicts` is actually plumbed into `suggestState` — if not, note it as a follow-up.
 
-### 30C-2: Surface on actor cards
+### 30C-2: Surface on actor cards ✅
 In the actor-card render loop (~line 1320), compute `actorConflictCount` = number of entries in `conflictsList` where `actorId === actor.id`. Next to the existing `⚠` low-time badge (line 1378), add:
 ```tsx
 {actorConflictCount > 0 && (
@@ -163,7 +163,7 @@ In the actor-card render loop (~line 1320), compute `actorConflictCount` = numbe
 ```
 Also add `actorQuickChangeCount` = number of quick-change warnings for this actor, and show `⚡ N` if > 0.
 
-### 30C-3: Character card badges
+### 30C-3: Character card badges ✅
 `CharacterCard.tsx` already shows `⚠ N` for `conflictCount`. Add a quick-change badge: add optional prop `hasQuickChange?: boolean` to CharacterCard. Pass it from CastingManager by checking whether `quickChangeResult.warnings` contains this character's ID (`exitCharacterId` or `enterCharacterId`). Render as `⚡` next to the conflict badge when true.
 
 **Verify:** Assign the same actor to two simultaneously-on-stage characters. Confirm:
@@ -174,14 +174,14 @@ Then create a quick-change. Confirm the character card shows `⚡` and the actor
 
 ---
 
-## 30D — Multi-select filters (item 5)
+## 30D — Multi-select filters (item 5) ✅
 
-### DashboardMatrix
+### DashboardMatrix ✅
 **File:** `components/Dashboard/DashboardMatrix.tsx:79-82`
 
 Change `filterSceneId: string | null` to `filterSceneIds: Set<string>`. Update `handleRowLabelClick` to toggle scene into/out of the set (don't clear others). Update filtered-scene logic wherever `filterSceneId` is checked to use `.has()`. Add a "Clear filters" button (small, muted) that appears when `filterSceneIds.size > 0 || filterCharIds.size > 0`.
 
-### PresenceChart
+### PresenceChart ✅
 **File:** `components/Dashboard/PresenceChart.tsx:29-40`
 
 Change both `selectedCharId: string | null` and `selectedSceneId: string | null` to `Set<string>` (rename to `selectedCharIds`, `selectedSceneIds`). Remove mutual-exclusion between char and scene filters. Update `toggleChar` and `toggleScene` to add/remove from sets. Update filter application to use `.has()`. Add "Clear" link.
@@ -190,7 +190,7 @@ Change both `selectedCharId: string | null` and `selectedSceneId: string | null`
 
 ---
 
-## 30E — Scene subdivisions in Scenes & Pauses (item 7)
+## 30E — Scene subdivisions in Scenes & Pauses (item 7) ✅
 
 ### Extract subdivision utility
 **File:** Check whether `buildSubScenes` in `RehearsalGroupings.tsx` is importable or is a local function. If local, extract it to `lib/cuts/SceneSubdivisionUtils.ts` (or a shared location). Confirm it takes `(scene: Scene, activeCut: Cut, wpm: number)` and returns `SubScene[]`.
@@ -213,7 +213,7 @@ When expanded, list each subdivision entry with character set and line range. Ea
 
 ---
 
-## 30F — Who's on stage sidebar (stretch)
+## 30F — Who's on stage sidebar (stretch) ✅
 
 ### Utility function
 **File:** `lib/cuts/StageTimeEngine.ts`

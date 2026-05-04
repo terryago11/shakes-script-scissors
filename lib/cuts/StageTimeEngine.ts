@@ -1,7 +1,7 @@
 import type { Play, StageDirection, ScriptUnit } from "@/types/play";
 import type { Cut, ProjectSettings } from "@/types/project";
 import { expandSplits, expandInsertions } from "./expandUtils";
-import { getSubSceneId } from "./SceneSubdivisionUtils";
+import { getSubSceneId, buildSceneEntries } from "./SceneSubdivisionUtils";
 import { getEffectiveSceneOrder } from "@/lib/project/projectUtils";
 
 const AVG_WORDS_PER_LINE = 8;
@@ -31,8 +31,12 @@ export interface StageTimeResult {
   originalTotalMinutes: number;
   /** Total minutes added by pauses (already included in totalMinutes) */
   pauseMinutes: number;
-  /** Characters with kept speeches but no matching entrance or exit SD */
-  warnings: Array<{ characterId: string; type: "no-exit" | "no-entrance" }>;
+  /** Characters with kept speeches but no matching entrance or exit SD, or near-fully-cut */
+  warnings: Array<{
+    characterId: string;
+    type: "no-exit" | "no-entrance" | "entrance-only" | "few-lines";
+    lineCount?: number;
+  }>;
 }
 
 /** Returns the effective character list for an SD, applying any overrides from the cut. */
@@ -335,6 +339,7 @@ export function computeStageTime(
   const exitedAnywhereChars = new Set<string>();
   const enteredAnywhereChars = new Set<string>();
   const speakingKeptChars = new Set<string>();
+  const keptLinesByChar = new Map<string, number>();
   for (const act of play.acts) {
     for (const scene of act.scenes) {
       for (const unit of scene.units) {
@@ -355,10 +360,14 @@ export function computeStageTime(
           // Skip speeches with empty/invalid characterId (data quality gaps in TEI)
           if ((cut.cutMap[unit.id] ?? "kept") === "kept" && unit.characterId) {
             const reassigned = cut.speechReassignments?.[unit.id];
-            if (reassigned && reassigned.length > 0) {
-              for (const c of reassigned) speakingKeptChars.add(c);
-            } else {
-              speakingKeptChars.add(unit.characterId);
+            const effectiveSpeakers =
+              reassigned && reassigned.length > 0 ? reassigned : [unit.characterId];
+            const keptLineCount = unit.lines.filter(
+              (l) => (cut.lineCutMap?.[l.id] ?? "kept") === "kept"
+            ).length;
+            for (const c of effectiveSpeakers) {
+              speakingKeptChars.add(c);
+              keptLinesByChar.set(c, (keptLinesByChar.get(c) ?? 0) + keptLineCount);
             }
           }
         }
@@ -383,6 +392,22 @@ export function computeStageTime(
     }
     if (!enteredAnywhereChars.has(charId)) {
       warnings.push({ characterId: charId, type: "no-entrance" });
+    }
+  }
+
+  // Presence-only: appear in kept SDs but have no kept speeches
+  const sdChars = new Set([...enteredAnywhereChars, ...exitedAnywhereChars]);
+  for (const charId of sdChars) {
+    if (!speakingKeptChars.has(charId)) {
+      warnings.push({ characterId: charId, type: "entrance-only" });
+    }
+  }
+
+  // Few lines: kept speeches but fewer than 10 kept lines total
+  for (const charId of speakingKeptChars) {
+    const count = keptLinesByChar.get(charId) ?? 0;
+    if (count < 10) {
+      warnings.push({ characterId: charId, type: "few-lines", lineCount: count });
     }
   }
 
@@ -459,4 +484,41 @@ export function getSharedMinutes(
 ): number {
   const [lo, hi] = a < b ? [a, b] : [b, a];
   return map.get(lo)?.get(hi) ?? 0;
+}
+
+/**
+ * For each scene (or sub-scene part if subdivided), return the set of characters
+ * that were on stage at any point during that scene — carrying entrance/exit state
+ * across scenes within the same act.
+ *
+ * Key is the effective scene/sub-scene ID (same as EffectiveSceneEntry.id).
+ * Only kept entrance/exit SDs are counted.
+ */
+export function computeOnStageByScene(play: Play, cut: Cut): Map<string, Set<string>> {
+  const result = new Map<string, Set<string>>();
+  const onStage = new Set<string>();
+  const edits = cut.stageDirectionEdits;
+
+  for (const act of play.acts) {
+    for (const scene of act.scenes) {
+      const entries = buildSceneEntries(scene, cut, play);
+      for (const entry of entries) {
+        const present = new Set<string>(onStage);
+        for (const unit of entry.units) {
+          if (unit.type !== "stage") continue;
+          if ((cut.cutMap[unit.id] ?? "kept") === "cut") continue;
+          const sd = unit as StageDirection;
+          const chars = getEffectiveCharacters(sd, edits);
+          if (sd.stageType === "entrance") {
+            for (const c of chars) { onStage.add(c); present.add(c); }
+          } else if (sd.stageType === "exit") {
+            for (const c of chars) onStage.delete(c);
+          }
+        }
+        result.set(entry.id, present);
+      }
+    }
+  }
+
+  return result;
 }

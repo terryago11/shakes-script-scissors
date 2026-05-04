@@ -6,7 +6,7 @@ import type { LineCounts } from "@/types/cut";
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import type { Actor, Cut } from "@/types/project";
 import type { SongDanceItem } from "./SceneDashboard";
-import type { EffectiveSceneEntry } from "@/lib/cuts/SceneSubdivisionUtils";
+import type { EffectiveSceneEntry, SubScene } from "@/lib/cuts/SceneSubdivisionUtils";
 import { buildSceneEntries, findUnitAtLine, PART_LABELS } from "@/lib/cuts/SceneSubdivisionUtils";
 import PauseRow from "./PauseRow";
 
@@ -50,6 +50,8 @@ interface Props {
   onRemoveSceneSplit?: (realSceneId: string, splitId: string) => void;
   /** Expanded column entries — includes virtual sub-scene IDs when scenes are subdivided */
   columnEntries?: EffectiveSceneEntry[];
+  /** Naturally detected subdivisions for scenes not yet manually split */
+  detectedSubdivisions?: Map<string, SubScene[]>;
 }
 
 function formatMinutes(m: number): string {
@@ -85,6 +87,7 @@ export default function SceneList({
   onAddSceneSplit,
   onRemoveSceneSplit,
   columnEntries,
+  detectedSubdivisions,
 }: Props) {
   const [dragOverSceneId, setDragOverSceneId] = useState<string | null>(null);
   const [editingDuration, setEditingDuration] = useState<string | null>(null); // SD id being edited
@@ -99,6 +102,15 @@ export default function SceneList({
   const [splitLineInput, setSplitLineInput] = useState("");
   const [splitPreview, setSplitPreview] = useState<SplitPreview | null>(null);
   const [splitPreviewError, setSplitPreviewError] = useState<string | null>(null);
+  // Which scene suggestion disclosures are expanded
+  const [expandedSuggestions, setExpandedSuggestions] = useState<Set<string>>(new Set());
+  function toggleSuggestion(sceneId: string) {
+    setExpandedSuggestions((prev) => {
+      const next = new Set(prev);
+      next.has(sceneId) ? next.delete(sceneId) : next.add(sceneId);
+      return next;
+    });
+  }
 
   // Build a map of realSceneId → sub-scene entries (only for subdivided scenes)
   const subScenesByRealId = new Map<string, EffectiveSceneEntry[]>();
@@ -718,6 +730,44 @@ export default function SceneList({
                 </React.Fragment>
               );
             })}
+
+            {/* Suggested splits — shown for scenes with no existing splits + detected natural subdivisions */}
+            {!subScenesByRealId.has(sceneId) && detectedSubdivisions?.has(sceneId) && (() => {
+              const subs = detectedSubdivisions.get(sceneId)!;
+              const isExpanded = expandedSuggestions.has(sceneId);
+              return (
+                <div className="ml-4 mt-1 mb-2">
+                  <button
+                    onClick={() => toggleSuggestion(sceneId)}
+                    className="flex items-center gap-1 text-xs text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300"
+                  >
+                    <span>⊕</span>
+                    <span>{subs.length} natural subdivision{subs.length !== 1 ? "s" : ""} detected</span>
+                    <span className="text-stone-300 dark:text-stone-600">[{isExpanded ? "Hide" : "Show"}]</span>
+                  </button>
+                  {isExpanded && (
+                    <div className="mt-1 space-y-1 border-l-2 border-stone-200 dark:border-stone-700 pl-3">
+                      {subs.slice(0, -1).map((sub, i) => (
+                        <div key={sub.id} className="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400">
+                          <span>
+                            {PART_LABELS[i]}→{PART_LABELS[i + 1]}:{" "}
+                            {sub.charSet.size} char{sub.charSet.size !== 1 ? "s" : ""} · ~{Math.round(sub.minutes)}m
+                          </span>
+                          {sub.splitAfterUnitId && onAddSceneSplit && (
+                            <button
+                              onClick={() => onAddSceneSplit(sceneId, sub.splitAfterUnitId!)}
+                              className="ml-2 px-2 py-0.5 text-xs bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 rounded hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors"
+                            >
+                              Apply split here
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <PauseRow
               afterSceneId={sceneId}

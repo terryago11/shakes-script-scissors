@@ -1,6 +1,25 @@
 "use client";
 
 import { useState } from "react";
+
+function RemnantSdList({ remnantSds }: { remnantSds: Array<{ text: string; actTitle: string; sceneTitle: string }> }) {
+  return (
+    <>
+      {remnantSds.map(({ text, actTitle, sceneTitle }, i) => (
+        <div key={i} className="space-y-0.5">
+          <div className="flex gap-1.5 text-amber-700 dark:text-amber-300">
+            <span className="text-amber-400 dark:text-amber-500 shrink-0">{actTitle}</span>
+            <span className="text-amber-300 dark:text-amber-600">›</span>
+            <span>{sceneTitle}</span>
+          </div>
+          <div className="text-amber-600 dark:text-amber-400 italic pl-2 truncate" title={text}>
+            &ldquo;{text}&rdquo;
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
 import type { Play } from "@/types/play";
 import type { Cut } from "@/types/project";
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
@@ -23,6 +42,12 @@ interface CharDetail {
   /** Locations of the complementary SD type that already exists */
   existingSds: SdLocation[];
   existingSdLabel: string; // "entrance" or "exit"
+}
+
+interface SimpleCharDetail {
+  characterId: string;
+  charName: string;
+  lineCount?: number;
 }
 
 /** Walk the play to find all SDs of the given type that list charId, with their
@@ -309,15 +334,57 @@ function extractSdRefs(
   ];
 }
 
+function NearCutSection({
+  title,
+  description,
+  chars,
+  showLineCount,
+}: {
+  title: string;
+  description: string;
+  chars: SimpleCharDetail[];
+  showLineCount?: boolean;
+}) {
+  if (chars.length === 0) return null;
+  return (
+    <div className="min-w-0">
+      <h2 className="text-sm font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-1">
+        {title}
+      </h2>
+      <p className="text-xs text-stone-400 dark:text-stone-400 mb-3">{description}</p>
+      <div className="space-y-1.5">
+        {chars.map(({ characterId, charName, lineCount }) => (
+          <div
+            key={characterId}
+            className="flex items-center gap-2 px-3 py-2 rounded border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/50 text-xs"
+          >
+            <span className="text-amber-500 shrink-0">⚠</span>
+            <span className="flex-1 min-w-0 truncate text-stone-600 dark:text-stone-300">{charName}</span>
+            {showLineCount && lineCount != null && (
+              <span className="text-stone-400 dark:text-stone-500 shrink-0 tabular-nums">
+                {lineCount} line{lineCount !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function EntranceExitSection({
   noExitChars,
   noEntranceChars,
+  presenceOnlyChars,
+  fewLinesChars,
 }: {
   noExitChars: CharDetail[];
   noEntranceChars: CharDetail[];
+  presenceOnlyChars: SimpleCharDetail[];
+  fewLinesChars: SimpleCharDetail[];
 }) {
   const [open, setOpen] = useState(false);
-  const issueCount = noExitChars.length + noEntranceChars.length;
+  const issueCount = noExitChars.length + noEntranceChars.length + presenceOnlyChars.length + fewLinesChars.length;
   const hasIssues = issueCount > 0;
 
   return (
@@ -339,17 +406,36 @@ function EntranceExitSection({
       {open && (
         <div className="mt-3">
           {hasIssues ? (
-            <div className="grid grid-cols-2 gap-8">
-              <WarningSection
-                title="Missing Exit Stage Directions"
-                description="These characters have kept speeches but no paired exit SD. Their stage time accumulates until end of scene — add a corresponding SD as needed."
-                chars={noExitChars}
-              />
-              <WarningSection
-                title="Missing Entrance Stage Directions"
-                description="These characters have kept speeches but no paired entrance SD. Their stage time accumulates from start of scene — add a corresponding SD as needed."
-                chars={noEntranceChars}
-              />
+            <div className="space-y-6">
+              {(noExitChars.length > 0 || noEntranceChars.length > 0) && (
+                <div className="grid grid-cols-2 gap-8">
+                  <WarningSection
+                    title="Missing Exit Stage Directions"
+                    description="These characters have kept speeches but no paired exit SD. Their stage time accumulates until end of scene — add a corresponding SD as needed."
+                    chars={noExitChars}
+                  />
+                  <WarningSection
+                    title="Missing Entrance Stage Directions"
+                    description="These characters have kept speeches but no paired entrance SD. Their stage time accumulates from start of scene — add a corresponding SD as needed."
+                    chars={noEntranceChars}
+                  />
+                </div>
+              )}
+              {(presenceOnlyChars.length > 0 || fewLinesChars.length > 0) && (
+                <div className="grid grid-cols-2 gap-8">
+                  <NearCutSection
+                    title="Presence-only"
+                    description="These characters appear in kept stage directions but have no kept speeches. They appear on stage but never speak."
+                    chars={presenceOnlyChars}
+                  />
+                  <NearCutSection
+                    title="Nearly cut"
+                    description="These characters have fewer than 10 kept lines. Consider cutting completely."
+                    chars={fewLinesChars}
+                    showLineCount
+                  />
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-2 py-2 text-sm text-stone-400 dark:text-stone-400">
@@ -659,7 +745,30 @@ interface FullyRemovedChar {
   remnantSds: Array<{ text: string; actTitle: string; sceneTitle: string }>;
 }
 
-function FullyRemovedSection({ chars }: { chars: FullyRemovedChar[] }) {
+interface MarkedChar {
+  charId: string;
+  charName: string;
+  speechesRemaining: number;
+  sdsRemaining: number;
+  isFullyCut: boolean;
+  remnantSds: Array<{ text: string; actTitle: string; sceneTitle: string }>;
+}
+
+function RemovedFlaggedSection({
+  fullyRemovedChars,
+  markedForRemoval,
+  play,
+  activeCut,
+  characterAliases,
+  onToggleMarked,
+}: {
+  fullyRemovedChars: FullyRemovedChar[];
+  markedForRemoval: string[];
+  play: Play;
+  activeCut: Cut;
+  characterAliases?: Record<string, string>;
+  onToggleMarked?: (charId: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [expandedChars, setExpandedChars] = useState<Set<string>>(new Set());
 
@@ -671,7 +780,40 @@ function FullyRemovedSection({ chars }: { chars: FullyRemovedChar[] }) {
     });
   }
 
-  const hasRemnants = chars.some((c) => c.remnantSds.length > 0);
+  const markedSet = new Set(markedForRemoval);
+  const fullyCutSet = new Set(fullyRemovedChars.map((c) => c.charId));
+
+  // Build marked-but-not-fully-cut entries
+  const markedChars: MarkedChar[] = markedForRemoval.map((charId) => {
+    const charName = resolveCharacterName(charId, characterAliases, play.castList);
+    let speechesRemaining = 0;
+    let sdsRemaining = 0;
+    const remnantSds: MarkedChar["remnantSds"] = [];
+    for (const act of play.acts) {
+      for (const scene of act.scenes) {
+        for (const unit of scene.units) {
+          if (unit.type === "speech" && unit.characterId === charId) {
+            if ((activeCut.cutMap[unit.id] ?? "kept") === "kept") speechesRemaining++;
+          } else if (unit.type === "stage") {
+            const chars = activeCut.stageDirectionEdits?.[unit.id] ?? unit.characters;
+            if (chars.includes(charId)) {
+              if ((unit.stageType === "entrance" || unit.stageType === "exit") &&
+                  (activeCut.cutMap[unit.id] ?? "kept") !== "cut") sdsRemaining++;
+              if (activeCut.cutMap[unit.id] !== "cut") {
+                remnantSds.push({ text: unit.text.trim(), actTitle: act.title, sceneTitle: scene.title });
+              }
+            }
+          }
+        }
+      }
+    }
+    return { charId, charName, speechesRemaining, sdsRemaining, isFullyCut: fullyCutSet.has(charId), remnantSds };
+  });
+
+  // Combine: marked chars first, then auto-detected fully cut (not already in marked list)
+  const autoDetectedChars = fullyRemovedChars.filter((c) => !markedSet.has(c.charId));
+  const totalCount = markedChars.length + autoDetectedChars.length;
+  const hasRemnants = [...markedChars, ...autoDetectedChars.map(c => ({ ...c, remnantSds: c.remnantSds }))].some((c) => c.remnantSds.length > 0);
 
   return (
     <div className="mt-6 border-t border-stone-200 dark:border-stone-700 pt-4">
@@ -680,81 +822,138 @@ function FullyRemovedSection({ chars }: { chars: FullyRemovedChar[] }) {
         className="text-sm font-semibold text-stone-500 dark:text-stone-400 flex items-center gap-1.5 hover:text-stone-700 dark:hover:text-stone-200 transition-colors"
       >
         <span>{open ? "▼" : "▶"}</span>
-        <span>Fully Removed Characters</span>
-        {chars.length === 0 ? (
+        <span>Removed / Flagged Characters</span>
+        {totalCount === 0 ? (
           <span className="font-normal text-green-500 text-xs ml-1">✓</span>
         ) : hasRemnants ? (
           <span className="font-normal text-amber-500 dark:text-amber-400">
-            ({chars.length} character{chars.length !== 1 ? "s" : ""}, some with SD remnants)
+            ({totalCount} character{totalCount !== 1 ? "s" : ""}, some with SD remnants)
           </span>
         ) : (
           <span className="font-normal text-stone-400 dark:text-stone-400">
-            ({chars.length} character{chars.length !== 1 ? "s" : ""}, all clean)
+            ({totalCount} character{totalCount !== 1 ? "s" : ""})
           </span>
         )}
       </button>
       {open && (
         <div className="mt-3">
-          {chars.length === 0 ? (
+          {totalCount === 0 ? (
             <div className="flex items-center gap-2 py-1 text-sm text-stone-400 dark:text-stone-400">
               <span className="text-green-500">✓</span>
-              No fully cut characters in the current cut.
+              No removed or flagged characters in the current cut.
             </div>
           ) : (
             <div className="space-y-2">
               <p className="text-xs text-stone-400 dark:text-stone-400 mb-3">
-                Characters whose speeches and entrance/exit SDs are all cut. Check for remaining stage direction mentions that may need attention.
+                Characters marked for removal or fully cut. Check for remaining SD mentions that may need attention.
               </p>
-              {chars.map(({ charId, charName, remnantSds }) => {
-            const hasRemnants = remnantSds.length > 0;
-            const isExpanded = expandedChars.has(charId);
-            if (!hasRemnants) {
-              return (
-                <div key={charId} className="flex items-center gap-2 px-3 py-2 rounded border border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/50 text-xs">
-                  <span className="text-green-500 shrink-0">✓</span>
-                  <span className="text-stone-600 dark:text-stone-300">{charName}</span>
-                  <span className="text-stone-400 dark:text-stone-500 ml-1">Cleanly removed</span>
-                </div>
-              );
-            }
-            return (
-              <div
-                key={charId}
-                className="rounded border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 text-xs overflow-hidden"
-              >
-                <button
-                  onClick={() => toggleChar(charId)}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-amber-800 dark:text-amber-200 font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
-                >
-                  <span className="text-amber-500 shrink-0">⚠</span>
-                  <span className="flex-1 min-w-0 truncate">{charName}</span>
-                  <span className="text-amber-400 dark:text-amber-500 shrink-0 font-normal">
-                    {remnantSds.length} SD{remnantSds.length !== 1 ? "s" : ""}
-                  </span>
-                  <span className="text-amber-400 dark:text-amber-500 shrink-0 ml-1">{isExpanded ? "▲" : "▼"}</span>
-                </button>
-                {isExpanded && (
-                  <div className="border-t border-amber-200 dark:border-amber-800 px-3 py-2 space-y-1.5">
-                    <div className="text-amber-500 dark:text-amber-400 font-medium mb-1">
-                      Still mentioned in stage directions
+
+              {/* Marked characters */}
+              {markedChars.map(({ charId, charName, speechesRemaining, sdsRemaining, isFullyCut, remnantSds }) => {
+                const isExpanded = expandedChars.has(charId);
+                const fullyDone = speechesRemaining === 0 && sdsRemaining === 0;
+                const statusPill = isFullyCut || fullyDone
+                  ? "⚑ Marked · ✓ Fully cut"
+                  : "⚑ Marked";
+                const hasRemnantSds = remnantSds.length > 0;
+                return (
+                  <div
+                    key={charId}
+                    className="rounded border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 text-xs overflow-hidden"
+                  >
+                    <div className="flex items-center gap-2 px-3 py-2 text-amber-800 dark:text-amber-200 font-medium">
+                      <span className="text-amber-500 shrink-0">⚑</span>
+                      <span className="flex-1 min-w-0 truncate">{charName}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-normal shrink-0 ${
+                        isFullyCut || fullyDone
+                          ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400"
+                          : "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400"
+                      }`}>
+                        {statusPill}
+                      </span>
+                      {onToggleMarked && (
+                        <button
+                          onClick={() => onToggleMarked(charId)}
+                          className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 text-[10px] shrink-0 ml-1"
+                          title="Unmark for removal"
+                        >
+                          × Unmark
+                        </button>
+                      )}
+                      {hasRemnantSds && (
+                        <button
+                          onClick={() => toggleChar(charId)}
+                          className="text-amber-400 dark:text-amber-500 shrink-0 ml-1"
+                        >
+                          {isExpanded ? "▲" : "▼"}
+                        </button>
+                      )}
                     </div>
-                    {remnantSds.map(({ text, actTitle, sceneTitle }, i) => (
-                      <div key={i} className="space-y-0.5">
-                        <div className="flex gap-1.5 text-amber-700 dark:text-amber-300">
-                          <span className="text-amber-400 dark:text-amber-500 shrink-0">{actTitle}</span>
-                          <span className="text-amber-300 dark:text-amber-600">›</span>
-                          <span>{sceneTitle}</span>
+                    {!(isFullyCut || fullyDone) && (
+                      <div className="border-t border-amber-200 dark:border-amber-800 px-3 py-2 space-y-1">
+                        <div className={`flex items-center gap-1.5 ${speechesRemaining === 0 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
+                          <span>{speechesRemaining === 0 ? "✓" : "○"}</span>
+                          <span>{speechesRemaining} speech{speechesRemaining !== 1 ? "es" : ""} remaining</span>
                         </div>
-                        <div className="text-amber-600 dark:text-amber-400 italic pl-2 truncate" title={text}>
-                          &ldquo;{text}&rdquo;
+                        <div className={`flex items-center gap-1.5 ${sdsRemaining === 0 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
+                          <span>{sdsRemaining === 0 ? "✓" : "○"}</span>
+                          <span>{sdsRemaining} entrance/exit SD{sdsRemaining !== 1 ? "s" : ""} remaining</span>
                         </div>
                       </div>
-                    ))}
+                    )}
+                    {isExpanded && hasRemnantSds && (
+                      <div className="border-t border-amber-200 dark:border-amber-800 px-3 py-2 space-y-1.5">
+                        <div className="text-amber-500 dark:text-amber-400 font-medium mb-1">
+                          Still mentioned in stage directions
+                        </div>
+                        <RemnantSdList remnantSds={remnantSds} />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+
+              {/* Auto-detected fully cut (not marked) */}
+              {autoDetectedChars.map(({ charId, charName, remnantSds }) => {
+                const hasRemnantSds = remnantSds.length > 0;
+                const isExpanded = expandedChars.has(charId);
+                if (!hasRemnantSds) {
+                  return (
+                    <div key={charId} className="flex items-center gap-2 px-3 py-2 rounded border border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/50 text-xs">
+                      <span className="text-green-500 shrink-0">✓</span>
+                      <span className="text-stone-600 dark:text-stone-300">{charName}</span>
+                      <span className="text-stone-400 dark:text-stone-500 ml-1">Auto-detected · Cleanly removed</span>
+                    </div>
+                  );
+                }
+                return (
+                  <div
+                    key={charId}
+                    className="rounded border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 text-xs overflow-hidden"
+                  >
+                    <button
+                      onClick={() => toggleChar(charId)}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-amber-800 dark:text-amber-200 font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
+                    >
+                      <span className="text-amber-500 shrink-0">⚠</span>
+                      <span className="flex-1 min-w-0 truncate">{charName}</span>
+                      <span className="text-stone-400 dark:text-stone-500 font-normal text-[10px]">Auto-detected</span>
+                      <span className="text-amber-400 dark:text-amber-500 shrink-0 font-normal">
+                        {remnantSds.length} SD{remnantSds.length !== 1 ? "s" : ""}
+                      </span>
+                      <span className="text-amber-400 dark:text-amber-500 shrink-0 ml-1">{isExpanded ? "▲" : "▼"}</span>
+                    </button>
+                    {isExpanded && (
+                      <div className="border-t border-amber-200 dark:border-amber-800 px-3 py-2 space-y-1.5">
+                        <div className="text-amber-500 dark:text-amber-400 font-medium mb-1">
+                          Still mentioned in stage directions
+                        </div>
+                        <RemnantSdList remnantSds={remnantSds} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -768,9 +967,10 @@ interface Props {
   activeCut: Cut;
   stageTime: StageTimeResult;
   characterAliases?: Record<string, string>;
+  onToggleMarkedForRemoval?: (characterId: string) => void;
 }
 
-export default function IntegrityChecks({ play, activeCut, stageTime, characterAliases }: Props) {
+export default function IntegrityChecks({ play, activeCut, stageTime, characterAliases, onToggleMarkedForRemoval }: Props) {
   const noExitIds = stageTime.warnings
     .filter((w) => w.type === "no-exit")
     .map((w) => w.characterId);
@@ -780,6 +980,21 @@ export default function IntegrityChecks({ play, activeCut, stageTime, characterA
 
   const noExitChars = buildCharDetails(play, activeCut, noExitIds, "exit", characterAliases);
   const noEntranceChars = buildCharDetails(play, activeCut, noEntranceIds, "entrance", characterAliases);
+
+  const presenceOnlyChars: SimpleCharDetail[] = stageTime.warnings
+    .filter((w) => w.type === "entrance-only")
+    .map((w) => ({
+      characterId: w.characterId,
+      charName: resolveCharacterName(w.characterId, characterAliases, play.castList),
+    }));
+
+  const fewLinesChars: SimpleCharDetail[] = stageTime.warnings
+    .filter((w) => w.type === "few-lines")
+    .map((w) => ({
+      characterId: w.characterId,
+      charName: resolveCharacterName(w.characterId, characterAliases, play.castList),
+      lineCount: w.lineCount,
+    }));
 
   // Compute fully-removed characters and any SD remnants
   const fullyRemovedChars: FullyRemovedChar[] = [];
@@ -838,8 +1053,20 @@ export default function IntegrityChecks({ play, activeCut, stageTime, characterA
 
   return (
     <div>
-      <EntranceExitSection noExitChars={noExitChars} noEntranceChars={noEntranceChars} />
-      <FullyRemovedSection chars={fullyRemovedChars} />
+      <EntranceExitSection
+        noExitChars={noExitChars}
+        noEntranceChars={noEntranceChars}
+        presenceOnlyChars={presenceOnlyChars}
+        fewLinesChars={fewLinesChars}
+      />
+      <RemovedFlaggedSection
+        fullyRemovedChars={fullyRemovedChars}
+        markedForRemoval={activeCut.markedForRemoval ?? []}
+        play={play}
+        activeCut={activeCut}
+        characterAliases={characterAliases}
+        onToggleMarked={onToggleMarkedForRemoval}
+      />
       <NameDiagnosticsTable play={play} characterAliases={characterAliases} />
     </div>
   );

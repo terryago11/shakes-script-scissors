@@ -46,6 +46,12 @@ interface Props {
   sdRemnantCount?: number;
   /** Project ID for the integrity link */
   projectId?: string;
+  /** Whether this character is explicitly flagged for removal */
+  isMarkedForRemoval?: boolean;
+  /** Called to toggle the mark-for-removal flag */
+  onToggleMarkedForRemoval?: () => void;
+  /** Whether this character is involved in a quick-change warning */
+  hasQuickChange?: boolean;
 }
 
 function fmtMins(m: number): string {
@@ -74,6 +80,9 @@ export default function CharacterCard({
   hasLinkViolation,
   sdRemnantCount,
   projectId,
+  isMarkedForRemoval,
+  onToggleMarkedForRemoval,
+  hasQuickChange,
 }: Props) {
   const [editingAlias, setEditingAlias] = useState(false);
   const [aliasInput, setAliasInput] = useState("");
@@ -104,10 +113,12 @@ export default function CharacterCard({
   const compatSiblings = compatibilityList?.filter((e) => e.assigned) ?? [];
   const compatOk = compatibilityList?.filter((e) => !e.assigned && e.status === "ok") ?? [];
   const compatConflict = compatibilityList?.filter((e) => !e.assigned && e.status === "conflict") ?? [];
+  // Grey out and disable if fully cut OR explicitly marked for removal
+  const isExcluded = isFullyCut || !!isMarkedForRemoval;
 
   return (
     <div className={`border rounded-lg bg-white dark:bg-stone-900 px-4 py-3 flex items-start gap-3 ${
-      isFullyCut ? "border-stone-100 dark:border-stone-800 opacity-50" : "border-stone-200 dark:border-stone-700"
+      isExcluded ? "border-stone-100 dark:border-stone-800 opacity-50" : "border-stone-200 dark:border-stone-700"
     }`}>
       {/* Actor color swatch */}
       <div
@@ -133,23 +144,36 @@ export default function CharacterCard({
           ) : (
             <span
               className={`group/name flex items-center gap-1 text-sm font-semibold truncate ${
-                isFullyCut ? "text-stone-400 dark:text-stone-400 italic" : "text-stone-700 dark:text-stone-200"
+                isExcluded ? "text-stone-400 dark:text-stone-400 italic" : "text-stone-700 dark:text-stone-200"
               }`}
             >
               <span
                 className={onSetAlias ? "cursor-text hover:text-stone-900 dark:hover:text-stone-100" : ""}
                 title={onSetAlias ? "Click to rename" : undefined}
-                onClick={onSetAlias && !isFullyCut ? startEdit : undefined}
+                onClick={onSetAlias && !isExcluded ? startEdit : undefined}
               >
                 {displayName}
               </span>
-              {onSetAlias && !isFullyCut && (
+              {onSetAlias && !isExcluded && (
                 <span
                   className="text-stone-300 dark:text-stone-600 opacity-0 group-hover/name:opacity-100 transition-opacity text-xs select-none"
                   aria-hidden
                 >
                   ✎
                 </span>
+              )}
+              {onToggleMarkedForRemoval && !isFullyCut && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleMarkedForRemoval(); }}
+                  title={isMarkedForRemoval ? "Unmark for removal" : "Mark for removal"}
+                  className={`opacity-0 group-hover/name:opacity-100 transition-opacity text-xs px-0.5 rounded select-none ${
+                    isMarkedForRemoval
+                      ? "text-amber-500 dark:text-amber-400 opacity-100"
+                      : "text-stone-300 dark:text-stone-600 hover:text-stone-500"
+                  }`}
+                >
+                  ⚑
+                </button>
               )}
             </span>
           )}
@@ -158,12 +182,17 @@ export default function CharacterCard({
               ({character.name})
             </span>
           )}
-          {isFullyCut && (
-            <span className="text-xs text-stone-400 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 px-1.5 py-0.5 rounded font-normal shrink-0">
-              fully cut
+          {isMarkedForRemoval && !isFullyCut && (
+            <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-1.5 py-0.5 rounded font-normal shrink-0">
+              ⚑ marked
             </span>
           )}
-          {!isFullyCut && (conflictCount ?? 0) > 0 && (
+          {isFullyCut && (
+            <span className="text-xs text-stone-400 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 px-1.5 py-0.5 rounded font-normal shrink-0">
+              {isMarkedForRemoval ? "⚑ marked · fully cut" : "fully cut"}
+            </span>
+          )}
+          {!isExcluded && (conflictCount ?? 0) > 0 && (
             <span
               className="text-xs text-amber-600 font-medium shrink-0"
               title={`${conflictCount} doubling conflict${conflictCount! > 1 ? "s" : ""} — this actor is on stage as two characters simultaneously`}
@@ -171,7 +200,7 @@ export default function CharacterCard({
               ⚠ {conflictCount}
             </span>
           )}
-          {!isFullyCut && hasLinkViolation && (
+          {!isExcluded && hasLinkViolation && (
             <span
               className="text-xs text-amber-600 font-medium shrink-0"
               title="Must-double conflict — linked characters are assigned to different actors"
@@ -179,11 +208,16 @@ export default function CharacterCard({
               ⚠ must-double conflict
             </span>
           )}
+          {!isExcluded && hasQuickChange && (
+            <span className="text-xs text-amber-600 font-medium shrink-0" title="Quick-change warning for this character">
+              ⚡
+            </span>
+          )}
         </div>
         {assignedActor && (
           <div className="text-xs text-stone-400 dark:text-stone-400">{assignedActor.name}</div>
         )}
-        {(lineCounts || wordCounts || stageMinutes != null) && !isFullyCut && (
+        {(lineCounts || wordCounts || stageMinutes != null) && !isExcluded && (
           <div className="text-xs text-stone-400 dark:text-stone-400 tabular-nums mt-0.5 flex flex-wrap gap-x-2 items-center">
             {lineCounts && lineCounts.afterCut > 0 && (
               <span className="flex items-center gap-0.5">
@@ -206,7 +240,7 @@ export default function CharacterCard({
         )}
 
         {/* Must-double links — characters pinned to always share an actor */}
-        {onToggleLink && !isFullyCut && (
+        {onToggleLink && !isExcluded && (
           <div className="mt-1.5 flex flex-wrap gap-1 items-center">
             {linkedCharIds && [...linkedCharIds].map((id) => {
               const linkedName = allActiveChars?.find((c) => c.id === id)?.name ?? id;
@@ -257,7 +291,7 @@ export default function CharacterCard({
         )}
 
         {/* Compatibility list — who else can this actor play? */}
-        {compatibilityList && !isFullyCut && assignedActorId && (
+        {compatibilityList && !isExcluded && assignedActorId && (
           <div className="mt-1.5">
             <button
               onClick={() => setShowCompat((v) => !v)}
@@ -323,8 +357,8 @@ export default function CharacterCard({
           </div>
         )}
 
-        {/* Integrity link for fully-cut characters that still appear in stage directions */}
-        {isFullyCut && sdRemnantCount && sdRemnantCount > 0 && projectId && (
+        {/* Integrity link for excluded characters that still appear in stage directions */}
+        {isExcluded && sdRemnantCount && sdRemnantCount > 0 && projectId && (
           <Link
             href={`/projects/${projectId}/dashboard?tab=integrity`}
             className="mt-1.5 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 flex items-center gap-0.5"
@@ -340,7 +374,7 @@ export default function CharacterCard({
       <select
         value={assignedActorId || ""}
         onChange={(e) => onAssign(e.target.value || null)}
-        disabled={isFullyCut}
+        disabled={isExcluded}
         className={`text-xs border rounded px-2 py-1 bg-white dark:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:cursor-not-allowed shrink-0 ${
           assignmentConflicts
             ? "border-amber-400 text-amber-700 dark:text-amber-400"

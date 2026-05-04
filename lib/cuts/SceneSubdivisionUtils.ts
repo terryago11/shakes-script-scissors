@@ -186,3 +186,87 @@ export function getSceneLineCount(scene: Scene, cut: Cut, play: Play): number {
   ));
   return expandedUnits.reduce((sum, u) => sum + (u.type === "speech" ? u.lineCount : 0), 0);
 }
+
+/** A sub-scene: a contiguous segment of a scene split at major entrances */
+export interface SubScene {
+  id: string;
+  sceneId: string;
+  partIdx: number;
+  totalParts: number;
+  charSet: Set<string>;
+  wordCount: number;
+  minutes: number;
+  /** Last unitId of this segment — used to call onAddSceneSplit. Undefined for the final segment. */
+  splitAfterUnitId?: string;
+}
+
+function countSubSceneWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+/**
+ * Walk a scene's units and split into sub-scenes at major entrances (≥2 chars
+ * entering at once after at least one speech in the current segment).
+ *
+ * Character sets include everyone onstage, not just speakers — needed for blocking.
+ */
+export function buildSubScenes(scene: Scene, cut: Cut, wpm: number): SubScene[] {
+  const segments: Array<{ chars: Set<string>; words: number; lastUnitId?: string }> = [
+    { chars: new Set(), words: 0 },
+  ];
+
+  const onstage = new Set<string>();
+
+  for (const unit of scene.units) {
+    if (unit.type === "stage") {
+      const chars = cut.stageDirectionEdits?.[unit.id] ?? unit.characters;
+      if (unit.stageType === "entrance") {
+        for (const cid of chars) onstage.add(cid);
+
+        const current = segments[segments.length - 1];
+        if (chars.length >= 2 && current.words > 0) {
+          segments.push({ chars: new Set<string>(onstage), words: 0 });
+        } else {
+          for (const cid of chars) current.chars.add(cid);
+        }
+      } else if (unit.stageType === "exit") {
+        for (const cid of chars) onstage.delete(cid);
+      }
+    } else if (unit.type === "speech") {
+      const isKept = (cut.cutMap[unit.id] ?? "kept") === "kept";
+      if (!isKept) continue;
+
+      const current = segments[segments.length - 1];
+      for (const cid of onstage) current.chars.add(cid);
+
+      const speakers = cut.speechReassignments?.[unit.id]
+        ?? (unit as { characterIds?: string[] }).characterIds
+        ?? [unit.characterId];
+      for (const cid of speakers) {
+        current.chars.add(cid);
+        onstage.add(cid);
+      }
+
+      for (const line of unit.lines) {
+        if (cut.lineCutMap?.[line.id] === "cut") continue;
+        current.words += countSubSceneWords(line.text);
+      }
+
+      current.lastUnitId = unit.id;
+    }
+  }
+
+  const valid = segments.filter((s) => s.words > 0);
+  if (valid.length === 0) return [];
+
+  return valid.map((seg, i, arr) => ({
+    id: `${scene.id}::${i}`,
+    sceneId: scene.id,
+    partIdx: i,
+    totalParts: arr.length,
+    charSet: seg.chars,
+    wordCount: seg.words,
+    minutes: seg.words / wpm,
+    splitAfterUnitId: i < arr.length - 1 ? seg.lastUnitId : undefined,
+  }));
+}

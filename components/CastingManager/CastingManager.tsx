@@ -323,7 +323,7 @@ export default function CastingManager({ playId }: Props) {
     const unassignedOnly = mode === "extend";
 
     const activeChars = speakingChars.filter((c) => {
-      if (fullyCutCharIds.has(c.id)) return false;
+      if (effectivelyExcludedIds.has(c.id)) return false;
       if (unassignedOnly && charToActor[c.id]) return false;
       return true;
     });
@@ -503,6 +503,9 @@ export default function CastingManager({ playId }: Props) {
       return allSpeechesCut && allSdsCut;
     })
   );
+  // Merge manually-flagged characters into a single exclusion set
+  const markedSet = new Set(activeCut?.markedForRemoval ?? []);
+  const effectivelyExcludedIds = new Set([...fullyCutCharIds, ...markedSet]);
 
   // Compute line/word/time counts using effective (audition-aware) assignments
   const { lineCounts } = activeCut
@@ -534,6 +537,23 @@ export default function CastingManager({ playId }: Props) {
     if (count > 0) conflictsPerChar.set(charId, count);
   }
 
+  // Deduplicated list of current doubling conflicts (same actor, simultaneously on stage)
+  const conflictsList: Array<{ actorId: string; charA: string; charB: string }> = [];
+  {
+    const _seen = new Set<string>();
+    for (const [charId] of conflictsPerChar) {
+      const myActor = charToActor[charId];
+      if (!myActor) continue;
+      for (const otherCharId of simultaneousMap.get(charId) ?? new Set()) {
+        if (charToActor[otherCharId] !== myActor) continue;
+        const key = [charId, otherCharId].sort().join("|");
+        if (_seen.has(key)) continue;
+        _seen.add(key);
+        conflictsList.push({ actorId: myActor, charA: charId, charB: otherCharId });
+      }
+    }
+  }
+
   // For each character: the set of actor IDs that would cause a doubling conflict
   function getConflictingActorIds(charId: string): Set<string> {
     const simSet = simultaneousMap.get(charId) ?? new Set<string>();
@@ -557,7 +577,7 @@ export default function CastingManager({ playId }: Props) {
   // SD remnant count for fully-cut characters (non-cut SDs that still mention them)
   const sdRemnantCountMap = new Map<string, number>();
   if (activeCut) {
-    for (const charId of fullyCutCharIds) {
+    for (const charId of effectivelyExcludedIds) {
       let count = 0;
       for (const act of play.acts) {
         for (const scene of act.scenes) {
@@ -576,7 +596,7 @@ export default function CastingManager({ playId }: Props) {
   // Compatibility lists: for each assigned character, which other characters can/can't share the actor
   const compatibilityMap = new Map<string, CompatEntry[]>();
   for (const char of speakingChars) {
-    if (fullyCutCharIds.has(char.id)) continue;
+    if (effectivelyExcludedIds.has(char.id)) continue;
     const actorId = charToActor[char.id];
     if (!actorId) continue;
     const actorCharIds = effectiveAssignments
@@ -585,7 +605,7 @@ export default function CastingManager({ playId }: Props) {
     const entries: CompatEntry[] = [];
     for (const other of speakingChars) {
       if (other.id === char.id) continue;
-      if (fullyCutCharIds.has(other.id)) continue;
+      if (effectivelyExcludedIds.has(other.id)) continue;
       const isAssignedToSameActor = charToActor[other.id] === actorId;
       const otherName = activeCut?.characterAliases?.[other.id] ?? other.name;
       if (isAssignedToSameActor) {
@@ -634,7 +654,7 @@ export default function CastingManager({ playId }: Props) {
 
   // All active (non-fully-cut) characters with resolved display names — for the "Link with…" dropdown
   const allActiveCharsForLinks = speakingChars
-    .filter((c) => !fullyCutCharIds.has(c.id))
+    .filter((c) => !effectivelyExcludedIds.has(c.id))
     .map((c) => ({
       id: c.id,
       name: activeCut?.characterAliases?.[c.id] ?? c.name,
@@ -685,20 +705,20 @@ export default function CastingManager({ playId }: Props) {
   });
 
   // #21 Full cast banner
-  const activeNonCutChars = speakingChars.filter((c) => !fullyCutCharIds.has(c.id));
+  const activeNonCutChars = speakingChars.filter((c) => !effectivelyExcludedIds.has(c.id));
   const isFullyCast =
     activeNonCutChars.length > 0 && activeNonCutChars.every((c) => charToActor[c.id]);
 
   const desiredCount = isAudition ? (draft?.desiredActorCount ?? null) : localDesiredCount;
 
   const unassignedCount = speakingChars.filter(
-    (c) => !fullyCutCharIds.has(c.id) && !charToActor[c.id]
+    (c) => !effectivelyExcludedIds.has(c.id) && !charToActor[c.id]
   ).length;
 
   // Note: cannot be useMemo — depends on values computed after the early returns above.
   const naturalMinimum = (() => {
     if (!activeCut) return null;
-    const activeCharsForMin = speakingChars.filter((c) => !fullyCutCharIds.has(c.id));
+    const activeCharsForMin = speakingChars.filter((c) => !effectivelyExcludedIds.has(c.id));
     const activeCharIdsForMin = activeCharsForMin.map((c) => c.id);
     if (activeCharIdsForMin.length === 0) return null;
 
@@ -1276,6 +1296,8 @@ export default function CastingManager({ playId }: Props) {
               const assignedCount = assignedCharIds.length;
               const stats = actorStatsMap.get(actor.id) ?? { lines: 0, words: 0, time: 0 };
               const isLowTime = stats.time > 0 && stats.time < minActorStageTime;
+              const actorConflictCount = conflictsList.filter((c) => c.actorId === actor.id).length;
+              const actorQuickChangeCount = quickChangeResult?.warnings.filter((w) => w.actorId === actor.id).length ?? 0;
 
               // Resolve display names for assigned characters (deduplicated)
               const assignedCharNames = [
@@ -1379,6 +1401,12 @@ export default function CastingManager({ playId }: Props) {
                       {isLowTime && (
                         <span className="text-amber-500 text-xs ml-0.5" title={`Stage time below ${minActorStageTime} min threshold`}>⚠</span>
                       )}
+                      {actorConflictCount > 0 && (
+                        <span className="text-red-500 text-xs ml-0.5" title={`${actorConflictCount} doubling conflict${actorConflictCount > 1 ? "s" : ""}`}>🚫 {actorConflictCount}</span>
+                      )}
+                      {actorQuickChangeCount > 0 && (
+                        <span className="text-amber-500 text-xs ml-0.5" title={`${actorQuickChangeCount} quick change${actorQuickChangeCount > 1 ? "s" : ""}`}>⚡ {actorQuickChangeCount}</span>
+                      )}
                       <button
                         onClick={() => {
                           if (assignedCount > 0) {
@@ -1408,6 +1436,58 @@ export default function CastingManager({ playId }: Props) {
                         {stats.time > 0 && `${Math.round(stats.time)} min`}
                       </div>
                     )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Doubling Conflicts */}
+      <div className="mb-8">
+        <div className="flex items-center gap-4 mb-3">
+          <h2 className="text-sm font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            Doubling Conflicts
+          </h2>
+        </div>
+        {conflictsList.length === 0 ? (
+          <p className="text-sm text-stone-400 dark:text-stone-400">
+            No doubling conflicts detected.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {conflictsList.map((c, i) => {
+              const actor = effectiveActors.find((a) => a.id === c.actorId);
+              const nameA =
+                activeCut?.characterAliases?.[c.charA] ??
+                play.castList.find((ch) => ch.id === c.charA)?.name ??
+                characterIdToName(c.charA);
+              const nameB =
+                activeCut?.characterAliases?.[c.charB] ??
+                play.castList.find((ch) => ch.id === c.charB)?.name ??
+                characterIdToName(c.charB);
+              return (
+                <div
+                  key={i}
+                  className="px-4 py-3 rounded border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/50 text-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-red-500 shrink-0">🚫</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {actor && (
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: actor.color }}
+                        />
+                      )}
+                      <span className="font-medium text-stone-700 dark:text-stone-200 shrink-0">
+                        {actor?.name ?? c.actorId}
+                      </span>
+                    </div>
+                    <span className="text-stone-500 dark:text-stone-400 truncate min-w-0">
+                      {nameA} + {nameB} — simultaneously on stage
+                    </span>
                   </div>
                 </div>
               );
@@ -1522,32 +1602,42 @@ export default function CastingManager({ playId }: Props) {
         Characters
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-        {speakingChars.map((char) => (
-          <CharacterCard
-            key={char.id}
-            character={char}
-            assignedActorId={charToActor[char.id] || null}
-            actors={effectiveActors}
-            onAssign={(actorId) => applyAssignCharacter(char.id, actorId)}
-            conflictCount={conflictsPerChar.get(char.id) ?? 0}
-            conflictingActorIds={getConflictingActorIds(char.id)}
-            isFullyCut={fullyCutCharIds.has(char.id)}
-            lineCounts={lineCounts?.byCharacter[char.id] ?? { original: 0, afterCut: 0 }}
-            wordCounts={lineCounts?.words.byCharacter[char.id] ?? { original: 0, afterCut: 0 }}
-            stageMinutes={stageTime?.byCharacter[char.id]?.minutes}
-            alias={activeCut?.characterAliases?.[char.id]}
-            onSetAlias={(alias) =>
-              dispatch({ type: "SET_CHARACTER_ALIAS", characterId: char.id, alias })
-            }
-            linkedCharIds={linkedCharIdsMap.get(char.id)}
-            allActiveChars={allActiveCharsForLinks}
-            onToggleLink={(otherId) => applyToggleLink(char.id, otherId)}
-            compatibilityList={compatibilityMap.get(char.id)}
-            hasLinkViolation={hasLinkViolationMap.get(char.id) ?? false}
-            sdRemnantCount={sdRemnantCountMap.get(char.id)}
-            projectId={projectId}
-          />
-        ))}
+        {(() => {
+          const quickChangeCharIds = new Set<string>(
+            quickChangeResult?.warnings.flatMap((w) => [w.exitCharacterId, w.enterCharacterId]) ?? []
+          );
+          return speakingChars.map((char) => (
+            <CharacterCard
+              key={char.id}
+              character={char}
+              assignedActorId={charToActor[char.id] || null}
+              actors={effectiveActors}
+              onAssign={(actorId) => applyAssignCharacter(char.id, actorId)}
+              conflictCount={conflictsPerChar.get(char.id) ?? 0}
+              conflictingActorIds={getConflictingActorIds(char.id)}
+              isFullyCut={fullyCutCharIds.has(char.id)}
+              isMarkedForRemoval={markedSet.has(char.id)}
+              onToggleMarkedForRemoval={() =>
+                dispatch({ type: "TOGGLE_MARK_FOR_REMOVAL", characterId: char.id })
+              }
+              lineCounts={lineCounts?.byCharacter[char.id] ?? { original: 0, afterCut: 0 }}
+              wordCounts={lineCounts?.words.byCharacter[char.id] ?? { original: 0, afterCut: 0 }}
+              stageMinutes={stageTime?.byCharacter[char.id]?.minutes}
+              alias={activeCut?.characterAliases?.[char.id]}
+              onSetAlias={(alias) =>
+                dispatch({ type: "SET_CHARACTER_ALIAS", characterId: char.id, alias })
+              }
+              linkedCharIds={linkedCharIdsMap.get(char.id)}
+              allActiveChars={allActiveCharsForLinks}
+              onToggleLink={(otherId) => applyToggleLink(char.id, otherId)}
+              compatibilityList={compatibilityMap.get(char.id)}
+              hasLinkViolation={hasLinkViolationMap.get(char.id) ?? false}
+              sdRemnantCount={sdRemnantCountMap.get(char.id)}
+              projectId={projectId}
+              hasQuickChange={quickChangeCharIds.has(char.id)}
+            />
+          ));
+        })()}
       </div>
 
       {/* Compare Cast Options modal */}

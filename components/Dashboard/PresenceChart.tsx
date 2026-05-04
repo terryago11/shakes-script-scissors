@@ -26,17 +26,30 @@ export default function PresenceChart({
   characters,
   characterAliases,
 }: Props) {
-  const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
-  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
+  const [selectedCharIds, setSelectedCharIds] = useState<Set<string>>(new Set());
+  const [selectedSceneIds, setSelectedSceneIds] = useState<Set<string>>(new Set());
 
   function toggleChar(charId: string) {
-    setSelectedSceneId(null);
-    setSelectedCharId((prev) => (prev === charId ? null : charId));
+    setSelectedCharIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(charId)) next.delete(charId);
+      else next.add(charId);
+      return next;
+    });
   }
 
   function toggleScene(sceneId: string) {
-    setSelectedCharId(null);
-    setSelectedSceneId((prev) => (prev === sceneId ? null : sceneId));
+    setSelectedSceneIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sceneId)) next.delete(sceneId);
+      else next.add(sceneId);
+      return next;
+    });
+  }
+
+  function clearFilters() {
+    setSelectedCharIds(new Set());
+    setSelectedSceneIds(new Set());
   }
 
   // ── Lookups ──────────────────────────────────────────────────────────────
@@ -196,9 +209,19 @@ export default function PresenceChart({
     <div className="space-y-10">
       {/* ── Panel 1: Play-level swimlane ───────────────────────────────── */}
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-stone-500 mb-3">
-          By line number
-        </h3>
+        <div className="flex items-center gap-3 mb-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-stone-500">
+            By line number
+          </h3>
+          {(selectedCharIds.size > 0 || selectedSceneIds.size > 0) && (
+            <button
+              onClick={clearFilters}
+              className="text-xs text-stone-400 dark:text-stone-500 underline hover:text-stone-600 dark:hover:text-stone-300"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
         <div className="overflow-x-auto">
           <div className="relative" style={{ minWidth: "560px" }}>
             {/* Act dividers — rendered behind rows */}
@@ -251,8 +274,8 @@ export default function PresenceChart({
                   const color = actor?.color ?? "#a8a29e";
                   const speeches = charSpeeches.get(charId) ?? [];
                   const dimmed =
-                    (selectedCharId !== null && selectedCharId !== charId) ||
-                    (selectedSceneId !== null && !sceneToCharIds.get(selectedSceneId)?.has(charId));
+                    (selectedCharIds.size > 0 && !selectedCharIds.has(charId)) ||
+                    (selectedSceneIds.size > 0 && ![...selectedSceneIds].some((sid) => sceneToCharIds.get(sid)?.has(charId)));
                   return (
                     <div
                       key={charId}
@@ -262,7 +285,7 @@ export default function PresenceChart({
                       {/* Name label — clickable filter */}
                       <button
                         className="w-28 shrink-0 text-right text-xs truncate pr-1 hover:underline cursor-pointer bg-transparent border-0 p-0 text-right"
-                        style={{ color, fontWeight: selectedCharId === charId ? 700 : 400 }}
+                        style={{ color, fontWeight: selectedCharIds.has(charId) ? 700 : 400 }}
                         title={`Filter to ${charName(charId)}`}
                         aria-label={`Filter to ${charName(charId)}`}
                         onClick={() => toggleChar(charId)}
@@ -330,11 +353,11 @@ export default function PresenceChart({
           return (
             <div className="space-y-px">
               {sceneData.map(({ entry, speeches, total }) => {
-                const sceneSelected = selectedSceneId === entry.id;
+                const sceneSelected = selectedSceneIds.has(entry.id);
                 const sceneLabel = sceneActMap.get(entry.realSceneId)?.title
                   ? `${sceneActMap.get(entry.realSceneId)!.title} · ${entry.title}`
                   : entry.title;
-                const sceneDimmed = selectedSceneId !== null && !sceneSelected;
+                const sceneDimmed = selectedSceneIds.size > 0 && !sceneSelected;
                 return (
                 <div
                   key={entry.id}
@@ -365,8 +388,8 @@ export default function PresenceChart({
                       const actor = getActor(charId);
                       const color = actor?.color ?? "#a8a29e";
                       const kept = isKept(sp);
-                      const isSelected = selectedCharId === charId;
-                      const dimmed = selectedCharId !== null && !isSelected;
+                      const isSelected = selectedCharIds.has(charId);
+                      const dimmed = selectedCharIds.size > 0 && !isSelected;
                       return (
                         <div
                           key={sp.id}
