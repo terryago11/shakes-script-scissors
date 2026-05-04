@@ -50,6 +50,8 @@ interface Props {
   isMarkedForRemoval?: boolean;
   /** Called to toggle the mark-for-removal flag */
   onToggleMarkedForRemoval?: () => void;
+  /** Whether this character is involved in a quick-change warning */
+  hasQuickChange?: boolean;
 }
 
 function fmtMins(m: number): string {
@@ -80,6 +82,7 @@ export default function CharacterCard({
   projectId,
   isMarkedForRemoval,
   onToggleMarkedForRemoval,
+  hasQuickChange,
 }: Props) {
   const [editingAlias, setEditingAlias] = useState(false);
   const [aliasInput, setAliasInput] = useState("");
@@ -203,6 +206,11 @@ export default function CharacterCard({
               title="Must-double conflict — linked characters are assigned to different actors"
             >
               ⚠ must-double conflict
+            </span>
+          )}
+          {!isExcluded && hasQuickChange && (
+            <span className="text-xs text-amber-600 font-medium shrink-0" title="Quick-change warning for this character">
+              ⚡
             </span>
           )}
         </div>

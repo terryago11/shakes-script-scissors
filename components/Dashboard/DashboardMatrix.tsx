@@ -77,8 +77,8 @@ export default function DashboardMatrix({
 }: Props) {
   // Row filter: scenes that contain at least one of these characters
   const [filterCharIds, setFilterCharIds] = useState<Set<string>>(new Set());
-  // Column filter: only show characters present in this scene
-  const [filterSceneId, setFilterSceneId] = useState<string | null>(null);
+  // Column filter: only show characters present in any of these scenes
+  const [filterSceneIds, setFilterSceneIds] = useState<Set<string>>(new Set());
   const [showHelp, setShowHelp] = useState(false);
 
   // When columnEntries is provided (subdivisions exist), use virtual IDs as column/row keys
@@ -167,9 +167,9 @@ export default function DashboardMatrix({
       )
     : columnIds;
 
-  // Derived visible columns: characters present in filterSceneId (or all if no scene filter)
-  const visibleCharIds = filterSceneId
-    ? orderedCharIds.filter((cid) => charHasPresence(cid, filterSceneId))
+  // Derived visible columns: characters present in any filtered scene (or all if no scene filter)
+  const visibleCharIds = filterSceneIds.size > 0
+    ? orderedCharIds.filter((cid) => [...filterSceneIds].some((sid) => charHasPresence(cid, sid)))
     : orderedCharIds;
 
   const visibleCharIdSet = new Set(visibleCharIds);
@@ -241,15 +241,20 @@ export default function DashboardMatrix({
   }
 
   function handleRowLabelClick(sceneId: string) {
-    setFilterSceneId((prev) => (prev === sceneId ? null : sceneId));
+    setFilterSceneIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sceneId)) next.delete(sceneId);
+      else next.add(sceneId);
+      return next;
+    });
   }
 
   function clearFilters() {
     setFilterCharIds(new Set());
-    setFilterSceneId(null);
+    setFilterSceneIds(new Set());
   }
 
-  const hasFilter = filterCharIds.size > 0 || filterSceneId !== null;
+  const hasFilter = filterCharIds.size > 0 || filterSceneIds.size > 0;
 
   // ── Chart view ──────────────────────────────────────────────────────────────
   if (viewType === "chart") {
@@ -313,13 +318,13 @@ export default function DashboardMatrix({
                   </span>
                 </span>
               )}
-              {filterSceneId && (
+              {filterSceneIds.size > 0 && (
                 <span className="text-stone-500 dark:text-stone-400">
                   {filterCharIds.size > 0 ? " · " : ""}Characters in{" "}
                   <span className="font-medium">
-                    {columnEntryMap.get(filterSceneId)?.title
-                      ?? sceneById.get(filterSceneId)?.title
-                      ?? filterSceneId}
+                    {[...filterSceneIds]
+                      .map((sid) => columnEntryMap.get(sid)?.title ?? sceneById.get(sid)?.title ?? sid)
+                      .join(", ")}
                   </span>
                 </span>
               )}
@@ -462,7 +467,7 @@ export default function DashboardMatrix({
               const pauseKey = `after:${sceneId}`;
               const pause = pauses?.[pauseKey];
               const rowTotal = getRowTotal(sceneId);
-              const isSceneFiltered = filterSceneId === sceneId;
+              const isSceneFiltered = filterSceneIds.has(sceneId);
 
               return (
                 <React.Fragment key={sceneId}>

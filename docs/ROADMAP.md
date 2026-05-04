@@ -12,6 +12,14 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature gro
 
 **Group 29 ✓ Done** — Cue Script Improvements — see CHANGELOG for details.
 
+**Group 30 (in progress)** — Mixed improvements — [full spec](./group-30-plan.md)
+- **30A ✓** — Quick fixes: SD textarea min rows · custom actor count outside audition mode · Electron HTML strip
+- **30B ✓** — Integrity engine: speech reassignment attribution · insertedSDs in entrance/exit checks · near-fully-cut character surfacing · "mark for removal" flag
+- **30C ✓** — Doubling conflict warnings panel + actor/character card badges
+- **30D ✓** — Multi-select scene/character filters in DashboardMatrix and PresenceChart
+- **30E** — Scene subdivision suggestions in Scenes & Pauses *(next)*
+- **30F** — Who's on stage sidebar in Script editor *(next)*
+
 ---
 
 ## Skipped — Group 26 — Electron Native File I/O *(deferred)*
