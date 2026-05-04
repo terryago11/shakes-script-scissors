@@ -7,8 +7,8 @@ import { resolveCharacterName } from "@/lib/project/projectUtils";
 import type { CharacterStageTime } from "@/lib/cuts/StageTimeEngine";
 import type { LineCounts } from "@/types/cut";
 import type { CharSceneData } from "./DashboardMatrix";
-import type { EffectiveSceneEntry } from "@/lib/cuts/SceneSubdivisionUtils";
-import { PART_LABELS } from "@/lib/cuts/SceneSubdivisionUtils";
+import type { EffectiveSceneEntry, SubScene } from "@/lib/cuts/SceneSubdivisionUtils";
+import { PART_LABELS, buildSubScenes } from "@/lib/cuts/SceneSubdivisionUtils";
 
 interface Props {
   play: Play;
@@ -43,88 +43,6 @@ function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
-/** A sub-scene: a contiguous segment of a scene split at major entrances */
-interface SubScene {
-  id: string;         // `${sceneId}::${partIdx}`
-  sceneId: string;
-  partIdx: number;
-  totalParts: number;
-  charSet: Set<string>;   // all chars present (speakers + onstage non-speakers)
-  wordCount: number;
-  minutes: number;
-}
-
-/**
- * Walk a scene's units and split into sub-scenes at major entrances (≥2 chars
- * entering at once after at least one speech in the current segment).
- *
- * Character sets include everyone onstage, not just speakers — needed for blocking.
- */
-function buildSubScenes(scene: Scene, cut: Cut, wpm: number): SubScene[] {
-  const segments: Array<{ chars: Set<string>; words: number }> = [
-    { chars: new Set(), words: 0 },
-  ];
-
-  // Track who's onstage across the whole scene so non-speaking onstage chars
-  // are included in each segment's character set.
-  const onstage = new Set<string>();
-
-  for (const unit of scene.units) {
-    if (unit.type === "stage") {
-      const chars = cut.stageDirectionEdits?.[unit.id] ?? unit.characters;
-      if (unit.stageType === "entrance") {
-        for (const cid of chars) onstage.add(cid);
-
-        const current = segments[segments.length - 1];
-        // Major entrance: ≥2 entering + current segment already has speeches → split
-        if (chars.length >= 2 && current.words > 0) {
-          // New segment starts with everyone now onstage (including just-entered)
-          segments.push({ chars: new Set<string>(onstage), words: 0 });
-        } else {
-          // Minor entrance — add entering chars to the current segment
-          for (const cid of chars) current.chars.add(cid);
-        }
-      } else if (unit.stageType === "exit") {
-        for (const cid of chars) onstage.delete(cid);
-      }
-    } else if (unit.type === "speech") {
-      const isKept = (cut.cutMap[unit.id] ?? "kept") === "kept";
-      if (!isKept) continue;
-
-      const current = segments[segments.length - 1];
-
-      // Pull in everyone currently onstage (catches non-speakers present during this speech)
-      for (const cid of onstage) current.chars.add(cid);
-
-      // Effective speakers (handle reassignments + multi-speaker)
-      const speakers = cut.speechReassignments?.[unit.id]
-        ?? unit.characterIds
-        ?? [unit.characterId];
-      for (const cid of speakers) {
-        current.chars.add(cid);
-        onstage.add(cid); // ensure speaker is tracked as onstage
-      }
-
-      for (const line of unit.lines) {
-        if (cut.lineCutMap?.[line.id] === "cut") continue;
-        current.words += countWords(line.text);
-      }
-    }
-  }
-
-  const valid = segments.filter((s) => s.words > 0);
-  if (valid.length === 0) return [];
-
-  return valid.map((seg, i) => ({
-    id: `${scene.id}::${i}`,
-    sceneId: scene.id,
-    partIdx: i,
-    totalParts: valid.length,
-    charSet: seg.chars,
-    wordCount: seg.words,
-    minutes: seg.words / wpm,
-  }));
-}
 
 interface RehearsalBlock {
   subScenes: SubScene[];

@@ -1,7 +1,7 @@
 import type { Play, StageDirection, ScriptUnit } from "@/types/play";
 import type { Cut, ProjectSettings } from "@/types/project";
 import { expandSplits, expandInsertions } from "./expandUtils";
-import { getSubSceneId } from "./SceneSubdivisionUtils";
+import { getSubSceneId, buildSceneEntries } from "./SceneSubdivisionUtils";
 import { getEffectiveSceneOrder } from "@/lib/project/projectUtils";
 
 const AVG_WORDS_PER_LINE = 8;
@@ -484,4 +484,41 @@ export function getSharedMinutes(
 ): number {
   const [lo, hi] = a < b ? [a, b] : [b, a];
   return map.get(lo)?.get(hi) ?? 0;
+}
+
+/**
+ * For each scene (or sub-scene part if subdivided), return the set of characters
+ * that were on stage at any point during that scene — carrying entrance/exit state
+ * across scenes within the same act.
+ *
+ * Key is the effective scene/sub-scene ID (same as EffectiveSceneEntry.id).
+ * Only kept entrance/exit SDs are counted.
+ */
+export function computeOnStageByScene(play: Play, cut: Cut): Map<string, Set<string>> {
+  const result = new Map<string, Set<string>>();
+  const onStage = new Set<string>();
+  const edits = cut.stageDirectionEdits;
+
+  for (const act of play.acts) {
+    for (const scene of act.scenes) {
+      const entries = buildSceneEntries(scene, cut, play);
+      for (const entry of entries) {
+        const present = new Set<string>(onStage);
+        for (const unit of entry.units) {
+          if (unit.type !== "stage") continue;
+          if ((cut.cutMap[unit.id] ?? "kept") === "cut") continue;
+          const sd = unit as StageDirection;
+          const chars = getEffectiveCharacters(sd, edits);
+          if (sd.stageType === "entrance") {
+            for (const c of chars) { onStage.add(c); present.add(c); }
+          } else if (sd.stageType === "exit") {
+            for (const c of chars) onStage.delete(c);
+          }
+        }
+        result.set(entry.id, present);
+      }
+    }
+  }
+
+  return result;
 }

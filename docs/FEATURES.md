@@ -118,6 +118,9 @@ All three modes are available in the script editor and in the exported HTML file
 | **Full-cast banner** | Dismissible green banner appears once all speaking characters are assigned; links to Rehearsal tab |
 | **Unassign All** | Clears all character-to-actor assignments at once (with inline confirmation); available in both normal and Audition Mode |
 | **Download Casting Sheet** | One-click PDF download from Audition Mode; character cards list name + stats with a blank line for handwriting in the actor; actor cards list the actor's name with blank rows for characters; server-side PDF via `pdfkit` — no print dialog, no Microsoft Store prompt on Windows |
+| **Doubling conflict warnings** | When the same actor is assigned to two characters who are on stage simultaneously, a 🚫 badge appears on both character cards and the actor card; a "Doubling Conflicts" panel below the quick-change warnings lists every conflicting pair with actor and character names |
+| **Quick-change badge on character cards** | ⚡ badge on character cards when that character is involved in a quick-change for their assigned actor |
+| **Mark for removal** | ⚑ flag in each character card's overflow menu marks a character for removal. Flagged characters grey out identically to fully-cut characters, are excluded from Suggest, and appear in the Integrity tab's "Removed / Flagged Characters" section with a status pill (⚑ Marked / ⚑ Marked · ✓ Fully cut / ✓ Auto-detected), an inline checklist of remaining speeches and entrance/exit SDs, and a × Unmark button. Stored as `cut.markedForRemoval` — persists across project export/import |
 
 ---
 
@@ -128,11 +131,12 @@ All three modes are available in the script editor and in the exported HTML file
 | **Scenes & Pauses tab** | Scene list with cut-only counts; actor presence chips; drag-reorder; pause insertion |
 | **Act/Scene production notes** | Editable short text field on each act or scene row in Scenes & Pauses; hover to reveal pencil icon; useful for noting cue calls, staging reminders, prop warnings, etc.; stored per project (not per cut); does not appear in exports |
 | **Scene subdivide** | ✂ Split button on each scene row; line-number dialog with 2-line context preview; up to 3 parts (A/B/C) per scene; sub-rows show per-part counts with × remove; inter-part pause slots; amber dividers in all script view modes |
-| **Matrix tab** | Character × scene grid (lines/words/time); actor-grouped headers; subdivided scenes expand to A/B/C sub-columns with amber labels; sticky header rows; click column to filter rows (OR multi-select); click actor header to filter by all their chars; click row label to filter columns; `?` explains filter interactions; row and column totals; Time row total shows per-scene duration (not summed character times) |
-| **Charts tab** | **Bar mode**: sorted horizontal bar chart of character lines/words/time. **Presence mode**: Tableau-style two-panel visualization — upper panel is a per-character FTLN swimlane (speech bars at through-line positions, act headers + dividers); lower panel shows per-scene proportional strips colored by actor; click a character name or scene label to cross-filter both panels; filters are mutually exclusive |
+| **Matrix tab** | Character × scene grid (lines/words/time); actor-grouped headers; subdivided scenes expand to A/B/C sub-columns with amber labels; sticky header rows; click scene column headers to toggle multi-select filter (scenes stay highlighted until deselected or "Clear filters" is clicked); click actor header to filter by all their chars; click row label to toggle multi-select row filter; `?` explains filter interactions; row and column totals; Time row total shows per-scene duration (not summed character times) |
+| **Charts tab** | **Bar mode**: sorted horizontal bar chart of character lines/words/time. **Presence mode**: Tableau-style two-panel visualization — upper panel is a per-character FTLN swimlane (speech bars at through-line positions, act headers + dividers); lower panel shows per-scene proportional strips colored by actor; click character names or scene labels to toggle multi-select cross-filters across both panels; Clear link resets filters |
 | **Rehearsal tab** | By-Actor scene breakdown + Suggested Rehearsal Blocks; scenes split into sub-scenes at major entrances then clustered by shared cast (complete-linkage Jaccard); Scenes/Sub-scenes toggle when director splits exist; by-character or by-actor toggle; actor chips show characters per block; full-company scenes isolated; `?` explains the algorithm; filter By Actor list by actor or character name; collapse any actor row to hide scene detail |
 | **Props tab** | Algorithmic props list — scans stage directions (reliable) and speech text (heuristic) for prop keywords; stage direction refs shown in grey, dialogue refs in amber; high-confidence (action verb detected) shown with solid border, lower-confidence (demonstrative context only) with dashed border; hover any badge for a 5-word context snippet; large set pieces (bed, table, throne, coffin) excluded from dialogue detection; plurals consolidated; methodology note and legend always visible |
-| **Integrity tab** | Four collapsible sections — Entrance/Exit Checks (missing paired entrance/exit SDs with ✓ when clean); Fully Removed Characters (characters with all speeches + entrance/exit SDs cut; ✓ cleanly removed or ⚠ still mentioned in SDs); Name Diagnostics |
+| **Integrity tab** | Four collapsible sections — **Entrance/Exit Checks**: missing paired entrance/exit SDs; also surfaces "Presence-only" characters (in kept SDs but no kept speeches) and "Nearly cut" characters (<10 kept lines, with count); **Removed / Flagged Characters**: characters either explicitly marked for removal (⚑) or auto-detected as fully cut; status pill per character; inline checklist of remaining speeches/SDs for marked chars; × Unmark button; Name Diagnostics |
+| **Scene subdivision suggestions** | In Scenes & Pauses, scenes with detected natural split points (major entrances of 2+ characters after dialogue) show a collapsible "⊕ N natural subdivisions detected" disclosure; expanding lists each segment (A→B, B→C) with character count and estimated duration; "Apply split here" button creates a manual split at that exact boundary |
 | **Metric toggle** | Switch between Lines / Words / Time for all dashboard counts |
 
 ---
@@ -166,6 +170,15 @@ All three modes are available in the script editor and in the exported HTML file
 | Rehearsal max block | 60 min | Maximum duration for a suggested rehearsal block |
 | Min actor stage time | 10 min | Actors with less stage time are flagged with ⚠ in the Casting page |
 | Theme | Auto | **Light** / **Dark** / **Auto** (follows OS) / **1602** (Renaissance printing-press); toggle (☼ ☽ □ ✒) also available on the login page and home page |
+
+---
+
+## Script Editor Sidebar
+
+| Feature | Details |
+|---------|---------|
+| **Line counts (Info tab)** | Right sidebar (desktop) / bottom drawer (tablet) shows Lines / Words / Time per character and actor for the current cut |
+| **On Stage sidebar** | Switch the right sidebar to "On Stage" mode to see which characters are currently on stage as you scroll. Updates per scene boundary; each row shows a colored actor dot (grey if unassigned), character name, and actor name. The two-tab toggle ([Info] / [On Stage]) is shared between the desktop sidebar and the tablet drawer |
 
 ---
 

@@ -9,7 +9,8 @@ import type { EditTool } from "@/lib/ui/EditModeContext";
 import type { CharacterStageTime, StageTimeResult } from "@/lib/cuts/StageTimeEngine";
 import { useProject } from "@/lib/project/ProjectStore";
 import { computeCuts } from "@/lib/cuts/CutEngine";
-import { computeStageTime, getEffectiveCharacters } from "@/lib/cuts/StageTimeEngine";
+import { computeStageTime, computeOnStageByScene, getEffectiveCharacters } from "@/lib/cuts/StageTimeEngine";
+import OnStageSidebar from "./OnStageSidebar";
 import { applyEditsToLine } from "@/lib/cuts/applyEdits";
 import ActBlock from "./ActBlock";
 import DiffView from "./DiffView";
@@ -247,6 +248,7 @@ export default function ScriptEditor({ playId }: Props) {
   const [filter, setFilter] = useState<FilterState>(null);
   const [easterEggVisible, setEasterEggVisible] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [sidebarMode, setSidebarMode] = useState<"info" | "onstage">("info");
   // Diff mode cut pickers: null = active cut (left) / original text (right)
   const [diffLeftId, setDiffLeftId] = useState<string | null>(null);
   const [diffRightId, setDiffRightId] = useState<string | null>(null);
@@ -507,6 +509,11 @@ export default function ScriptEditor({ playId }: Props) {
     if (diffLeftId && !project.cuts.find((c) => c.id === diffLeftId)) setDiffLeftId(null);
     if (diffRightId && !project.cuts.find((c) => c.id === diffRightId)) setDiffRightId(null);
   }, [project?.cuts, diffLeftId, diffRightId]);
+
+  const onStageByScene = useMemo(
+    () => (play && activeCut ? computeOnStageByScene(play, activeCut) : new Map<string, Set<string>>()),
+    [play, activeCut]
+  );
 
   if (loading) {
     return <div className="flex items-center justify-center py-24 text-stone-400">Loading {playId}…</div>;
@@ -1119,41 +1126,86 @@ export default function ScriptEditor({ playId }: Props) {
         )}
       </div>
 
-      {/* Line count panel — desktop: right sidebar; hidden in diff mode */}
+      {/* Line count / On Stage panel — desktop: right sidebar; hidden in diff mode */}
       {viewMode !== "diff" && (
         <div className="no-print hidden lg:block w-72 shrink-0 border-l border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky top-14 self-start h-[calc(100vh-3.5rem)] overflow-y-auto">
-          <LineCountPanel
-            play={play}
-            lineCounts={focusedLineCounts ?? lineCounts}
-            actors={project.actors}
-            assignments={project.assignments}
-            filter={filter}
-            onFilterCharacter={handleFilterCharacter}
-            onFilterActor={handleFilterActor}
-            stageTime={focusedStageTime ?? stageTime}
-            settings={project.settings}
-            isFocused={!!focusedSceneId}
-            characterAliases={activeCut.characterAliases}
-          />
+          {/* Sidebar tab toggle */}
+          <div className="flex border-b border-stone-200 dark:border-stone-800 text-xs sticky top-0 bg-white dark:bg-stone-900 z-10">
+            <button
+              className={`flex-1 py-1.5 font-medium transition-colors ${sidebarMode === "info" ? "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300" : "text-stone-500 hover:text-stone-700 dark:hover:text-stone-300"}`}
+              onClick={() => setSidebarMode("info")}
+            >Info</button>
+            <button
+              className={`flex-1 py-1.5 font-medium transition-colors ${sidebarMode === "onstage" ? "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300" : "text-stone-500 hover:text-stone-700 dark:hover:text-stone-300"}`}
+              onClick={() => setSidebarMode("onstage")}
+            >On Stage</button>
+          </div>
+          {sidebarMode === "info" ? (
+            <LineCountPanel
+              play={play}
+              lineCounts={focusedLineCounts ?? lineCounts}
+              actors={project.actors}
+              assignments={project.assignments}
+              filter={filter}
+              onFilterCharacter={handleFilterCharacter}
+              onFilterActor={handleFilterActor}
+              stageTime={focusedStageTime ?? stageTime}
+              settings={project.settings}
+              isFocused={!!focusedSceneId}
+              characterAliases={activeCut.characterAliases}
+            />
+          ) : (
+            <OnStageSidebar
+              play={play}
+              activeCut={activeCut}
+              onStageByScene={onStageByScene}
+              activeSceneId={activeSceneId}
+              actors={project.actors}
+              assignments={project.assignments}
+              characterAliases={activeCut.characterAliases}
+            />
+          )}
         </div>
       )}
 
-      {/* Line count panel — tablet bottom drawer (md: only, hidden on desktop and mobile) */}
+      {/* Line count / On Stage panel — tablet bottom drawer (md: only, hidden on desktop and mobile) */}
       {viewMode !== "diff" && panelOpen && (
         <div className="lg:hidden no-print fixed bottom-0 inset-x-0 z-40 h-64 bg-white dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800 overflow-y-auto shadow-lg">
-          <LineCountPanel
-            play={play}
-            lineCounts={focusedLineCounts ?? lineCounts}
-            actors={project.actors}
-            assignments={project.assignments}
-            filter={filter}
-            onFilterCharacter={handleFilterCharacter}
-            onFilterActor={handleFilterActor}
-            stageTime={focusedStageTime ?? stageTime}
-            settings={project.settings}
-            isFocused={!!focusedSceneId}
-            characterAliases={activeCut.characterAliases}
-          />
+          <div className="flex border-b border-stone-200 dark:border-stone-800 text-xs sticky top-0 bg-white dark:bg-stone-900">
+            <button
+              className={`flex-1 py-1.5 font-medium transition-colors ${sidebarMode === "info" ? "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300" : "text-stone-500 hover:text-stone-700 dark:hover:text-stone-300"}`}
+              onClick={() => setSidebarMode("info")}
+            >Info</button>
+            <button
+              className={`flex-1 py-1.5 font-medium transition-colors ${sidebarMode === "onstage" ? "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300" : "text-stone-500 hover:text-stone-700 dark:hover:text-stone-300"}`}
+              onClick={() => setSidebarMode("onstage")}
+            >On Stage</button>
+          </div>
+          {sidebarMode === "info" ? (
+            <LineCountPanel
+              play={play}
+              lineCounts={focusedLineCounts ?? lineCounts}
+              actors={project.actors}
+              assignments={project.assignments}
+              filter={filter}
+              onFilterCharacter={handleFilterCharacter}
+              onFilterActor={handleFilterActor}
+              stageTime={focusedStageTime ?? stageTime}
+              settings={project.settings}
+              isFocused={!!focusedSceneId}
+              characterAliases={activeCut.characterAliases}
+            />
+          ) : (
+            <OnStageSidebar
+              play={play}
+              activeCut={activeCut}
+              onStageByScene={onStageByScene}
+              activeSceneId={activeSceneId}
+              actors={project.actors}
+              assignments={project.assignments}
+              characterAliases={activeCut.characterAliases}
+            />
+          )}
         </div>
       )}
 
@@ -1164,7 +1216,7 @@ export default function ScriptEditor({ playId }: Props) {
           onClick={() => setPanelOpen((o) => !o)}
           aria-label={panelOpen ? "Close line counts" : "Show line counts"}
         >
-          {panelOpen ? "✕ Close" : "≡ Info"}
+          {panelOpen ? "✕ Close" : sidebarMode === "onstage" ? "≡ On Stage" : "≡ Info"}
         </button>
       )}
 

@@ -16,7 +16,7 @@ import { computeCuts } from "@/lib/cuts/CutEngine";
 import { runCountIntegrityCheck } from "@/lib/cuts/countIntegrityCheck";
 import type { LineCounts } from "@/types/cut";
 import { computeStageTime } from "@/lib/cuts/StageTimeEngine";
-import { buildSceneEntries, type EffectiveSceneEntry } from "@/lib/cuts/SceneSubdivisionUtils";
+import { buildSceneEntries, buildSubScenes, type EffectiveSceneEntry, type SubScene } from "@/lib/cuts/SceneSubdivisionUtils";
 import { useProject } from "@/lib/project/ProjectStore";
 import { useMetric } from "@/lib/ui/MetricContext";
 import DashboardMatrix from "./DashboardMatrix";
@@ -139,6 +139,15 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
     if (!scene) return [];
     return buildSceneEntries(scene, activeCut, play);
   });
+
+  // Detect natural subdivision points for scenes that haven't been manually split yet
+  const detectedSubdivisions = new Map<string, SubScene[]>();
+  for (const act of play.acts) {
+    for (const scene of act.scenes) {
+      const subs = buildSubScenes(scene, activeCut, wpm);
+      if (subs.length > 1) detectedSubdivisions.set(scene.id, subs);
+    }
+  }
 
   const { lineCounts } = computeCuts(play, activeCut, project.assignments, project.actors);
   const integrityReport = runCountIntegrityCheck(lineCounts);
@@ -379,6 +388,7 @@ export default function SceneDashboard({ play, project, activeCut }: Props) {
             onAddSceneSplit={handleAddSceneSplit}
             onRemoveSceneSplit={handleRemoveSceneSplit}
             columnEntries={columnEntries}
+            detectedSubdivisions={detectedSubdivisions}
           />
         </div>
       )}

@@ -67,9 +67,11 @@ Both updates should be done together.
 | `lib/folger/TeiParser.ts` | Parses TEI XML into `Play` domain objects |
 | `lib/folger/PlayCache.ts` | LRU in-memory cache for parsed plays (server-side) |
 | `lib/cuts/CutEngine.ts` | Pure fn: `(Play, Cut, assignments, actors)` → `LineCounts` + filtered units |
-| `lib/cuts/StageTimeEngine.ts` | Per-character on-stage time from entrance/exit SDs; `computePairwiseSharedMinutes` returns symmetric shared-time map for merge-phase doubling |
+| `lib/cuts/StageTimeEngine.ts` | Per-character on-stage time from entrance/exit SDs; `computePairwiseSharedMinutes` returns symmetric shared-time map for merge-phase doubling; `computeOnStageByScene(play, cut)` returns `Map<sceneId, Set<charId>>` for the On Stage sidebar |
 | `lib/cuts/CueScriptBuilder.ts` | Builds per-actor cue scripts from cut play |
 | `lib/cuts/CastingUtils.ts` | `suggestMinimumCast` → `SuggestResult` (Welsh–Powell graph colouring; optional merge/split phases for `desiredActorCount`) + `buildForbiddenPairs` |
+| `lib/cuts/SceneSubdivisionUtils.ts` | Exported `SubScene` interface (with `splitAfterUnitId`); `buildSubScenes(scene, cut, wpm)` splits a scene at major entrances; `buildSceneEntries`, `PART_LABELS`, and related utilities shared by Rehearsal, Scene Dashboard, and StageTimeEngine |
+| `components/ScriptEditor/OnStageSidebar.tsx` | Right-sidebar panel showing characters currently on stage for the visible scene; colored actor dots; memoized map lookups; driven by `computeOnStageByScene` |
 | `lib/cuts/CastingGridExporter.ts` | `exportCastingGrid` — printable casting-sheet HTML (character cards + actor cards); **unused since Group 25D fix** — superseded by `castingGridPdf.ts`; safe to delete |
 | `lib/export/castingGridPdf.ts` | `exportCastingGridPdf` — server-side PDFKit casting grid PDF (3-column card grid, character + actor cards); called by `app/api/export/casting-grid-pdf/route.ts`; reuses `pdfToBuffer` + `sanitizeName` from `cueScriptPdf.ts` |
 | `lib/cuts/LineBuddyExporter.ts` | `exportLineBuddy` — per-actor interactive cue-card drill HTML (cue → reveal → advance; shuffle; keyboard nav); ZIP delivery via `app/api/export/line-buddy-zip/route.ts` |
@@ -122,6 +124,7 @@ Both updates should be done together.
   - `insertedSDs?: Record<insertedSDId, InsertedSD>` — director-created SDs after any speech/inserted SD
   - `sdFlagOverrides?: Record<sdId, { isSong?: boolean; isDance?: boolean }>`
   - `sdTextEdits?: Record<sdId, string>` — cosmetic SD prose rewrites (display-only)
+  - `markedForRemoval?: string[]` — character IDs explicitly flagged for removal; merged with `fullyCutCharIds` into `effectivelyExcludedIds` in CastingManager; must be in `CutSchema` in `projectIO.ts`
 - `actors[]`: name + color hex (global pool — shared across all cast options)
 - `assignments[]`: `characterId` → `actorId` (the currently applied casting)
 - `castOptions?: CastOption[]` — named casting snapshots; each stores `assignments`, optional `characterLinks`, optional `desiredActorCount`

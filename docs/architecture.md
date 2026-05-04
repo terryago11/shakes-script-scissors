@@ -17,12 +17,13 @@ app/
 
 components/
   ScriptEditor/
-    ScriptEditor.tsx        ← orchestrates play, computes cuts + stage time; view-mode switch
+    ScriptEditor.tsx        ← orchestrates play, computes cuts + stage time; view-mode switch; [Info]/[On Stage] sidebar tabs
     ActBlock.tsx            ← collapsible act; filters by character/focus
     SceneBlock.tsx          ← collapsible scene, focus mode, restore-all button
     SpeechBlock.tsx         ← speech unit, line-level cuts, word-level edits, speech reassignment, running line counter
     StageDirectionBlock.tsx ← SD display; entrance/exit show character chips (add/remove)
     DiffView.tsx            ← side-by-side diff: modified (left) vs original (right)
+    OnStageSidebar.tsx      ← "On Stage" sidebar panel: characters on stage for the visible scene, actor dots
   LineCounts/
     LineCountPanel.tsx      ← Lines / Words / Time tabs; focus-mode scoped counts
     CharacterRow.tsx        ← single character row with bar chart
@@ -36,7 +37,7 @@ components/
     DashboardMatrix.tsx     ← character × scene matrix; actor-grouped headers; totals; Table/Chart
     PresenceChart.tsx       ← Tableau-style presence chart; play-level FTLN swimlane + scene-level strips; cross-linked filters
     RehearsalGroupings.tsx  ← By Actor scene breakdown + Suggested Rehearsal Blocks (side-by-side)
-    IntegrityChecks.tsx     ← no-exit/no-entrance warning cards; Name Diagnostics table
+    IntegrityChecks.tsx     ← no-exit/no-entrance/presence-only/few-lines warning cards; Removed/Flagged Characters section; Name Diagnostics table
 ```
 
 ## TEI Parsing Notes

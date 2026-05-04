@@ -1,6 +1,25 @@
 "use client";
 
 import { useState } from "react";
+
+function RemnantSdList({ remnantSds }: { remnantSds: Array<{ text: string; actTitle: string; sceneTitle: string }> }) {
+  return (
+    <>
+      {remnantSds.map(({ text, actTitle, sceneTitle }, i) => (
+        <div key={i} className="space-y-0.5">
+          <div className="flex gap-1.5 text-amber-700 dark:text-amber-300">
+            <span className="text-amber-400 dark:text-amber-500 shrink-0">{actTitle}</span>
+            <span className="text-amber-300 dark:text-amber-600">›</span>
+            <span>{sceneTitle}</span>
+          </div>
+          <div className="text-amber-600 dark:text-amber-400 italic pl-2 truncate" title={text}>
+            &ldquo;{text}&rdquo;
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
 import type { Play } from "@/types/play";
 import type { Cut } from "@/types/project";
 import type { StageTimeResult } from "@/lib/cuts/StageTimeEngine";
@@ -887,18 +906,7 @@ function RemovedFlaggedSection({
                         <div className="text-amber-500 dark:text-amber-400 font-medium mb-1">
                           Still mentioned in stage directions
                         </div>
-                        {remnantSds.map(({ text, actTitle, sceneTitle }, i) => (
-                          <div key={i} className="space-y-0.5">
-                            <div className="flex gap-1.5 text-amber-700 dark:text-amber-300">
-                              <span className="text-amber-400 dark:text-amber-500 shrink-0">{actTitle}</span>
-                              <span className="text-amber-300 dark:text-amber-600">›</span>
-                              <span>{sceneTitle}</span>
-                            </div>
-                            <div className="text-amber-600 dark:text-amber-400 italic pl-2 truncate" title={text}>
-                              &ldquo;{text}&rdquo;
-                            </div>
-                          </div>
-                        ))}
+                        <RemnantSdList remnantSds={remnantSds} />
                       </div>
                     )}
                   </div>
@@ -940,18 +948,7 @@ function RemovedFlaggedSection({
                         <div className="text-amber-500 dark:text-amber-400 font-medium mb-1">
                           Still mentioned in stage directions
                         </div>
-                        {remnantSds.map(({ text, actTitle, sceneTitle }, i) => (
-                          <div key={i} className="space-y-0.5">
-                            <div className="flex gap-1.5 text-amber-700 dark:text-amber-300">
-                              <span className="text-amber-400 dark:text-amber-500 shrink-0">{actTitle}</span>
-                              <span className="text-amber-300 dark:text-amber-600">›</span>
-                              <span>{sceneTitle}</span>
-                            </div>
-                            <div className="text-amber-600 dark:text-amber-400 italic pl-2 truncate" title={text}>
-                              &ldquo;{text}&rdquo;
-                            </div>
-                          </div>
-                        ))}
+                        <RemnantSdList remnantSds={remnantSds} />
                       </div>
                     )}
                   </div>

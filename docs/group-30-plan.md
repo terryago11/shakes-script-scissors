@@ -7,7 +7,7 @@ Nine improvements: integrity engine correctness (reassigned speeches, insertedSD
 - **Session 1 (30-quick):** 30A + 30B-1 + 30B-2 — quick fixes + engine correctness ✅
 - **Session 2 (30-integrity):** 30B-3 + 30B-4 — near-fully-cut chars + mark for removal ✅
 - **Session 3 (30-casting):** 30C + 30D — doubling conflict warnings + multi-select filters ✅
-- **Session 4 (30-features):** 30E + 30F — scene subdivisions + on-stage sidebar
+- **Session 4 (30-features):** 30E + 30F — scene subdivisions + on-stage sidebar ✅
 
 ---
 
@@ -190,7 +190,7 @@ Change both `selectedCharId: string | null` and `selectedSceneId: string | null`
 
 ---
 
-## 30E — Scene subdivisions in Scenes & Pauses (item 7)
+## 30E — Scene subdivisions in Scenes & Pauses (item 7) ✅
 
 ### Extract subdivision utility
 **File:** Check whether `buildSubScenes` in `RehearsalGroupings.tsx` is importable or is a local function. If local, extract it to `lib/cuts/SceneSubdivisionUtils.ts` (or a shared location). Confirm it takes `(scene: Scene, activeCut: Cut, wpm: number)` and returns `SubScene[]`.
@@ -213,7 +213,7 @@ When expanded, list each subdivision entry with character set and line range. Ea
 
 ---
 
-## 30F — Who's on stage sidebar (stretch)
+## 30F — Who's on stage sidebar (stretch) ✅
 
 ### Utility function
 **File:** `lib/cuts/StageTimeEngine.ts`

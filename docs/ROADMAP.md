@@ -12,13 +12,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full history of completed feature gro
 
 **Group 29 ✓ Done** — Cue Script Improvements — see CHANGELOG for details.
 
-**Group 30 (in progress)** — Mixed improvements — [full spec](./group-30-plan.md)
-- **30A ✓** — Quick fixes: SD textarea min rows · custom actor count outside audition mode · Electron HTML strip
-- **30B ✓** — Integrity engine: speech reassignment attribution · insertedSDs in entrance/exit checks · near-fully-cut character surfacing · "mark for removal" flag
-- **30C ✓** — Doubling conflict warnings panel + actor/character card badges
-- **30D ✓** — Multi-select scene/character filters in DashboardMatrix and PresenceChart
-- **30E** — Scene subdivision suggestions in Scenes & Pauses *(next)*
-- **30F** — Who's on stage sidebar in Script editor *(next)*
+**Group 30 ✓ Done** — Mixed improvements — see CHANGELOG for details.
 
 ---
 
@@ -51,5 +45,6 @@ Deep audit and fix of HTML and Word exports to match the app's standard and clea
 
 ## Deferred / N/A
 - Google Drive backup integration
+- **On Stage sidebar — per-entrance/exit granularity**: currently updates per scene boundary (one snapshot per scene via `computeOnStageByScene`). Finer tracking would require snapshotting after every entrance/exit SD and a unit-level IntersectionObserver (currently only `id="scene-${sceneId}"` anchors exist). Would need `data-unit-id` scroll observers added to `SceneBlock` to know the reader's current position within a scene.
 - **#31 Tableau-style visualization** — character presence / stage time chart using D3 or Recharts
 - **`buildEditIndex` traversal** (`components/ScriptEditor/ScriptEditor.tsx`): currently walks all play acts/scenes/units to build `lineToUnit` and `unitOrder` — duplicates the traversal that `computeCuts` already does. The `useEffect` that calls it must run before `unitsByScene` is computed (React hooks must precede conditional returns), so the obvious fix of passing `unitsByScene` is blocked by hook ordering. Deferred: evaluate whether memoizing `computeCuts` before the early-returns or storing `unitsByScene` in a ref is worth the restructuring cost.
