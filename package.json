@@ -41,7 +41,7 @@
     "react-dom": "^19.2.5",
     "tailwindcss": "^4.2.0",
     "typescript": "^6.0.3",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/pdfkit": "^0.17.6",
