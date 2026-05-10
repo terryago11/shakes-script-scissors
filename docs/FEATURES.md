@@ -64,7 +64,7 @@ A complete list of capabilities for power users. For a full walkthrough, see the
 | **Song/dance durations** | Enter custom durations for ♪/⊛ SDs; added to scene and total time |
 | **Song+dance combined** | SDs matching both song and dance (e.g. "Oberon leads the Fairies in song and dance.") show ♪⊛ with violet ♪ and cyan ⊛; scene list pill has a diagonal violet/cyan stripe |
 | **Intermissions** | Named pauses between scenes with custom durations |
-| **Running line counter** | Scene-relative line numbers every 5 lines; mode-aware (all lines in Standard; kept lines in Clean) |
+| **Running line counter** | Scene-relative line numbers every 5 lines; mode-aware (all lines in Standard; kept lines in Clean); toggle on/off from the Script nav dropdown (persisted to `localStorage`) |
 
 ---
 
@@ -89,7 +89,7 @@ A complete list of capabilities for power users. For a full walkthrough, see the
 | **Clean** | Cut content hidden; only the surviving script is visible |
 | **Diff** | Side-by-side: cut version (left) vs original (right) |
 
-All three modes are available in the script editor and in the exported HTML file. The Script nav link is a dropdown on every page — clicking a mode navigates to the script and sets the mode in one click.
+All three modes are available in the script editor and in the exported HTML file. The Script nav link is a dropdown on every page — clicking a mode navigates to the script and sets the mode in one click. The dropdown also contains a **Line numbers** toggle (`#`) that turns every-5th-line counters on or off in both the script view and Word exports; the preference is saved to `localStorage`.
 
 ---
 
@@ -148,7 +148,7 @@ All three modes are available in the script editor and in the exported HTML file
 | **Export HTML** | Self-contained single HTML file; embeds play data + vanilla-JS mini-app; three view modes; character filter; scene jump; print button; scene-relative line numbers every 5 lines (mode-aware); word-level `<del>`/`<ins>` markup in Standard; timestamp suffix on filename |
 | **Cue scripts — print/PDF** | Per-actor pages with lines, cues (last 2–3 words of preceding speech), and all relevant stage directions; print dialog; `@page` headers (play title, cut name, actor) and footer (page number, timestamp) |
 | **Cue scripts — Download All as ZIP** | Server-side PDF generation via `pdfkit`; one PDF per actor; all bundled as a single `.zip` download; same header/footer layout as print |
-| **Export full script as Word (.docx)** | From ⚙ Settings → Save & Export; exports the full current-cut script as `.docx` via the `docx` package; **Clean** mode (cuts hidden) or **Standard** mode (cuts struck through in red, inserted words underlined in green, speech reassignments shown original→new, inserted speeches/SDs in green); scene-relative line numbers every 5 lines; header (project · play · cut · timestamp) right-aligned; centred page numbers in footer; timestamp suffix on filename; one-way conversion — cannot be re-imported |
+| **Export full script as Word (.docx)** | From ⚙ Settings → Save & Export; exports the full current-cut script as `.docx` via the `docx` package; **Clean** mode (cuts hidden) or **Standard** mode (cuts struck through in red, inserted words underlined in green, speech reassignments shown original→new, inserted speeches/SDs in green); optional scene-relative line numbers every 5 lines (checkbox in the export panel, synced with the Script nav toggle); header (project · play · cut · timestamp) right-aligned; centred page numbers in footer; timestamp suffix on filename; one-way conversion — cannot be re-imported |
 | **Import cut from Word** *(experimental)* | ⚙ Settings → "Import cut from pre-existing Word doc"; parses `<w:highlight>` annotations from a `.docx` the director marked up themselves; ignores tracked changes, insertions, SDs, and speaker labels; matches highlighted passages to canonical Folger text using speaker-block Jaccard matching + token-span alignment; produces word-level cuts; requires clear Act/Scene headings; hard-rejects if match rate < 40%; amber warning 40–69%; always creates a new cut |
 | **Casting grid (PDF)** | Direct PDF download from Audition Mode → Download Casting Sheet; 3-column character and actor card layout; blank underlines and fill-in rows; no print dialog — `.pdf` saves directly to disk |
 | **Cue script search** | Cmd+F / Ctrl+F (or magnifying-glass button) on the Cue Scripts page opens an inline search bar; matches highlighted amber in the preview; Esc closes |
