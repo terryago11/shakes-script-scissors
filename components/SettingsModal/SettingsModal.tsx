@@ -72,7 +72,7 @@ interface Props {
   onExportJson: () => void;
   onExportHtml: () => void;
   exportingHtml: boolean;
-  onExportDocx: (viewMode: "clean" | "standard") => void;
+  onExportDocx: (viewMode: "clean" | "standard", showLineNumbers: boolean) => void;
   exportingDocx: boolean;
 }
 
@@ -92,6 +92,7 @@ export default function SettingsModal({
   const [wordImportOpen, setWordImportOpen] = useState(false);
   const [docxPanelOpen, setDocxPanelOpen] = useState(false);
   const [docxViewMode, setDocxViewMode] = useState<"clean" | "standard">("clean");
+  const [docxShowLineNumbers, setDocxShowLineNumbers] = useState(true);
 
   const [name, setName] = useState(project.name ?? "");
   const [wpm, setWpm] = useState(String(project.settings?.wordsPerMinute ?? 135));
@@ -296,10 +297,21 @@ export default function SettingsModal({
                     Standard
                   </label>
                 </div>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-stone-600 dark:text-stone-300">
+                    <input
+                      type="checkbox"
+                      checked={docxShowLineNumbers}
+                      onChange={(e) => setDocxShowLineNumbers(e.target.checked)}
+                      className="accent-amber-500"
+                    />
+                    <span className="text-stone-500 dark:text-stone-400 font-medium">Line numbers</span>
+                  </label>
+                </div>
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={() => {
-                      onExportDocx(docxViewMode);
+                      onExportDocx(docxViewMode, docxShowLineNumbers);
                       setDocxPanelOpen(false);
                       onClose();
                     }}

@@ -10,6 +10,7 @@ interface RequestBody {
   cut: Cut;
   viewMode: ScriptDocxViewMode;
   projectName?: string;
+  showLineNumbers?: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { play, cut, viewMode, projectName } = body;
+  const { play, cut, viewMode, projectName, showLineNumbers } = body;
   if (!play || !cut || !viewMode) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid viewMode" }, { status: 400 });
   }
 
-  const docxBuffer = await renderScriptDocx(play, cut, viewMode, projectName);
+  const docxBuffer = await renderScriptDocx(play, cut, viewMode, projectName, showLineNumbers ?? true);
   const filename = `${sanitizeName(play.title)}_${sanitizeName(cut.name)}_${viewMode}_${exportDateSuffix()}.docx`;
 
   return new NextResponse(new Uint8Array(docxBuffer), {

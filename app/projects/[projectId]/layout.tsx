@@ -272,7 +272,7 @@ function ProjectNav({
     }
   }
 
-  async function handleExportDocx(viewMode: "clean" | "standard") {
+  async function handleExportDocx(viewMode: "clean" | "standard", showLineNumbers: boolean) {
     if (!activeCut) return;
     setExportingDocx(true);
     try {
@@ -281,7 +281,7 @@ function ProjectNav({
       const res = await fetch("/api/export/script-docx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ play, cut: activeCut, viewMode, projectName: project.name || project.playTitle }),
+        body: JSON.stringify({ play, cut: activeCut, viewMode, projectName: project.name || project.playTitle, showLineNumbers }),
       });
       if (!res.ok) throw new Error("Export failed");
       const blob = await res.blob();
@@ -579,7 +579,7 @@ function ProjectNav({
 
 /** Script nav item: link + view-mode dropdown */
 function NavScriptMenu({ projectId, isActive, Icon }: { projectId: string; isActive: boolean; Icon: React.FC }) {
-  const { viewMode, setViewMode } = useViewMode();
+  const { viewMode, setViewMode, showLineNumbers, setShowLineNumbers } = useViewMode();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -637,6 +637,17 @@ function NavScriptMenu({ projectId, isActive, Icon }: { projectId: string; isAct
               )}
             </button>
           ))}
+          <div className="border-t border-stone-100 dark:border-stone-800 my-1" />
+          <button
+            onClick={() => setShowLineNumbers(!showLineNumbers)}
+            className="w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 text-stone-600 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800"
+          >
+            <span className="w-4 shrink-0 text-center text-xs">#</span>
+            <span className="font-medium">Line numbers</span>
+            <span className={`ml-auto text-xs font-medium ${showLineNumbers ? "text-amber-600 dark:text-amber-400" : "text-stone-400 dark:text-stone-500"}`}>
+              {showLineNumbers ? "on" : "off"}
+            </span>
+          </button>
         </div>
       )}
     </div>

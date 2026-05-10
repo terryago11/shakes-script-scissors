@@ -7,7 +7,9 @@ export type ViewMode = "standard" | "clean" | "diff";
 const ViewModeContext = createContext<{
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
-}>({ viewMode: "standard", setViewMode: () => {} });
+  showLineNumbers: boolean;
+  setShowLineNumbers: (v: boolean) => void;
+}>({ viewMode: "standard", setViewMode: () => {}, showLineNumbers: true, setShowLineNumbers: () => {} });
 
 export function ViewModeProvider({
   children,
@@ -18,8 +20,9 @@ export function ViewModeProvider({
   forceValue?: ViewMode;
 }) {
   const [viewMode, setViewMode] = useState<ViewMode>("standard");
+  const [showLineNumbers, setShowLineNumbers] = useState(true);
   return (
-    <ViewModeContext.Provider value={{ viewMode: forceValue ?? viewMode, setViewMode }}>
+    <ViewModeContext.Provider value={{ viewMode: forceValue ?? viewMode, setViewMode, showLineNumbers, setShowLineNumbers }}>
       {children}
     </ViewModeContext.Provider>
   );

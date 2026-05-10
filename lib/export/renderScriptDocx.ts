@@ -51,7 +51,8 @@ export async function renderScriptDocx(
   play: Play,
   cut: Cut,
   viewMode: ScriptDocxViewMode,
-  projectName?: string
+  projectName?: string,
+  showLineNumbers = true
 ): Promise<Buffer> {
   const lineCutMap = cut.lineCutMap ?? {};
   const speechEdits = cut.speechEdits ?? {};
@@ -336,7 +337,7 @@ export async function renderScriptDocx(
             const isLineKept = !lineCut && !effectivelyCut;
             if (isLineKept) sceneCleanLine++;
             const lineNum = viewMode === "clean" ? sceneCleanLine : sceneStdLine;
-            const showNum = lineNum % 5 === 0;
+            const showNum = showLineNumbers && lineNum % 5 === 0;
             const lineNumRun = showNum
               ? new TextRun({ text: `${lineNum}  `, color: "aaaaaa", size: 16 })
               : null;
