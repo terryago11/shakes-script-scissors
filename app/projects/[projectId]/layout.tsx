@@ -165,6 +165,7 @@ function ProjectNav({
   dispatch: React.Dispatch<any>;
 }) {
   const { activeTool, setActiveTool } = useEditMode();
+  const { showLineNumbers } = useViewMode();
   const audition = useAuditionMode();
   // Destructure stable setter refs so the nav-guard effect dep array stays narrow.
   const { on: auditionOn, dirty: auditionDirty, setOn, setDraft, setDirty, setPendingExitHref } = audition;
@@ -281,7 +282,7 @@ function ProjectNav({
       const res = await fetch("/api/export/script-docx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ play, cut: activeCut, viewMode, projectName: project.name || project.playTitle }),
+        body: JSON.stringify({ play, cut: activeCut, viewMode, projectName: project.name || project.playTitle, showLineNumbers }),
       });
       if (!res.ok) throw new Error("Export failed");
       const blob = await res.blob();
@@ -579,7 +580,7 @@ function ProjectNav({
 
 /** Script nav item: link + view-mode dropdown */
 function NavScriptMenu({ projectId, isActive, Icon }: { projectId: string; isActive: boolean; Icon: React.FC }) {
-  const { viewMode, setViewMode } = useViewMode();
+  const { viewMode, setViewMode, showLineNumbers, setShowLineNumbers } = useViewMode();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -637,6 +638,19 @@ function NavScriptMenu({ projectId, isActive, Icon }: { projectId: string; isAct
               )}
             </button>
           ))}
+          <div className="border-t border-stone-100 dark:border-stone-800 my-1" />
+          <button
+            onClick={() => setShowLineNumbers(!showLineNumbers)}
+            className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center gap-2 ${
+              showLineNumbers ? "text-amber-800 bg-amber-50 dark:text-amber-300 dark:bg-amber-900/30" : "text-stone-600 hover:bg-stone-50 dark:text-stone-300 dark:hover:bg-stone-800"
+            }`}
+          >
+            <span className="w-4 shrink-0 text-center text-xs">#</span>
+            <span className={showLineNumbers ? "font-semibold" : "font-medium"}>Line numbers</span>
+            {showLineNumbers && (
+              <span className="ml-auto shrink-0 text-amber-500 text-xs mt-0.5">●</span>
+            )}
+          </button>
         </div>
       )}
     </div>

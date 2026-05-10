@@ -4,6 +4,8 @@ Completed feature groups for shakes-script-scissors.
 
 ## Done ✓
 
+- **Optional line numbers**: added a **Line numbers** toggle to the Script nav dropdown (the same dropdown that holds Standard / Clean / Diff). Clicking it turns every-5th-line scene-relative counters on or off in the script view; the preference is saved to `localStorage` and survives navigation and refresh. The Word (.docx) export panel gains a matching **Line numbers** checkbox (synced to the same context state) so each DOCX download can independently include or omit counters. Implementation: `showLineNumbers` added to `ViewModeContext` (memoized context value; `useCallback`-wrapped setter writes to `localStorage`); `SpeechBlock.tsx` gates the `lineNum` span on the toggle; `renderScriptDocx.ts` accepts `showLineNumbers` param (default `true`); `SettingsModal` reads from context (no independent local state); API route passes `showLineNumbers` through. Nav dropdown indicator matches the existing `●` bullet style.
+
 - **Group 30 — Mixed improvements**
   - **30A-1 — SD textarea min rows**: SD text-edit textarea now shows at least 3 rows (`rows={Math.max(3, lineCount)}`) + `overflow-y-auto max-h-40` so long SDs don't overflow. (`StageDirectionBlock.tsx`)
   - **30A-2 — Custom actor count outside auditions**: "Desired # of actors" input in the Suggest panel is now editable outside audition mode. Added `localDesiredCount` state; `desiredCount` derivation and `onChange` branch on `isAudition`. (`CastingManager.tsx`)

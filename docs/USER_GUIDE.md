@@ -157,6 +157,8 @@ A small right-aligned line number appears every 5 lines in each scene, making it
 - **Clean mode** — numbers count only kept lines.
 - **Diff mode** — each column has its own counter.
 
+**Toggling line numbers**: open the Script nav dropdown (next to the play title in the nav bar) and click **Line numbers** to toggle them on or off. The preference persists across navigation and page refresh. The same toggle controls the script view and the Word export.
+
 ---
 
 ## 5. Managing Cuts (Versions)
@@ -189,6 +191,8 @@ Switch modes from the **dropdown in the nav bar** (next to the play title):
 - **Standard** — shows all text; cuts appear with red strikethrough. The default working view.
 - **Clean** — hides cut speeches and stage directions; shows only the surviving script. Useful for reading through the cut.
 - **Diff** — side-by-side: the cut version (left) next to the original (right). Useful for reviewing what changed.
+
+The same dropdown also contains a **Line numbers** toggle (indicated by a `#` icon). Clicking it turns every-5th-line numbers on or off for both the script view and Word exports. The setting is saved to `localStorage` and persists across navigation and refresh.
 
 All three modes support export as HTML for sharing with collaborators.
 
@@ -353,12 +357,13 @@ From the **⚙ gear** menu → **Export as Word**: exports the full current cut 
 2. Choose the view mode:
    - **Clean** — cuts hidden; only the surviving script is included.
    - **Standard** — cuts shown with red strikethrough; inserted text underlined in green; word-level cuts/insertions marked individually; original speaker struck through in red with new speaker in green for reassigned speeches.
-3. Click **Download Anyway** to download the file.
+3. Check or uncheck **Line numbers** to include or omit the every-5th-line scene-relative counter in the export. This checkbox is synced with the Script nav dropdown toggle.
+4. Click **Download Anyway** to download the file.
 
 Both modes include:
 - **Characters section** at the top of the document — fully-cut characters shown in grey strikethrough; aliased characters show alias in green + original in grey.
 - **Song/dance indicators** — ♪ violet prefix on song speeches and SDs; ⊛ cyan prefix on dance SDs; song lines rendered in violet italic.
-- **Line numbers** — scene-relative, every 5th line (Standard counts all lines; Clean counts only kept lines).
+- **Line numbers** *(optional)* — scene-relative, every 5th line (Standard counts all lines; Clean counts only kept lines); toggle on or off via the **Line numbers** checkbox or the Script nav dropdown.
 - **Header** — right-aligned `project | play | cut | dd-mm-yyyy--hh-mm` on every page.
 - **Page numbers** — centred in the footer.
 - **Timestamp filename** — `PlayTitle_CutName_mode_dd-mm-yyyy--hh-mm.docx`.

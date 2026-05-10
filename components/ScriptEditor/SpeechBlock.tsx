@@ -66,7 +66,7 @@ export default function SpeechBlock({
   onSplit,
   onMerge,
 }: Props) {
-  const { viewMode } = useViewMode();
+  const { viewMode, showLineNumbers } = useViewMode();
   const { activeTool } = useEditMode();
   const { activeCut, dispatch } = useProject();
   const { metric } = useMetric();
@@ -693,7 +693,7 @@ export default function SpeechBlock({
                   </span>
                 )}
 
-                {lineNum != null && (
+                {lineNum != null && showLineNumbers && (
                   <span className="text-sm text-stone-700 dark:text-stone-300 tabular-nums select-none shrink-0 font-normal not-italic leading-none">
                     {lineNum}
                   </span>
