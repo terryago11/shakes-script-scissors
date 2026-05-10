@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import type { Project } from "@/types/project";
 import { useProject } from "@/lib/project/ProjectStore";
 import { useTheme } from "@/lib/ui/ThemeContext";
+import { useViewMode } from "@/lib/ui/ViewModeContext";
 import NewCutDialog from "@/components/CutSelector/NewCutDialog";
 import WordImportPanel from "@/components/WordImportPanel/WordImportPanel";
 
@@ -72,7 +73,7 @@ interface Props {
   onExportJson: () => void;
   onExportHtml: () => void;
   exportingHtml: boolean;
-  onExportDocx: (viewMode: "clean" | "standard", showLineNumbers: boolean) => void;
+  onExportDocx: (viewMode: "clean" | "standard") => void;
   exportingDocx: boolean;
 }
 
@@ -88,11 +89,11 @@ export default function SettingsModal({
 }: Props) {
   const { activeCutId, dispatch } = useProject();
   const { theme, setTheme } = useTheme();
+  const { showLineNumbers, setShowLineNumbers } = useViewMode();
   const [showNewCut, setShowNewCut] = useState(false);
   const [wordImportOpen, setWordImportOpen] = useState(false);
   const [docxPanelOpen, setDocxPanelOpen] = useState(false);
   const [docxViewMode, setDocxViewMode] = useState<"clean" | "standard">("clean");
-  const [docxShowLineNumbers, setDocxShowLineNumbers] = useState(true);
 
   const [name, setName] = useState(project.name ?? "");
   const [wpm, setWpm] = useState(String(project.settings?.wordsPerMinute ?? 135));
@@ -301,8 +302,8 @@ export default function SettingsModal({
                   <label className="flex items-center gap-1.5 cursor-pointer text-stone-600 dark:text-stone-300">
                     <input
                       type="checkbox"
-                      checked={docxShowLineNumbers}
-                      onChange={(e) => setDocxShowLineNumbers(e.target.checked)}
+                      checked={showLineNumbers}
+                      onChange={(e) => setShowLineNumbers(e.target.checked)}
                       className="accent-amber-500"
                     />
                     <span className="text-stone-500 dark:text-stone-400 font-medium">Line numbers</span>
@@ -311,7 +312,7 @@ export default function SettingsModal({
                 <div className="flex gap-2 pt-1">
                   <button
                     onClick={() => {
-                      onExportDocx(docxViewMode, docxShowLineNumbers);
+                      onExportDocx(docxViewMode);
                       setDocxPanelOpen(false);
                       onClose();
                     }}

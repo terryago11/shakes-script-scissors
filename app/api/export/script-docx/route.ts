@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid viewMode" }, { status: 400 });
   }
 
-  const docxBuffer = await renderScriptDocx(play, cut, viewMode, projectName, showLineNumbers ?? true);
+  const docxBuffer = await renderScriptDocx(play, cut, viewMode, projectName, showLineNumbers);
   const filename = `${sanitizeName(play.title)}_${sanitizeName(cut.name)}_${viewMode}_${exportDateSuffix()}.docx`;
 
   return new NextResponse(new Uint8Array(docxBuffer), {

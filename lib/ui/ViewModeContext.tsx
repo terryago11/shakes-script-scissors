@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 
 export type ViewMode = "standard" | "clean" | "diff";
 
@@ -20,9 +20,23 @@ export function ViewModeProvider({
   forceValue?: ViewMode;
 }) {
   const [viewMode, setViewMode] = useState<ViewMode>("standard");
-  const [showLineNumbers, setShowLineNumbers] = useState(true);
+  const [showLineNumbers, setShowLineNumbersState] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("showLineNumbers") !== "false";
+  });
+
+  const setShowLineNumbers = useCallback((v: boolean) => {
+    localStorage.setItem("showLineNumbers", String(v));
+    setShowLineNumbersState(v);
+  }, []);
+
+  const value = useMemo(
+    () => ({ viewMode: forceValue ?? viewMode, setViewMode, showLineNumbers, setShowLineNumbers }),
+    [forceValue, viewMode, showLineNumbers, setViewMode, setShowLineNumbers]
+  );
+
   return (
-    <ViewModeContext.Provider value={{ viewMode: forceValue ?? viewMode, setViewMode, showLineNumbers, setShowLineNumbers }}>
+    <ViewModeContext.Provider value={value}>
       {children}
     </ViewModeContext.Provider>
   );
