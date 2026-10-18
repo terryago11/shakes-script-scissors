@@ -42,6 +42,7 @@ The easiest way to use ShakesScriptScissors is to install the native desktop app
 ### Linux
 1. Make the AppImage executable: `chmod +x ShakesScriptScissors-<version>.AppImage`
 2. Run it: `./ShakesScriptScissors-<version>.AppImage`
+3. On Ubuntu 22.04 and later, AppImages need FUSE 2 to start: `sudo apt install libfuse2`.
 
 The desktop app runs the same Next.js server locally — no internet connection required after install (play texts are bundled). Authentication is disabled in the desktop build; the play selector opens directly.
 
