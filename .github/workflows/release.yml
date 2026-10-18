@@ -29,6 +29,8 @@ jobs:
             label: macOS
           - os: windows-latest
             label: Windows
+          - os: ubuntu-latest
+            label: Linux
 
     name: Build (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
@@ -72,6 +74,7 @@ jobs:
           | macOS — Apple Silicon (M1/M2/M3/M4) | \`ShakesScriptScissors-${VERSION}-arm64.dmg\` |
           | macOS — Intel | \`ShakesScriptScissors-${VERSION}.dmg\` |
           | Windows | \`ShakesScriptScissors-Setup-${VERSION}.exe\` |
+          | Linux | \`ShakesScriptScissors-${VERSION}.AppImage\` |
 
           *The \`.zip\`, \`.blockmap\`, and \`.yml\` files are used for automatic updates — you don't need to download them.*"
 

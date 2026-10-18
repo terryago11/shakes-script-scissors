@@ -8,7 +8,7 @@
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC_BY--NC--SA_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Vibe coded with Claude Code](https://img.shields.io/badge/vibe_coded_with-Claude_Code-blueviolet)](https://claude.ai/code)
 [![Latest Release](https://img.shields.io/github/v/release/terryago11/shakes-script-scissors?label=download&color=blue)](https://github.com/terryago11/shakes-script-scissors/releases/latest)
-[![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)](https://github.com/terryago11/shakes-script-scissors/releases/latest)
+[![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux%20(untested)-lightgrey)](https://github.com/terryago11/shakes-script-scissors/releases/latest)
 
 A tool for directors and dramaturgs to cut Shakespeare scripts for production. Load any of the 38 Folger texts of Shakespeare plays, edit (cut, insert, change speech titles, etc.), track before/after line/word counts and estimated running time, manage multiple cut versions, handle double-casting, generate export actor cue scripts, and see charts and stats on your cut — all from the app with no account required.
 
@@ -27,7 +27,7 @@ The easiest way to use ShakesScriptScissors is to install the native desktop app
 | macOS (Apple Silicon — M1/M2/M3/M4) | `ShakesScriptScissors-<version>-arm64.dmg` |
 | macOS (Intel) | `ShakesScriptScissors-<version>-x64.dmg` |
 | Windows | `ShakesScriptScissors Setup <version>.exe` |
-| Linux | `ShakesScriptScissors-<version>.AppImage` |
+| Linux (**untested**) | `ShakesScriptScissors-<version>.AppImage` |
 
 ### macOS
 1. Open the `.dmg` file and drag **ShakesScriptScissors** to your Applications folder.
@@ -40,8 +40,12 @@ The easiest way to use ShakesScriptScissors is to install the native desktop app
 4. To uninstall: **Settings → Apps → Apps & features → ShakesScriptScissors → Uninstall**.
 
 ### Linux
+
+> **Untested:** the Linux AppImage builds and its bundled server starts, but it has not yet been tested on a real desktop. Please report problems via GitHub issues.
+
 1. Make the AppImage executable: `chmod +x ShakesScriptScissors-<version>.AppImage`
 2. Run it: `./ShakesScriptScissors-<version>.AppImage`
+3. On Ubuntu 22.04 and later, AppImages need FUSE 2 to start: `sudo apt install libfuse2`.
 
 The desktop app runs the same Next.js server locally — no internet connection required after install (play texts are bundled). Authentication is disabled in the desktop build; the play selector opens directly.
 
