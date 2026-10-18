@@ -17,6 +17,8 @@ Node must be loaded via nvm: `export PATH="$HOME/.nvm/versions/node/v22.9.0/bin:
 
 See [docs/electron.md](docs/electron.md) for commands, conventions, smoke test, and release steps.
 
+**Releases are draft-only for Claude.** Never publish a GitHub release (no `gh release edit --draft=false`, no un-drafting via API, no `electron:release` locally). Push the tag, let `release.yml` create the draft, and leave it for the user to publish by hand.
+
 ## Auth Middleware
 
 The app uses iron-session for password auth (`middleware.ts` at the project root). **Critical convention:**
